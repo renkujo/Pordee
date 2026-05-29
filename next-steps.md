@@ -123,7 +123,32 @@ Dokploy (independent of CI).
   on `/`. Avoids exact totals because the in-memory store accumulates
   across parallel tests.
 
-Backlog after Phase 4:
+## 9. Edit/Delete Transaction (Phase 5 — done)
+
+- `PordeeRepo` gained `getTransaction(id)`, `updateTransaction(id, input)`,
+  `deleteTransaction(id)`. Mock impl preserves `id` + `createdAt` on
+  update; returns `null`/`false` for unknown ids.
+- `updateTransactionSchema` (validators/transaction.ts) mirrors create
+  but requires `occurredAt` (no default — we keep the original).
+- `app/routes/history.$id.tsx` — loader 404s on missing id, action
+  dispatches on `intent` (`delete` → `deleteTransaction`, default →
+  `updateTransaction`). Form has title/amount/kind toggle/category/note
+  fields plus a separate delete card.
+- `app/routes/history.tsx` — list rows are now full-width `Link`s to
+  `/history/:id` with hover state.
+- E2E (`tests/e2e/edit-delete.spec.ts`): seed → click row → edit amount
+  → assert updated value; seed → click row → delete → assert row gone.
+
+Playwright config notes:
+
+- Switched to `workers: 1` + `fullyParallel: false` because all e2e
+  tests share the in-memory mockRepo store; parallel runs were racing.
+- Added `await page.waitForLoadState("networkidle")` after every
+  navigation that immediately calls `fill()`. Without it, Playwright's
+  `fill()` raced React 19 hydration and the controlled `#amount` input
+  stuck at empty.
+
+Backlog after Phase 5:
 
 - Goals flow (create + add contribution forms on `/goals`).
 - Postgres + Drizzle swap behind `repo`.

@@ -7,6 +7,7 @@ test("dashboard reflects month income/expense after adding rows", async ({
 
   // Seed an income via the /add flow.
   await page.goto("/add");
+  await page.waitForLoadState("networkidle");
   await page.locator("#quick-entry").fill("เงินเดือน 25000");
   await expect(page.locator("#amount")).toHaveValue("25000");
   await page.getByRole("button", { name: "บันทึกรายการ" }).click();
@@ -14,6 +15,7 @@ test("dashboard reflects month income/expense after adding rows", async ({
 
   // Seed an expense via the /add flow.
   await page.goto("/add");
+  await page.waitForLoadState("networkidle");
   await page.locator("#quick-entry").fill("กาแฟ 65");
   await expect(page.locator("#amount")).toHaveValue("65");
   await page.getByRole("button", { name: "บันทึกรายการ" }).click();

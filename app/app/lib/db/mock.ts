@@ -60,6 +60,10 @@ export const mockRepo: PordeeRepo = {
       .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
   },
 
+  async getTransaction(id) {
+    return store.transactions.find((t) => t.id === id) ?? null;
+  },
+
   async createTransaction(input) {
     const tx: Transaction = {
       id: randomUUID(),
@@ -68,6 +72,27 @@ export const mockRepo: PordeeRepo = {
     };
     store.transactions.unshift(tx);
     return tx;
+  },
+
+  async updateTransaction(id, input) {
+    const idx = store.transactions.findIndex((t) => t.id === id);
+    if (idx === -1) return null;
+    const existing = store.transactions[idx];
+    const next: Transaction = {
+      ...existing,
+      ...input,
+      id: existing.id,
+      createdAt: existing.createdAt,
+    };
+    store.transactions[idx] = next;
+    return next;
+  },
+
+  async deleteTransaction(id) {
+    const idx = store.transactions.findIndex((t) => t.id === id);
+    if (idx === -1) return false;
+    store.transactions.splice(idx, 1);
+    return true;
   },
 
   async listGoals() {

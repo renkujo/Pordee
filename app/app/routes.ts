@@ -10,6 +10,7 @@ export default [
     index("routes/dashboard.tsx"),
     route("add", "routes/add.tsx"),
     route("history", "routes/history.tsx"),
+    route("history/:id", "routes/history.$id.tsx"),
     route("goals", "routes/goals.tsx"),
     route("settings", "routes/settings.tsx"),
   ]),

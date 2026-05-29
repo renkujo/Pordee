@@ -43,9 +43,15 @@ export interface PordeeRepo {
     kind?: TransactionKind;
     categoryId?: string;
   }): Promise<Transaction[]>;
+  getTransaction(id: string): Promise<Transaction | null>;
   createTransaction(
     input: Omit<Transaction, "id" | "createdAt">
   ): Promise<Transaction>;
+  updateTransaction(
+    id: string,
+    input: Omit<Transaction, "id" | "createdAt">
+  ): Promise<Transaction | null>;
+  deleteTransaction(id: string): Promise<boolean>;
   listGoals(): Promise<Goal[]>;
   createGoal(input: Omit<Goal, "id" | "createdAt" | "saved">): Promise<Goal>;
   addContribution(

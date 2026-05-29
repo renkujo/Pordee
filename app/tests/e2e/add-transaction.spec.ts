@@ -5,6 +5,7 @@ test("quick-parse + submit lands on /history with the new row", async ({
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/add");
+  await page.waitForLoadState("networkidle");
 
   await expect(
     page.getByRole("heading", { name: "บันทึกรายการ" })
@@ -31,6 +32,7 @@ test("kind override flips to รายรับ and updates category options", a
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/add");
+  await page.waitForLoadState("networkidle");
 
   const quick = page.locator("#quick-entry");
   await expect(quick).toBeEditable();

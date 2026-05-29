@@ -1,4 +1,4 @@
-import { useLoaderData } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import type { Route } from "./+types/history";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -47,29 +47,31 @@ export default function History() {
           ) : (
             <ul className="divide-line divide-y" data-testid="history-list">
               {transactions.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-center justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-ink truncate text-sm font-medium">
-                      {t.title}
-                    </p>
-                    <p className="text-muted mt-0.5 text-xs">
-                      {fmtDate.format(new Date(t.occurredAt))}
-                      {t.categoryId && categoryNameById[t.categoryId] ? (
-                        <>
-                          {" · "}
-                          {categoryNameById[t.categoryId]}
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge tone={t.kind === "income" ? "teal" : "coral"}>
-                      {fmtSignedBaht(t.amount, t.kind)}
-                    </Badge>
-                  </div>
+                <li key={t.id}>
+                  <Link
+                    to={`/history/${t.id}`}
+                    className="hover:bg-sky/40 -mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-3 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-ink truncate text-sm font-medium">
+                        {t.title}
+                      </p>
+                      <p className="text-muted mt-0.5 text-xs">
+                        {fmtDate.format(new Date(t.occurredAt))}
+                        {t.categoryId && categoryNameById[t.categoryId] ? (
+                          <>
+                            {" · "}
+                            {categoryNameById[t.categoryId]}
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge tone={t.kind === "income" ? "teal" : "coral"}>
+                        {fmtSignedBaht(t.amount, t.kind)}
+                      </Badge>
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -82,6 +82,78 @@ describe("mockRepo transactions", () => {
   });
 });
 
+describe("mockRepo transactions: get/update/delete", () => {
+  it("getTransaction returns the row or null", async () => {
+    const tx = await mockRepo.createTransaction({
+      kind: "expense",
+      title: "กาแฟ",
+      amount: 65,
+      categoryId: "cat-food",
+      note: null,
+      occurredAt: "2026-05-10T00:00:00.000Z",
+    });
+    expect((await mockRepo.getTransaction(tx.id))?.title).toBe("กาแฟ");
+    expect(await mockRepo.getTransaction("no-such-id")).toBeNull();
+  });
+
+  it("updateTransaction overwrites fields but preserves id + createdAt", async () => {
+    const tx = await mockRepo.createTransaction({
+      kind: "expense",
+      title: "ข้าวเที่ยง",
+      amount: 60,
+      categoryId: "cat-food",
+      note: null,
+      occurredAt: "2026-05-10T00:00:00.000Z",
+    });
+    const originalCreatedAt = tx.createdAt;
+
+    const updated = await mockRepo.updateTransaction(tx.id, {
+      kind: "expense",
+      title: "ข้าวเที่ยง (แก้)",
+      amount: 80,
+      categoryId: "cat-food",
+      note: "ซื้อเพิ่มชา",
+      occurredAt: tx.occurredAt,
+    });
+
+    expect(updated).not.toBeNull();
+    expect(updated!.id).toBe(tx.id);
+    expect(updated!.createdAt).toBe(originalCreatedAt);
+    expect(updated!.title).toBe("ข้าวเที่ยง (แก้)");
+    expect(updated!.amount).toBe(80);
+    expect(updated!.note).toBe("ซื้อเพิ่มชา");
+
+    const reread = await mockRepo.getTransaction(tx.id);
+    expect(reread?.amount).toBe(80);
+  });
+
+  it("updateTransaction returns null for unknown id", async () => {
+    const res = await mockRepo.updateTransaction("nope", {
+      kind: "expense",
+      title: "x",
+      amount: 1,
+      categoryId: null,
+      note: null,
+      occurredAt: "2026-05-10T00:00:00.000Z",
+    });
+    expect(res).toBeNull();
+  });
+
+  it("deleteTransaction removes the row and returns true; false for unknown id", async () => {
+    const tx = await mockRepo.createTransaction({
+      kind: "expense",
+      title: "ขนม",
+      amount: 30,
+      categoryId: "cat-food",
+      note: null,
+      occurredAt: "2026-05-10T00:00:00.000Z",
+    });
+    expect(await mockRepo.deleteTransaction(tx.id)).toBe(true);
+    expect(await mockRepo.getTransaction(tx.id)).toBeNull();
+    expect(await mockRepo.deleteTransaction(tx.id)).toBe(false);
+  });
+});
+
 describe("mockRepo goals", () => {
   it("creates a goal with saved=0 and tracks contributions", async () => {
     const goal = await mockRepo.createGoal({
