@@ -12,11 +12,21 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import { MascotTip } from "~/components/brand/mascot-state";
 import { cn } from "~/lib/cn";
 import { repo } from "~/lib/db";
-import type { Category } from "~/lib/db";
+import type { Category, TransactionKind } from "~/lib/db";
 import { createTransactionSchema } from "~/lib/validators/transaction";
 import { parseQuickEntry } from "~/lib/parse/quick-entry";
+
+const NO_CATEGORY_VALUE = "__none__";
 
 export function meta(_: Route.MetaArgs) {
   return [{ title: "พอดี — บันทึกรายการ" }];
@@ -41,11 +51,15 @@ export async function action({
   request,
 }: Route.ActionArgs): Promise<ActionResult | Response> {
   const form = await request.formData();
+  const categoryId = form.get("categoryId");
   const raw = {
     kind: form.get("kind"),
     title: form.get("title"),
     amount: form.get("amount"),
-    categoryId: form.get("categoryId") || null,
+    categoryId:
+      typeof categoryId === "string" && categoryId !== NO_CATEGORY_VALUE
+        ? categoryId
+        : null,
     note: form.get("note") || null,
   };
 
@@ -65,7 +79,7 @@ export async function action({
         kind: String(raw.kind ?? "expense"),
         title: String(raw.title ?? ""),
         amount: String(raw.amount ?? ""),
-        categoryId: String(form.get("categoryId") ?? ""),
+        categoryId: String(categoryId ?? NO_CATEGORY_VALUE),
         note: String(form.get("note") ?? ""),
       },
     };
@@ -99,8 +113,6 @@ export default function Add() {
   const [categoryOverride, setCategoryOverride] = useState<string | null>(null);
 
   const effectiveKind = kindOverride ?? preview.kind;
-  const effectiveCategory =
-    categoryOverride !== null ? categoryOverride : preview.categoryId;
   const effectiveAmount =
     amountOverride !== null
       ? amountOverride
@@ -109,20 +121,57 @@ export default function Add() {
         : "";
 
   const filteredCategories = categories.filter((c) => c.kind === effectiveKind);
+  const inferredCategory =
+    preview.categoryId &&
+    filteredCategories.some((c) => c.id === preview.categoryId)
+      ? preview.categoryId
+      : null;
+  const effectiveCategory =
+    categoryOverride !== null ? categoryOverride : inferredCategory;
+  const amountNumber = Number(effectiveAmount);
+  const canSubmit =
+    preview.title.trim().length > 0 &&
+    Number.isFinite(amountNumber) &&
+    amountNumber > 0;
+  const entryHint =
+    quick.trim().length === 0
+      ? "พิมพ์ชื่อรายการพร้อมจำนวนเงิน เช่น “กาแฟ 65”"
+      : preview.amount === null
+        ? "เพิ่มจำนวนเงินท้ายรายการ หรือกรอกจำนวนเงินด้านล่าง"
+        : null;
+  const previewTitle =
+    preview.title.trim().length > 0 ? preview.title.trim() : "รายการนี้";
+  const selectedCategoryName =
+    filteredCategories.find((c) => c.id === effectiveCategory)?.name ??
+    "ไม่ระบุ";
+  const previewDescription =
+    preview.amount !== null
+      ? `พอดีอ่านว่า “${previewTitle}” เป็น${effectiveKind === "income" ? "รายรับ" : "รายจ่าย"} ${effectiveAmount} บาท`
+      : "พิมพ์จำนวนเงินต่อท้าย เช่น 65 แล้วพอดีจะช่วยแยกชื่อรายการกับจำนวนเงินให้";
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-ink text-2xl font-semibold">บันทึกรายการ</h1>
-        <p className="text-muted text-sm">ตรวจรายการก่อนบันทึก</p>
+      <div className="flex flex-col gap-3">
+        <div>
+          <h1 className="text-ink text-2xl font-semibold">บันทึกรายการ</h1>
+          <p className="text-muted text-sm">
+            พิมพ์สั้น ๆ แล้วตรวจให้ตรงก่อนบันทึก
+          </p>
+        </div>
+        <StepRail
+          currentStep={canSubmit ? 3 : preview.amount !== null ? 2 : 1}
+        />
       </div>
 
       <Form method="post" className="contents">
         <Card>
           <CardHeader>
-            <CardTitle>พิมพ์รายการแบบเร็ว</CardTitle>
+            <div className="flex items-center gap-2">
+              <StepNumber>1</StepNumber>
+              <CardTitle>พิมพ์รายการ</CardTitle>
+            </div>
             <CardDescription>
-              เช่น “กาแฟ 65” หรือ “เงินเดือน 25000”
+              ใส่ชื่อรายการพร้อมจำนวนเงิน เช่น “กาแฟ 65”
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -133,9 +182,12 @@ export default function Add() {
               onChange={(e) => {
                 setQuick(e.target.value);
                 setAmountOverride(null);
+                setKindOverride(null);
+                setCategoryOverride(null);
               }}
               placeholder="กาแฟ 65"
               autoComplete="off"
+              aria-describedby="quick-entry-hint"
             />
             <input type="hidden" name="title" value={preview.title} />
             <div className="flex flex-wrap gap-2">
@@ -161,24 +213,57 @@ export default function Add() {
                 {actionData.errors.title}
               </p>
             )}
+            {entryHint && (
+              <p id="quick-entry-hint" className="text-muted text-sm">
+                {entryHint}
+              </p>
+            )}
+            <MascotTip
+              mood={preview.amount !== null ? "thinking" : "normal"}
+              title="พอดีช่วยอ่านรายการ"
+            >
+              {previewDescription}
+            </MascotTip>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>ตรวจรายการก่อนบันทึก</CardTitle>
+            <div className="flex items-center gap-2">
+              <StepNumber>2</StepNumber>
+              <CardTitle>ตรวจรายการ</CardTitle>
+            </div>
             <CardDescription>
-              ระบบเดาให้ก่อน แก้ได้ทุกช่องตามจริง
+              พอดีเดาให้ก่อน แก้ชนิด จำนวนเงิน และหมวดได้ทันที
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <Badge tone={effectiveKind === "income" ? "teal" : "coral"}>
-                {effectiveKind === "income" ? "รายรับ" : "รายจ่าย"}
-              </Badge>
-              <div className="flex gap-1">
+            <ParsedPreview
+              amount={effectiveAmount}
+              categoryName={selectedCategoryName}
+              kind={effectiveKind}
+              title={previewTitle}
+            />
+            <div className="border-line bg-surface rounded-md border p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-ink text-sm font-semibold">ประเภท</p>
+                  <p className="text-muted mt-1 text-sm">
+                    เลือกว่าเป็นเงินเข้า หรือเงินออกจากกระเป๋า
+                  </p>
+                </div>
+                <Badge
+                  tone={effectiveKind === "income" ? "teal" : "coral"}
+                  className="w-fit"
+                >
+                  กำลังบันทึกเป็น{" "}
+                  {effectiveKind === "income" ? "รายรับ" : "รายจ่าย"}
+                </Badge>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <KindToggle
                   active={effectiveKind === "expense"}
+                  tone="coral"
                   onClick={() => {
                     setKindOverride("expense");
                     setCategoryOverride(null);
@@ -188,6 +273,7 @@ export default function Add() {
                 </KindToggle>
                 <KindToggle
                   active={effectiveKind === "income"}
+                  tone="teal"
                   onClick={() => {
                     setKindOverride("income");
                     setCategoryOverride(null);
@@ -199,45 +285,79 @@ export default function Add() {
             </div>
             <input type="hidden" name="kind" value={effectiveKind} />
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="amount">จำนวนเงิน (บาท)</Label>
-              <Input
-                id="amount"
-                name="amount"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                value={effectiveAmount}
-                onChange={(e) => setAmountOverride(e.target.value)}
-                placeholder="0"
-                required
-              />
-              {actionData && !actionData.ok && actionData.errors.amount && (
-                <p className="text-coral-strong text-sm">
-                  {actionData.errors.amount}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="amount">จำนวนเงิน</Label>
+                <Input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  value={effectiveAmount}
+                  onChange={(e) => setAmountOverride(e.target.value)}
+                  placeholder="0"
+                  aria-describedby="amount-hint"
+                  required
+                />
+                {actionData && !actionData.ok && actionData.errors.amount && (
+                  <p className="text-coral-strong text-sm">
+                    {actionData.errors.amount}
+                  </p>
+                )}
+                {!canSubmit && (
+                  <p id="amount-hint" className="text-muted text-sm">
+                    ต้องมีจำนวนเงินมากกว่า 0 ก่อนบันทึก
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="category">หมวด</Label>
+                <Select
+                  name="categoryId"
+                  value={effectiveCategory ?? NO_CATEGORY_VALUE}
+                  onValueChange={(value) =>
+                    setCategoryOverride(
+                      value === NO_CATEGORY_VALUE ? null : value
+                    )
+                  }
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="— ไม่ระบุ —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CATEGORY_VALUE}>
+                      — ไม่ระบุ —
+                    </SelectItem>
+                    {filteredCategories.map((c: Category) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="border-line bg-sky/35 flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <StepNumber>3</StepNumber>
+                  <p className="text-ink text-sm font-semibold">
+                    บันทึกเมื่อข้อมูลตรงแล้ว
+                  </p>
+                </div>
+                <p className="text-muted mt-1 text-sm">
+                  {canSubmit
+                    ? `พร้อมบันทึก “${previewTitle}” ${effectiveAmount} บาท`
+                    : "พอดีจะเปิดปุ่มบันทึกเมื่อมีชื่อรายการและจำนวนเงิน"}
                 </p>
-              )}
+              </div>
+              <Button type="submit" disabled={!canSubmit} className="sm:w-44">
+                บันทึกรายการ
+              </Button>
             </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="category">หมวด</Label>
-              <select
-                id="category"
-                name="categoryId"
-                value={effectiveCategory ?? ""}
-                onChange={(e) => setCategoryOverride(e.target.value || null)}
-                className="border-line bg-surface text-ink focus-visible:ring-coral/30 h-11 rounded-[12px] border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-              >
-                <option value="">— ไม่ระบุ —</option>
-                {filteredCategories.map((c: Category) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Button type="submit">บันทึกรายการ</Button>
           </CardContent>
         </Card>
       </Form>
@@ -245,27 +365,127 @@ export default function Add() {
   );
 }
 
+function StepRail({ currentStep }: { currentStep: number }) {
+  const steps = ["พิมพ์รายการ", "ตรวจรายการ", "บันทึก"];
+  return (
+    <ol className="grid grid-cols-3 gap-2">
+      {steps.map((step, index) => {
+        const stepNumber = index + 1;
+        const isActive = stepNumber <= currentStep;
+        return (
+          <li
+            key={step}
+            className={cn(
+              "border-line bg-surface flex min-w-0 items-center gap-1.5 rounded-sm border px-2 py-2 text-xs sm:gap-2 sm:px-3 sm:text-sm",
+              isActive ? "text-ink" : "text-muted"
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold sm:h-6 sm:w-6",
+                isActive ? "bg-ink text-white" : "bg-sky text-muted"
+              )}
+            >
+              {stepNumber}
+            </span>
+            <span className="truncate">{step}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function StepNumber({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="bg-ink flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white">
+      {children}
+    </span>
+  );
+}
+
+function ParsedPreview({
+  amount,
+  categoryName,
+  kind,
+  title,
+}: {
+  amount: string;
+  categoryName: string;
+  kind: TransactionKind;
+  title: string;
+}) {
+  const hasAmount = Number(amount) > 0;
+  return (
+    <div className="border-line bg-sky/45 rounded-md border p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <MascotTip
+          mood={hasAmount ? "happy" : "thinking"}
+          title={hasAmount ? "พอดีอ่านให้แล้ว" : "พอดีกำลังรอจำนวนเงิน"}
+          className="border-0 bg-transparent p-0 sm:max-w-md"
+        >
+          {hasAmount
+            ? "ตรวจรายการด้านล่างอีกครั้ง ถ้าตรงแล้วบันทึกได้เลย"
+            : "เพิ่มจำนวนเงินท้ายรายการหรือกรอกเองในช่องจำนวนเงิน"}
+        </MascotTip>
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:w-80">
+          <PreviewChip label="ประเภท">
+            {kind === "income" ? "รายรับ" : "รายจ่าย"}
+          </PreviewChip>
+          <PreviewChip label="จำนวน">
+            {hasAmount ? `฿${amount}` : "รอจำนวน"}
+          </PreviewChip>
+          <PreviewChip label="รายการ">{title}</PreviewChip>
+          <PreviewChip label="หมวด">{categoryName}</PreviewChip>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewChip({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="border-line bg-surface min-w-0 rounded-xs border px-3 py-2">
+      <p className="text-muted text-xs">{label}</p>
+      <p className="text-ink truncate text-sm font-semibold">{children}</p>
+    </div>
+  );
+}
+
 function KindToggle({
   active,
   onClick,
+  tone,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  tone: "coral" | "teal";
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
+      size="sm"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "rounded-full border px-3 py-1 text-xs transition-colors",
-        active
-          ? "border-ink bg-ink text-white"
-          : "border-line text-muted hover:bg-sky"
+        "h-11 w-full rounded-xs px-3 text-sm",
+        active && tone === "coral"
+          ? "border-coral bg-coral hover:bg-coral-strong text-white"
+          : active && tone === "teal"
+            ? "border-teal bg-teal hover:bg-teal-strong text-white"
+            : "border-line text-muted hover:bg-sky"
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }

@@ -106,7 +106,7 @@ export const mockRepo: PordeeRepo = {
       saved: 0,
       ...input,
     };
-    store.goals.push(goal);
+    store.goals.unshift(goal);
     return goal;
   },
 

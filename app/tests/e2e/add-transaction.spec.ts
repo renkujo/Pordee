@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("quick-parse + submit lands on /history with the new row", async ({
   page,
 }) => {
+  const unique = `กาแฟทดสอบ-${Date.now()}`;
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/add");
   await page.waitForLoadState("networkidle");
@@ -11,20 +12,22 @@ test("quick-parse + submit lands on /history with the new row", async ({
     page.getByRole("heading", { name: "บันทึกรายการ" })
   ).toBeVisible();
 
-  await page.locator("#quick-entry").fill("กาแฟ 65");
+  await page.locator("#quick-entry").fill(`${unique} 65`);
 
   await expect(page.locator("#amount")).toHaveValue("65");
   await expect(
     page.getByText("รายจ่าย", { exact: true }).first()
   ).toBeVisible();
-  await expect(page.locator("#category")).toHaveValue("cat-food");
+  await expect(page.getByRole("combobox", { name: "หมวด" })).toContainText(
+    "อาหาร"
+  );
 
   await page.getByRole("button", { name: "บันทึกรายการ" }).click();
 
   await expect(page).toHaveURL(/\/history$/);
   const list = page.getByTestId("history-list");
   await expect(list).toBeVisible();
-  await expect(list.getByText("กาแฟ")).toBeVisible();
+  await expect(list.getByText(unique)).toBeVisible();
 });
 
 test("kind override flips to รายรับ and updates category options", async ({
@@ -38,13 +41,13 @@ test("kind override flips to รายรับ and updates category options", a
   await expect(quick).toBeEditable();
   await quick.fill("กาแฟ 65");
   await expect(page.locator("#amount")).toHaveValue("65");
-  await expect(page.locator("#category")).toHaveValue("cat-food");
+  const category = page.getByRole("combobox", { name: "หมวด" });
+  await expect(category).toContainText("อาหาร");
 
   await page.getByRole("button", { name: "รายรับ" }).click();
 
-  const categoryOptions = await page
-    .locator("#category option")
-    .allTextContents();
-  expect(categoryOptions).toContain("เงินเดือน");
-  expect(categoryOptions).not.toContain("อาหาร");
+  await expect(category).toContainText("— ไม่ระบุ —");
+  await category.click();
+  await expect(page.getByRole("option", { name: "เงินเดือน" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "อาหาร" })).toHaveCount(0);
 });
