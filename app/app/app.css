@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  --color-sky: #eaf7ff;
+  --color-surface: #ffffff;
+  --color-ink: #172026;
+  --color-muted: #6c7d86;
+  --color-coral: #f76a5d;
+  --color-coral-strong: #ff5c4d;
+  --color-teal: #129c91;
+  --color-teal-strong: #18a999;
+  --color-lime: #d6e86f;
+  --color-lime-strong: #b7f34a;
+  --color-line: #dde7ec;
+
+  /* Dark surface tokens — only used where the logo sits on a dark surface.
+     The app shell itself stays light-first per ui-direction.md. */
+  --color-ink-dark: #f4f7f9;
+  --color-surface-dark: #0e1418;
+
+  --radius-xs: 10px;
+  --radius-sm: 12px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--color-sky);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-line);
+  }
+}

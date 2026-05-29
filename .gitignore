@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# Node / pnpm
+node_modules/
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+build/
+dist/
+.react-router/
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+
+# Logs
+/tmp/pordee-dev.log
+*.log

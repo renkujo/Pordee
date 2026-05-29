@@ -1,0 +1,8 @@
+build
+node_modules
+.react-router
+public/brand
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml

@@ -1,0 +1,11 @@
+.DS_Store
+node_modules
+build
+.react-router
+.env
+.env.*
+!.env.example
+*.log
+.git
+.vscode
+.idea

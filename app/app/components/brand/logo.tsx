@@ -1,0 +1,31 @@
+import { cn } from "~/lib/cn";
+import { PordeeLogoMark, type LogoVariant } from "./logo-mark";
+
+interface PordeeLogoProps {
+  size?: number;
+  withWordmark?: boolean;
+  variant?: LogoVariant;
+  className?: string;
+}
+
+export function PordeeLogo({
+  size = 32,
+  withWordmark = true,
+  variant = "light",
+  className,
+}: PordeeLogoProps) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-2",
+        variant === "dark" ? "text-[var(--color-ink-dark)]" : "text-ink",
+        className
+      )}
+    >
+      <PordeeLogoMark size={size} variant={variant} withTile />
+      {withWordmark && (
+        <span className="text-lg font-semibold tracking-tight">พอดี</span>
+      )}
+    </span>
+  );
+}

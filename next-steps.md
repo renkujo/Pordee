@@ -1,0 +1,131 @@
+# Pordee Rebrand Next Steps
+
+## 1. Final Logo Direction
+
+Use `assets/logo/pordee-pd-logo-semiflat-v1.png` as the final logo visual direction in brand preview/mockup work:
+
+- app header
+- mobile home screen
+- login/onboarding screen
+- favicon/app-icon test
+
+Decision: use this semi-flat PD mark as the current logo direction.
+
+## 2. Prepare Production Logo Asset
+
+Done in Phase 1 for raster output:
+
+- multi-size icon pipeline at `app/scripts/build-icons.mjs` (sharp + png-to-ico)
+- `app/public/brand/icon-{32,180,192,512}.png` and `icon-maskable-512.png`
+- `app/public/favicon.ico` (16/32/48 multi-size)
+
+Still to do (hand work):
+
+- transparent cutout of the selected mark for use over arbitrary surfaces
+- production SVG trace that preserves the semi-flat proportions
+- simplified curves for sub-32px rendering
+
+## 3. Trace Production Vector
+
+After tracing:
+
+- export light and dark variants
+- export app icon tile variants
+- replace the raster icon pipeline source with the traced SVG and re-run
+  `pnpm icons:build`
+
+## 4. Apply Brand To App UI
+
+Phase 0 + Phase 1 progress:
+
+- React Router v7 + Vite + Tailwind v4 in `app/`
+- IBM Plex Sans Thai wired via `@fontsource/ibm-plex-sans-thai`
+- App shell uses Pordee tokens (sky background, coral primary, teal accent)
+- Header renders `PordeeLogo` (sized raster placeholder + Thai wordmark)
+- Mascots not yet integrated; reserved for supportive moments only
+
+Still to do:
+
+- Replace `PordeeLogo`'s `<img>` with the inline `PordeeLogoMark` SVG once it
+  ships from the codex prompt (`app/scripts/codex-prompt-logo-svg.md`).
+- Wire mascot PNGs into empty/success/warning states only.
+
+## 5. Update Docs After Implementation
+
+- `docs/logo-direction.md` — updated to reflect Phase 1 raster pipeline and
+  remaining vector work.
+- `docs/design-system.md` — does not exist yet; introduce once UI features
+  ship in Phase 2 so it documents real components, not aspirations.
+- `AGENTS.md` — does not exist in this repo yet; introduce when a contributor
+  workflow is needed.
+
+## 6. Dev/QA Scaffolding (Phase 2 — done)
+
+Test, lint, format, e2e, and CI now run locally and in GitHub Actions:
+
+- **Vitest + Testing Library** — `pnpm test`, `pnpm test:watch`,
+  `pnpm test:coverage`. Setup at `app/vitest.config.ts` + `app/tests/setup.ts`.
+  Sample coverage: `app/tests/unit/validators.test.ts`,
+  `app/tests/unit/mock-repo.test.ts`.
+- **ESLint flat config** — `app/eslint.config.js` (typescript-eslint +
+  react/hooks/refresh + jsx-a11y). `pnpm lint`, `pnpm lint:fix`.
+- **Prettier + tailwindcss plugin** — `app/.prettierrc.json`. `pnpm format`,
+  `pnpm format:check`.
+- **Playwright smoke** — `app/playwright.config.ts` +
+  `app/tests/e2e/smoke.spec.ts` (chromium). `pnpm e2e`, `pnpm e2e:ui`.
+  First-time browser install: `pnpm e2e:install`.
+- **GitHub Actions CI** — `.github/workflows/ci.yml` runs typecheck, lint,
+  format:check, test, build on every PR/push. Separate `e2e` job runs
+  Playwright with browser caching.
+
+CI is active once the repo is pushed to GitHub. Deploy still goes through
+Dokploy (independent of CI).
+
+## 7. Add Transaction Flow (Phase 3 — done)
+
+- `app/lib/parse/quick-entry.ts` — pure quick-parse engine.
+  Extracts trailing amount, infers `kind` from Thai income keywords
+  (เงินเดือน, งานเสริม, …), maps category by keyword (ข้าว/กาแฟ →
+  cat-food, รถ/แท็กซี่/grab → cat-transport, บิล/ค่าน้ำ/ค่าไฟ →
+  cat-bills, …). 10 unit tests in `tests/unit/quick-entry.test.ts`.
+- `app/routes/add.tsx` — `loader` returns categories, `action` validates
+  with Zod and writes through `repo.createTransaction`, then redirects
+  to `/history`. UI shows live preview + editable kind toggle + category
+  select (filtered by effective kind). Field errors land via
+  `useActionData`.
+- `app/routes/history.tsx` — `loader` reads from `repo.listTransactions`
+  and renders the list (badge by kind, Thai date, category label).
+  Empty state keeps the existing `MascotState`.
+- E2E (`tests/e2e/add-transaction.spec.ts`):
+  - quick-parse "กาแฟ 65" → submit → land on `/history` with the row.
+  - kind override flips category options to income set.
+
+> Note: `app/lib/dev/react-grab.client.tsx` was renamed to
+> `react-grab.tsx`. Under React Router v7 framework mode the
+> `.client.tsx` suffix interferes with SSR and produced a 500 (Element
+> type undefined). Keep dev-only helpers without the suffix.
+
+## 8. Dashboard real data (Phase 4 — done)
+
+- `app/lib/date/month-range.ts` — `getMonthRange(d)` returns ISO from/to
+  bounds for the calendar month (UTC). Used by the dashboard loader so
+  `repo.listTransactions({ from, to })` returns only the current month.
+- `app/lib/format/baht.ts` — `fmtBaht` and `fmtSignedBaht` (signed
+  prefix for income/expense badges). Reused by `dashboard.tsx` and
+  `history.tsx`.
+- `app/routes/dashboard.tsx` — loader fetches month transactions +
+  goals + categories. Renders: balance/income/expense badges, recent
+  list (top 5), goal list with progress bars, "สัญญาณที่ควรดู" panel
+  that swaps between three `MascotState`s depending on income/expense
+  ratio.
+- E2E (`tests/e2e/dashboard.spec.ts`) — seeds via `/add` flow and
+  asserts income badge, recent list rows, and a non-zero expense badge
+  on `/`. Avoids exact totals because the in-memory store accumulates
+  across parallel tests.
+
+Backlog after Phase 4:
+
+- Goals flow (create + add contribution forms on `/goals`).
+- Postgres + Drizzle swap behind `repo`.
+- Production polish: real meta/OG, loading states during navigation,
+  a11y/keyboard pass.
