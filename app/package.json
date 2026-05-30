@@ -2,6 +2,7 @@
   "name": "app",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
@@ -28,7 +29,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@react-router/node": "7.15.1",
     "@react-router/serve": "7.15.1",
-    "better-auth": "^1.6.12",
+    "better-auth": "1.6.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "isbot": "^5.1.36",
