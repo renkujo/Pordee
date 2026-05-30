@@ -37,6 +37,13 @@ export interface GoalContribution {
 
 export interface PordeeRepo {
   listCategories(): Promise<Category[]>;
+  createCategory(input: Omit<Category, "id">): Promise<Category>;
+  updateCategory(
+    id: string,
+    input: Pick<Category, "name">
+  ): Promise<Category | null>;
+  deleteCategory(id: string): Promise<boolean>;
+  countTransactionsByCategory(categoryId: string): Promise<number>;
   listTransactions(opts?: {
     from?: string;
     to?: string;

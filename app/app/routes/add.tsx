@@ -40,6 +40,7 @@ export async function loader() {
 interface ActionFieldErrors {
   title?: string;
   amount?: string;
+  discountAmount?: string;
   kind?: string;
 }
 
@@ -52,10 +53,37 @@ export async function action({
 }: Route.ActionArgs): Promise<ActionResult | Response> {
   const form = await request.formData();
   const categoryId = form.get("categoryId");
+  const rawAmount = form.get("amount");
+  const rawDiscountAmount = form.get("discountAmount");
+  const grossAmount =
+    typeof rawAmount === "string" ? Number(rawAmount) : Number.NaN;
+  const discountAmount =
+    typeof rawDiscountAmount === "string" && rawDiscountAmount.trim() !== ""
+      ? Number(rawDiscountAmount)
+      : 0;
+  const errors: ActionFieldErrors = {};
+
+  if (!Number.isFinite(discountAmount) || discountAmount < 0) {
+    errors.discountAmount = "ส่วนลดต้องเป็นจำนวนตั้งแต่ 0 ขึ้นไป";
+  }
+
+  if (
+    Number.isFinite(grossAmount) &&
+    grossAmount > 0 &&
+    Number.isFinite(discountAmount) &&
+    discountAmount > 0 &&
+    discountAmount >= grossAmount
+  ) {
+    errors.discountAmount = "ส่วนลดต้องน้อยกว่าจำนวนเงิน";
+  }
+
   const raw = {
     kind: form.get("kind"),
     title: form.get("title"),
-    amount: form.get("amount"),
+    amount:
+      Number.isFinite(grossAmount) && Number.isFinite(discountAmount)
+        ? grossAmount - discountAmount
+        : rawAmount,
     categoryId:
       typeof categoryId === "string" && categoryId !== NO_CATEGORY_VALUE
         ? categoryId
@@ -64,12 +92,13 @@ export async function action({
   };
 
   const parsed = createTransactionSchema.safeParse(raw);
-  if (!parsed.success) {
-    const errors: ActionFieldErrors = {};
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0];
-      if (key === "title" || key === "amount" || key === "kind") {
-        errors[key] = issue.message;
+  if (!parsed.success || Object.keys(errors).length > 0) {
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+        if (key === "title" || key === "amount" || key === "kind") {
+          errors[key] = issue.message;
+        }
       }
     }
     return {
@@ -78,7 +107,8 @@ export async function action({
       values: {
         kind: String(raw.kind ?? "expense"),
         title: String(raw.title ?? ""),
-        amount: String(raw.amount ?? ""),
+        amount: String(rawAmount ?? ""),
+        discountAmount: String(rawDiscountAmount ?? ""),
         categoryId: String(categoryId ?? NO_CATEGORY_VALUE),
         note: String(form.get("note") ?? ""),
       },
@@ -106,7 +136,12 @@ export default function Add() {
   const [quick, setQuick] = useState(actionData?.values?.title ?? "");
   const preview = useMemo(() => parseQuickEntry(quick), [quick]);
 
-  const [amountOverride, setAmountOverride] = useState<string | null>(null);
+  const [amountOverride, setAmountOverride] = useState<string | null>(
+    actionData?.values?.amount ?? null
+  );
+  const [discountAmount, setDiscountAmount] = useState(
+    actionData?.values?.discountAmount ?? ""
+  );
   const [kindOverride, setKindOverride] = useState<"expense" | "income" | null>(
     null
   );
@@ -129,10 +164,27 @@ export default function Add() {
   const effectiveCategory =
     categoryOverride !== null ? categoryOverride : inferredCategory;
   const amountNumber = Number(effectiveAmount);
+  const discountNumber =
+    discountAmount.trim().length > 0 ? Number(discountAmount) : 0;
+  const appliesDiscount = effectiveKind === "expense";
+  const hasDiscountInput = appliesDiscount && discountAmount.trim().length > 0;
+  const hasValidDiscount =
+    !hasDiscountInput ||
+    (Number.isFinite(discountNumber) &&
+      discountNumber >= 0 &&
+      (!Number.isFinite(amountNumber) || discountNumber < amountNumber));
+  const netAmount =
+    appliesDiscount &&
+    Number.isFinite(amountNumber) &&
+    Number.isFinite(discountNumber)
+      ? amountNumber - discountNumber
+      : amountNumber;
   const canSubmit =
     preview.title.trim().length > 0 &&
     Number.isFinite(amountNumber) &&
-    amountNumber > 0;
+    amountNumber > 0 &&
+    hasValidDiscount &&
+    netAmount > 0;
   const entryHint =
     quick.trim().length === 0
       ? "พิมพ์ชื่อรายการพร้อมจำนวนเงิน เช่น “กาแฟ 65”"
@@ -241,7 +293,13 @@ export default function Add() {
             <ParsedPreview
               amount={effectiveAmount}
               categoryName={selectedCategoryName}
+              discountAmount={
+                effectiveKind === "expense" && discountNumber > 0
+                  ? discountNumber
+                  : 0
+              }
               kind={effectiveKind}
+              netAmount={netAmount}
               title={previewTitle}
             />
             <div className="border-line bg-surface rounded-md border p-4">
@@ -285,9 +343,20 @@ export default function Add() {
             </div>
             <input type="hidden" name="kind" value={effectiveKind} />
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div
+              className={cn(
+                "grid gap-4",
+                effectiveKind === "expense"
+                  ? "lg:grid-cols-3"
+                  : "lg:grid-cols-2"
+              )}
+            >
               <div className="flex flex-col gap-2">
-                <Label htmlFor="amount">จำนวนเงิน</Label>
+                <Label htmlFor="amount">
+                  {effectiveKind === "expense"
+                    ? "จำนวนเงินก่อนส่วนลด"
+                    : "จำนวนเงิน"}
+                </Label>
                 <Input
                   id="amount"
                   name="amount"
@@ -311,6 +380,41 @@ export default function Add() {
                   </p>
                 )}
               </div>
+
+              {effectiveKind === "expense" && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="discountAmount">ส่วนลด</Label>
+                  <Input
+                    id="discountAmount"
+                    name="discountAmount"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    placeholder="0"
+                    aria-describedby="discount-hint"
+                  />
+                  {actionData &&
+                    !actionData.ok &&
+                    actionData.errors.discountAmount && (
+                      <p className="text-coral-strong text-sm">
+                        {actionData.errors.discountAmount}
+                      </p>
+                    )}
+                  {hasDiscountInput && hasValidDiscount && (
+                    <p id="discount-hint" className="text-muted text-sm">
+                      ยอดสุทธิ {formatNumber(netAmount)} บาท
+                    </p>
+                  )}
+                  {hasDiscountInput && !hasValidDiscount && (
+                    <p id="discount-hint" className="text-coral-strong text-sm">
+                      ส่วนลดต้องน้อยกว่าจำนวนเงิน
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="category">หมวด</Label>
@@ -350,7 +454,7 @@ export default function Add() {
                 </div>
                 <p className="text-muted mt-1 text-sm">
                   {canSubmit
-                    ? `พร้อมบันทึก “${previewTitle}” ${effectiveAmount} บาท`
+                    ? `พร้อมบันทึก “${previewTitle}” ${formatNumber(netAmount)} บาท`
                     : "พอดีจะเปิดปุ่มบันทึกเมื่อมีชื่อรายการและจำนวนเงิน"}
                 </p>
               </div>
@@ -407,15 +511,23 @@ function StepNumber({ children }: { children: React.ReactNode }) {
 function ParsedPreview({
   amount,
   categoryName,
+  discountAmount,
   kind,
+  netAmount,
   title,
 }: {
   amount: string;
   categoryName: string;
+  discountAmount: number;
   kind: TransactionKind;
+  netAmount: number;
   title: string;
 }) {
   const hasAmount = Number(amount) > 0;
+  const displayAmount =
+    hasAmount && kind === "expense" && discountAmount > 0
+      ? netAmount
+      : Number(amount);
   return (
     <div className="border-line bg-sky/45 rounded-md border p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -433,14 +545,23 @@ function ParsedPreview({
             {kind === "income" ? "รายรับ" : "รายจ่าย"}
           </PreviewChip>
           <PreviewChip label="จำนวน">
-            {hasAmount ? `฿${amount}` : "รอจำนวน"}
+            {hasAmount ? `฿${formatNumber(displayAmount)}` : "รอจำนวน"}
           </PreviewChip>
+          {kind === "expense" && discountAmount > 0 ? (
+            <PreviewChip label="ส่วนลด">
+              ฿{formatNumber(discountAmount)}
+            </PreviewChip>
+          ) : null}
           <PreviewChip label="รายการ">{title}</PreviewChip>
           <PreviewChip label="หมวด">{categoryName}</PreviewChip>
         </div>
       </div>
     </div>
   );
+}
+
+function formatNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
 function PreviewChip({

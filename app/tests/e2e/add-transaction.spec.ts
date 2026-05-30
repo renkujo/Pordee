@@ -51,3 +51,23 @@ test("kind override flips to รายรับ and updates category options", a
   await expect(page.getByRole("option", { name: "เงินเดือน" })).toBeVisible();
   await expect(page.getByRole("option", { name: "อาหาร" })).toHaveCount(0);
 });
+
+test("discount field records the net expense amount", async ({ page }) => {
+  const unique = `บิลทดสอบ-${Date.now()}`;
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/add");
+  await page.waitForLoadState("networkidle");
+
+  await page.locator("#quick-entry").fill(`${unique} 100`);
+  await page.locator("#discountAmount").fill("15");
+
+  await expect(page.getByText("ยอดสุทธิ 85 บาท")).toBeVisible();
+
+  await page.getByRole("button", { name: "บันทึกรายการ" }).click();
+
+  await expect(page).toHaveURL(/\/history$/);
+  const list = page.getByTestId("history-list");
+  const row = list.locator("li").filter({ hasText: unique });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("-฿85")).toBeVisible();
+});

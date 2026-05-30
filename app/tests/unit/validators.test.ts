@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createTransactionSchema } from "~/lib/validators/transaction";
 import { createGoalSchema, addContributionSchema } from "~/lib/validators/goal";
+import {
+  createCategorySchema,
+  updateCategorySchema,
+} from "~/lib/validators/category";
 
 describe("createTransactionSchema", () => {
   it("accepts a minimal valid expense", () => {
@@ -52,6 +56,35 @@ describe("createTransactionSchema", () => {
     expect(() =>
       createTransactionSchema.parse({ kind: "savings", title: "x", amount: 1 })
     ).toThrow();
+  });
+});
+
+describe("category schemas", () => {
+  it("creates a category with a valid name and kind", () => {
+    const result = createCategorySchema.parse({
+      name: " ของใช้บ้าน ",
+      kind: "expense",
+    });
+    expect(result.name).toBe("ของใช้บ้าน");
+    expect(result.kind).toBe("expense");
+  });
+
+  it("rejects empty names and unknown kinds", () => {
+    expect(() =>
+      createCategorySchema.parse({ name: " ", kind: "expense" })
+    ).toThrow();
+    expect(() =>
+      createCategorySchema.parse({ name: "โบนัส", kind: "saving" })
+    ).toThrow();
+  });
+
+  it("updates category names by id", () => {
+    const result = updateCategorySchema.parse({
+      id: "cat-food",
+      name: "อาหารนอกบ้าน",
+    });
+    expect(result.id).toBe("cat-food");
+    expect(result.name).toBe("อาหารนอกบ้าน");
   });
 });
 

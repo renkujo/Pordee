@@ -50,6 +50,39 @@ export const mockRepo: PordeeRepo = {
     return [...store.categories];
   },
 
+  async createCategory(input) {
+    const category: Category = {
+      id: randomUUID(),
+      ...input,
+    };
+    store.categories.push(category);
+    return category;
+  },
+
+  async updateCategory(id, input) {
+    const idx = store.categories.findIndex((c) => c.id === id);
+    if (idx === -1) return null;
+    const existing = store.categories[idx];
+    const next: Category = {
+      ...existing,
+      name: input.name,
+    };
+    store.categories[idx] = next;
+    return next;
+  },
+
+  async deleteCategory(id) {
+    if (store.transactions.some((t) => t.categoryId === id)) return false;
+    const idx = store.categories.findIndex((c) => c.id === id);
+    if (idx === -1) return false;
+    store.categories.splice(idx, 1);
+    return true;
+  },
+
+  async countTransactionsByCategory(categoryId) {
+    return store.transactions.filter((t) => t.categoryId === categoryId).length;
+  },
+
   async listTransactions(opts = {}) {
     return store.transactions
       .filter((t) => inRange(t.occurredAt, opts.from, opts.to))

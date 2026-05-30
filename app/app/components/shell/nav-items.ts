@@ -55,3 +55,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Settings,
   },
 ];
+
+const MOBILE_PRIMARY_PATHS = new Set(["/", "/add", "/wallet", "/history"]);
+
+export const MOBILE_PRIMARY_NAV_ITEMS = NAV_ITEMS.filter(({ to }) =>
+  MOBILE_PRIMARY_PATHS.has(to)
+);
+
+export const MOBILE_MORE_NAV_ITEMS = NAV_ITEMS.filter(
+  ({ to }) => !MOBILE_PRIMARY_PATHS.has(to)
+);

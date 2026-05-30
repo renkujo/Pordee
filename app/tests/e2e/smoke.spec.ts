@@ -30,3 +30,27 @@ test("desktop nav reaches /add, /history, /goals, /settings", async ({
   await page.getByRole("link", { name: "ตั้งค่า" }).first().click();
   await expect(page).toHaveURL(/\/settings$/);
 });
+
+test("mobile bottom nav opens more drawer for secondary pages", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const bottomNav = page.getByRole("navigation", {
+    name: "เมนูหลักบนมือถือ",
+  });
+  await expect(bottomNav).toBeVisible();
+  await expect(page.getByRole("button", { name: "เพิ่มเติม" })).toBeVisible();
+  await expect(bottomNav.getByRole("link", { name: "เป้าหมาย" })).toHaveCount(
+    0
+  );
+
+  await page.getByRole("button", { name: "เพิ่มเติม" }).click();
+
+  const moreNav = page.getByRole("navigation", { name: "เมนูเพิ่มเติม" });
+  await expect(moreNav.getByRole("link", { name: /เป้าหมาย/ })).toBeVisible();
+  await moreNav.getByRole("link", { name: /ตั้งค่า/ }).click();
+
+  await expect(page).toHaveURL(/\/settings$/);
+});

@@ -8,9 +8,19 @@ interface PordeeStore {
   contributions: unknown[];
 }
 
+const seedCategories = [
+  { id: "cat-food", name: "อาหาร", kind: "expense" },
+  { id: "cat-transport", name: "เดินทาง", kind: "expense" },
+  { id: "cat-bills", name: "บิล", kind: "expense" },
+  { id: "cat-salary", name: "เงินเดือน", kind: "income" },
+  { id: "cat-side", name: "งานเสริม", kind: "income" },
+];
+
 beforeEach(() => {
   const store = (globalThis as unknown as { __pordeeStore: PordeeStore })
     .__pordeeStore;
+  store.categories.length = 0;
+  store.categories.push(...seedCategories.map((category) => ({ ...category })));
   store.transactions.length = 0;
   store.goals.length = 0;
   store.contributions.length = 0;
@@ -28,6 +38,43 @@ describe("mockRepo seed", () => {
       "cat-transport",
     ]);
     expect(cats.find((c) => c.id === "cat-salary")?.kind).toBe("income");
+  });
+});
+
+describe("mockRepo categories", () => {
+  it("creates, updates, and deletes an unused category", async () => {
+    const created = await mockRepo.createCategory({
+      name: "ของใช้บ้าน",
+      kind: "expense",
+    });
+    expect(created.id).toBeTruthy();
+
+    const updated = await mockRepo.updateCategory(created.id, {
+      name: "ของใช้ในบ้าน",
+    });
+    expect(updated?.name).toBe("ของใช้ในบ้าน");
+
+    expect(await mockRepo.deleteCategory(created.id)).toBe(true);
+    expect(
+      (await mockRepo.listCategories()).some((c) => c.id === created.id)
+    ).toBe(false);
+  });
+
+  it("does not delete a category used by transactions", async () => {
+    await mockRepo.createTransaction({
+      kind: "expense",
+      title: "กาแฟ",
+      amount: 55,
+      categoryId: "cat-food",
+      note: null,
+      occurredAt: "2026-05-01T03:00:00.000Z",
+    });
+
+    expect(await mockRepo.countTransactionsByCategory("cat-food")).toBe(1);
+    expect(await mockRepo.deleteCategory("cat-food")).toBe(false);
+    expect(
+      (await mockRepo.listCategories()).some((c) => c.id === "cat-food")
+    ).toBe(true);
   });
 });
 
