@@ -6,6 +6,7 @@ interface PordeeLogoProps {
   withWordmark?: boolean;
   variant?: LogoVariant;
   className?: string;
+  wordmarkClassName?: string;
 }
 
 export function PordeeLogo({
@@ -13,6 +14,7 @@ export function PordeeLogo({
   withWordmark = true,
   variant = "light",
   className,
+  wordmarkClassName,
 }: PordeeLogoProps) {
   return (
     <span
@@ -24,7 +26,14 @@ export function PordeeLogo({
     >
       <PordeeLogoMark size={size} variant={variant} withTile />
       {withWordmark && (
-        <span className="text-lg font-semibold tracking-tight">พอดี</span>
+        <span
+          className={cn(
+            "text-lg font-semibold tracking-tight",
+            wordmarkClassName
+          )}
+        >
+          พอดี
+        </span>
       )}
     </span>
   );

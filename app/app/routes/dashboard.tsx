@@ -1,13 +1,15 @@
-import { Link, useLoaderData } from "react-router";
+import { Link, useLoaderData, useSearchParams } from "react-router";
 import type { Route } from "./+types/dashboard";
 import { ArrowRight, ListChecks, Plus, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
+import { DatePicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
 import { fmtBaht, fmtSignedBaht } from "~/lib/format/baht";
 import { getMonthRange } from "~/lib/date/month-range";
+import { parseDayValue, todayDayValue } from "~/lib/date/day-value";
 import { cn } from "~/lib/cn";
 
 export function meta(_: Route.MetaArgs) {
@@ -17,8 +19,10 @@ export function meta(_: Route.MetaArgs) {
   ];
 }
 
-export async function loader() {
-  const now = new Date();
+export async function loader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  const selectedDay = parseDayValue(url.searchParams.get("date"));
+  const now = selectedDay ?? new Date();
   const { from, to } = getMonthRange(now);
   const [monthTx, categories, goals] = await Promise.all([
     repo.listTransactions({ from, to }),
@@ -58,8 +62,14 @@ export async function loader() {
     }))
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 4);
+  const today = new Date();
+  const isCurrentMonth =
+    now.getFullYear() === today.getFullYear() &&
+    now.getMonth() === today.getMonth();
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const daysLeft = Math.max(1, monthEnd.getDate() - now.getDate() + 1);
+  const daysLeft = isCurrentMonth
+    ? Math.max(1, monthEnd.getDate() - today.getDate() + 1)
+    : 0;
   const balance = income - expense;
 
   return {
@@ -67,11 +77,14 @@ export async function loader() {
       month: "long",
       year: "numeric",
     }),
+    selectedDay: todayDayValue(now),
+    isCurrentMonth,
     income,
     expense,
     balance,
     daysLeft,
-    dailySafe: income > 0 ? Math.floor(balance / daysLeft) : null,
+    dailySafe:
+      isCurrentMonth && income > 0 ? Math.floor(balance / daysLeft) : null,
     recent: monthTx.slice(0, 5),
     goals: goals.slice(0, 3),
     categoryNameById,
@@ -87,6 +100,8 @@ const fmtDate = new Intl.DateTimeFormat("th-TH", {
 export default function Dashboard() {
   const {
     monthLabel,
+    selectedDay,
+    isCurrentMonth,
     income,
     expense,
     balance,
@@ -97,23 +112,47 @@ export default function Dashboard() {
     categoryNameById,
     categorySpend,
   } = useLoaderData<typeof loader>();
+  const [, setSearchParams] = useSearchParams();
 
   const hasAnyData = income > 0 || expense > 0;
   const topCategory = categorySpend[0] ?? null;
+
+  function handleMonthChange(day: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("date", day);
+        return next;
+      },
+      { preventScrollReset: true }
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-muted text-sm">ภาพรวมเดือนนี้</p>
+          <p className="text-muted text-sm">
+            {isCurrentMonth ? "ภาพรวมเดือนนี้" : "ภาพรวมย้อนหลัง"}
+          </p>
           <h1 className="text-ink text-2xl font-semibold">{monthLabel}</h1>
         </div>
-        <Button asChild size="sm" className="w-fit lg:hidden">
-          <Link to="/add">
-            <Plus className="h-4 w-4" />
-            บันทึก
-          </Link>
-        </Button>
+        <div className="flex items-end gap-2">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-muted text-xs">เลือกเดือน</span>
+            <DatePicker
+              value={selectedDay}
+              max={todayDayValue()}
+              onChange={handleMonthChange}
+            />
+          </div>
+          <Button asChild size="sm" className="lg:hidden">
+            <Link to="/add">
+              <Plus className="h-4 w-4" />
+              บันทึก
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <section
@@ -174,10 +213,14 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-ink text-sm font-semibold">
-                      เหลืออีก {daysLeft} วันในเดือนนี้
+                      {isCurrentMonth
+                        ? `เหลืออีก ${daysLeft} วันในเดือนนี้`
+                        : `สรุปเดือน ${monthLabel}`}
                     </p>
                     <p className="text-muted mt-1 text-sm leading-6">
-                      {getDailySafeCopy(dailySafe)}
+                      {isCurrentMonth
+                        ? getDailySafeCopy(dailySafe)
+                        : `เดือนนี้คงเหลือ ${fmtBaht(balance)} จากรายรับ ${fmtBaht(income)}`}
                     </p>
                   </div>
                   <Button asChild className="w-full sm:w-auto">

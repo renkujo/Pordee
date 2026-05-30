@@ -28,11 +28,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { DatePicker } from "~/components/ui/date-picker";
 import { cn } from "~/lib/cn";
 import { repo } from "~/lib/db";
 import type { Category } from "~/lib/db";
 import { updateTransactionSchema } from "~/lib/validators/transaction";
 import { fmtSignedBaht } from "~/lib/format/baht";
+import {
+  dayValueToIso,
+  formatDayLabel,
+  isoToDayValue,
+  todayDayValue,
+} from "~/lib/date/day-value";
 
 const NO_CATEGORY_VALUE = "__none__";
 
@@ -79,6 +86,7 @@ export async function action({
   }
 
   const categoryValue = form.get("categoryId");
+  const rawOccurredAt = form.get("occurredAt");
   const raw = {
     kind: form.get("kind"),
     title: form.get("title"),
@@ -88,7 +96,9 @@ export async function action({
         ? categoryValue
         : null,
     note: form.get("note") || null,
-    occurredAt: form.get("occurredAt"),
+    occurredAt:
+      dayValueToIso(typeof rawOccurredAt === "string" ? rawOccurredAt : null) ??
+      rawOccurredAt,
   };
 
   const parsed = updateTransactionSchema.safeParse(raw);
@@ -116,6 +126,9 @@ export default function EditTransaction() {
 
   const [kind, setKind] = useState<"expense" | "income">(tx.kind);
   const [categoryId, setCategoryId] = useState<string>(tx.categoryId ?? "");
+  const [occurredDate, setOccurredDate] = useState(
+    isoToDayValue(tx.occurredAt)
+  );
 
   const filteredCategories = useMemo(
     () => categories.filter((c: Category) => c.kind === kind),
@@ -125,7 +138,8 @@ export default function EditTransaction() {
     categories.find((c: Category) => c.id === categoryId)?.name ??
     "ไม่ระบุหมวด";
   const createdDate = dateFormatter.format(new Date(tx.createdAt));
-  const occurredDate = dateFormatter.format(new Date(tx.occurredAt));
+  const occurredLabel = formatDayLabel(occurredDate);
+  const originalOccurredLabel = dateFormatter.format(new Date(tx.occurredAt));
 
   return (
     <div className="flex flex-col gap-5">
@@ -199,7 +213,7 @@ export default function EditTransaction() {
                 </div>
 
                 <input type="hidden" name="kind" value={kind} />
-                <input type="hidden" name="occurredAt" value={tx.occurredAt} />
+                <input type="hidden" name="occurredAt" value={occurredDate} />
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="flex flex-col gap-2 sm:col-span-2">
@@ -264,6 +278,16 @@ export default function EditTransaction() {
                     </Select>
                   </div>
 
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="occurredAt">วันที่ของรายการ</Label>
+                    <DatePicker
+                      id="occurredAt"
+                      value={occurredDate}
+                      max={todayDayValue()}
+                      onChange={setOccurredDate}
+                    />
+                  </div>
+
                   <div className="flex flex-col gap-2 sm:col-span-2">
                     <Label htmlFor="note">บันทึก (ไม่บังคับ)</Label>
                     <Input
@@ -277,7 +301,7 @@ export default function EditTransaction() {
 
                 <div className="border-line flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-muted text-sm leading-6">
-                    รายการเกิดวันที่ {occurredDate}
+                    บันทึกเป็นวันที่ {occurredLabel}
                   </p>
                   <Button type="submit" className="w-full sm:w-auto">
                     <Save className="h-4 w-4" />
@@ -319,7 +343,10 @@ export default function EditTransaction() {
 
               <dl className="grid gap-3 text-sm">
                 <InfoRow label="หมวดที่เลือก" value={selectedCategory} />
-                <InfoRow label="วันที่เกิดรายการ" value={occurredDate} />
+                <InfoRow
+                  label="วันที่เกิดรายการ"
+                  value={originalOccurredLabel}
+                />
                 <InfoRow label="บันทึกเข้าระบบ" value={createdDate} />
               </dl>
             </CardContent>

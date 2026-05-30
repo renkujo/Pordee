@@ -14,9 +14,11 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
+import { DatePicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
 import type { Transaction } from "~/lib/db";
 import { fmtSignedBaht } from "~/lib/format/baht";
+import { isoToDayValue, todayDayValue } from "~/lib/date/day-value";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,14 +79,24 @@ const fmtDate = new Intl.DateTimeFormat("th-TH", {
 export default function History() {
   const { transactions, categoryNameById } = useLoaderData<typeof loader>();
   const [searchQuery, setSearchQuery] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const normalizedSearchQuery = normalizeSearch(searchQuery);
-  const filteredTransactions = normalizedSearchQuery
-    ? transactions.filter((transaction) =>
-        getTransactionSearchText(transaction, categoryNameById).includes(
-          normalizedSearchQuery
-        )
+  const hasDateRange = fromDate !== "" || toDate !== "";
+  const filteredTransactions = transactions.filter((transaction) => {
+    if (
+      normalizedSearchQuery &&
+      !getTransactionSearchText(transaction, categoryNameById).includes(
+        normalizedSearchQuery
       )
-    : transactions;
+    ) {
+      return false;
+    }
+    const day = isoToDayValue(transaction.occurredAt);
+    if (fromDate && day < fromDate) return false;
+    if (toDate && day > toDate) return false;
+    return true;
+  });
   const latest = transactions[0];
   const totals = transactions.reduce(
     (sum, transaction) => {
@@ -99,6 +111,7 @@ export default function History() {
   );
   const net = totals.income - totals.expense;
   const hasSearch = normalizedSearchQuery.length > 0;
+  const hasFilter = hasSearch || hasDateRange;
 
   return (
     <div className="flex flex-col gap-5">
@@ -146,7 +159,7 @@ export default function History() {
           <div className="flex items-center justify-between gap-3">
             <CardTitle>รายการทั้งหมด</CardTitle>
             <span className="text-muted shrink-0 text-sm">
-              {hasSearch
+              {hasFilter
                 ? `${filteredTransactions.length} / ${transactions.length} รายการ`
                 : `${transactions.length} รายการ`}
             </span>
@@ -178,6 +191,42 @@ export default function History() {
               ) : null}
             </div>
           ) : null}
+          {transactions.length > 0 ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+              <div className="flex flex-1 flex-col gap-1.5">
+                <span className="text-muted text-xs">ตั้งแต่วันที่</span>
+                <DatePicker
+                  value={fromDate}
+                  max={toDate || todayDayValue()}
+                  onChange={setFromDate}
+                  placeholder="ไม่จำกัด"
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-1.5">
+                <span className="text-muted text-xs">ถึงวันที่</span>
+                <DatePicker
+                  value={toDate}
+                  max={todayDayValue()}
+                  onChange={setToDate}
+                  placeholder="ไม่จำกัด"
+                />
+              </div>
+              {hasDateRange ? (
+                <Button
+                  className="rounded-sm sm:w-auto"
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                  type="button"
+                  variant="secondary"
+                >
+                  <X className="h-4 w-4" />
+                  ล้างช่วงวันที่
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </CardHeader>
         <CardContent className="p-0">
           {transactions.length === 0 ? (
@@ -192,8 +241,8 @@ export default function History() {
             <div className="p-5">
               <MascotState
                 mood="thinking"
-                title="ไม่พบรายการที่ค้นหา"
-                description="ลองใช้คำที่สั้นลง เช่น ชื่อร้าน หมวด หรือจำนวนเงิน"
+                title="ไม่พบรายการที่ตรงกับตัวกรอง"
+                description="ลองปรับคำค้นหา หรือขยายช่วงวันที่ให้กว้างขึ้น"
               />
             </div>
           ) : (

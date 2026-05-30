@@ -10,15 +10,13 @@ const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter(({ to }) => to !== "/add");
 export function Sidebar() {
   return (
     <aside className="border-line bg-surface sticky top-0 hidden h-dvh w-72 shrink-0 overflow-y-auto border-r lg:flex lg:flex-col">
-      <div className="border-line border-b px-5 py-5">
+      <div className="border-line border-b px-5 py-7">
         <NavLink
           to="/"
-          className="focus-visible:ring-coral/40 rounded-sm outline-none focus-visible:ring-2"
+          className="focus-visible:ring-coral/40 flex flex-col items-center gap-2 rounded-sm text-center outline-none focus-visible:ring-2"
         >
-          <PordeeLogo size={36} />
-          <span className="text-muted mt-1 block text-sm">
-            เงินพอดี ชีวิตเบาขึ้น
-          </span>
+          <PordeeLogo size={52} className="gap-3" wordmarkClassName="text-2xl" />
+          <span className="text-muted text-sm">เงินพอดี ชีวิตเบาขึ้น</span>
         </NavLink>
       </div>
 

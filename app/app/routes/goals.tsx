@@ -7,14 +7,17 @@ import {
 } from "react-router";
 import type { Route } from "./+types/goals";
 import { PiggyBank, PlusCircle, Target, WalletCards } from "lucide-react";
+import { useState } from "react";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { DatePicker } from "~/components/ui/date-picker";
 import type { Goal } from "~/lib/db";
 import { repo } from "~/lib/db";
 import { cn } from "~/lib/cn";
 import { fmtBaht } from "~/lib/format/baht";
+import { dayValueToIso, todayDayValue } from "~/lib/date/day-value";
 import { addContributionSchema, createGoalSchema } from "~/lib/validators/goal";
 
 export function meta(_: Route.MetaArgs) {
@@ -59,10 +62,15 @@ export async function action({
   const intent = form.get("intent");
 
   if (intent === "contribute") {
+    const rawOccurredAt = form.get("occurredAt");
+    const occurredAt = dayValueToIso(
+      typeof rawOccurredAt === "string" ? rawOccurredAt : null
+    );
     const raw = {
       goalId: form.get("goalId"),
       amount: form.get("amount"),
       note: form.get("note") ? String(form.get("note")) : null,
+      ...(occurredAt ? { occurredAt } : {}),
     };
 
     const parsed = addContributionSchema.safeParse(raw);
@@ -360,6 +368,7 @@ function GoalItem({
   const isComplete = pct >= 100;
   const hasContributionError =
     actionData?.intent === "contribute" && actionData.values.goalId === goal.id;
+  const [occurredDate, setOccurredDate] = useState(todayDayValue());
 
   return (
     <li className="border-line rounded-md border">
@@ -411,6 +420,7 @@ function GoalItem({
         >
           <input type="hidden" name="intent" value="contribute" />
           <input type="hidden" name="goalId" value={goal.id} />
+          <input type="hidden" name="occurredAt" value={occurredDate} />
           <div className="flex flex-col gap-2">
             <Label htmlFor={`goal-${goal.id}-amount`}>เติมเงินเข้าเป้า</Label>
             <Input
@@ -450,6 +460,15 @@ function GoalItem({
                 {actionData.errors.note}
               </p>
             )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`goal-${goal.id}-date`}>วันที่เติมเงิน</Label>
+            <DatePicker
+              id={`goal-${goal.id}-date`}
+              value={occurredDate}
+              max={todayDayValue()}
+              onChange={setOccurredDate}
+            />
           </div>
           <Button type="submit" variant="teal" className="w-full">
             บันทึกเงินเข้าเป้า

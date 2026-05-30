@@ -19,8 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { DatePicker } from "~/components/ui/date-picker";
 import { MascotTip } from "~/components/brand/mascot-state";
 import { cn } from "~/lib/cn";
+import {
+  dayValueToIso,
+  formatDayLabel,
+  todayDayValue,
+} from "~/lib/date/day-value";
 import { repo } from "~/lib/db";
 import type { Category, TransactionKind } from "~/lib/db";
 import { createTransactionSchema } from "~/lib/validators/transaction";
@@ -77,6 +83,11 @@ export async function action({
     errors.discountAmount = "ส่วนลดต้องน้อยกว่าจำนวนเงิน";
   }
 
+  const rawDate = form.get("occurredAt");
+  const occurredAt = dayValueToIso(
+    typeof rawDate === "string" ? rawDate : null
+  );
+
   const raw = {
     kind: form.get("kind"),
     title: form.get("title"),
@@ -89,6 +100,7 @@ export async function action({
         ? categoryId
         : null,
     note: form.get("note") || null,
+    ...(occurredAt ? { occurredAt } : {}),
   };
 
   const parsed = createTransactionSchema.safeParse(raw);
@@ -111,6 +123,7 @@ export async function action({
         discountAmount: String(rawDiscountAmount ?? ""),
         categoryId: String(categoryId ?? NO_CATEGORY_VALUE),
         note: String(form.get("note") ?? ""),
+        occurredAt: typeof rawDate === "string" ? rawDate : "",
       },
     };
   }
@@ -146,6 +159,9 @@ export default function Add() {
     null
   );
   const [categoryOverride, setCategoryOverride] = useState<string | null>(null);
+  const [occurredDate, setOccurredDate] = useState(
+    actionData?.values?.occurredAt || todayDayValue()
+  );
 
   const effectiveKind = kindOverride ?? preview.kind;
   const effectiveAmount =
@@ -293,6 +309,7 @@ export default function Add() {
             <ParsedPreview
               amount={effectiveAmount}
               categoryName={selectedCategoryName}
+              dateLabel={formatDayLabel(occurredDate)}
               discountAmount={
                 effectiveKind === "expense" && discountNumber > 0
                   ? discountNumber
@@ -444,6 +461,21 @@ export default function Add() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-2 sm:max-w-xs">
+              <Label htmlFor="occurredAt">วันที่ของรายการ</Label>
+              <DatePicker
+                id="occurredAt"
+                value={occurredDate}
+                max={todayDayValue()}
+                onChange={setOccurredDate}
+                aria-describedby="occurred-hint"
+              />
+              <input type="hidden" name="occurredAt" value={occurredDate} />
+              <p id="occurred-hint" className="text-muted text-sm">
+                ค่าเริ่มต้นเป็นวันนี้ เลือกย้อนหลังได้ถ้าบันทึกรายการที่ผ่านมา
+              </p>
+            </div>
+
             <div className="border-line bg-sky/35 flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -511,6 +543,7 @@ function StepNumber({ children }: { children: React.ReactNode }) {
 function ParsedPreview({
   amount,
   categoryName,
+  dateLabel,
   discountAmount,
   kind,
   netAmount,
@@ -518,6 +551,7 @@ function ParsedPreview({
 }: {
   amount: string;
   categoryName: string;
+  dateLabel: string;
   discountAmount: number;
   kind: TransactionKind;
   netAmount: number;
@@ -554,6 +588,7 @@ function ParsedPreview({
           ) : null}
           <PreviewChip label="รายการ">{title}</PreviewChip>
           <PreviewChip label="หมวด">{categoryName}</PreviewChip>
+          <PreviewChip label="วันที่">{dateLabel}</PreviewChip>
         </div>
       </div>
     </div>
