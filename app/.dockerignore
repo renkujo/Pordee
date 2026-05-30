@@ -2,6 +2,10 @@
 node_modules
 build
 .react-router
+.data
+coverage
+playwright-report
+test-results
 .env
 .env.*
 !.env.example

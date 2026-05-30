@@ -18,8 +18,11 @@ RUN pnpm install --frozen-lockfile --prod
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV PORT=3000
+ENV PORDEE_AUTH_DB_PATH=/app/.data/auth.sqlite
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY package.json ./
+VOLUME ["/app/.data"]
 EXPOSE 3000
 CMD ["node", "node_modules/@react-router/serve/dist/cli.js", "./build/server/index.js"]

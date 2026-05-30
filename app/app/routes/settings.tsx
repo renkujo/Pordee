@@ -1,5 +1,5 @@
 import { Form, redirect, useActionData, useLoaderData } from "react-router";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { LogOut, Plus, Save, Trash2 } from "lucide-react";
 import type { Route } from "./+types/settings";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -207,8 +207,16 @@ export default function Settings() {
         <CardHeader>
           <CardTitle>บัญชี</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted text-sm">โหมดผู้ใช้คนเดียว (Phase 0)</p>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-muted text-sm">
+            เข้าสู่ระบบแล้ว ข้อมูลการเงินจะผูกกับบัญชีในเฟสฐานข้อมูลถัดไป
+          </p>
+          <Form method="post" action="/logout">
+            <Button type="submit" variant="secondary">
+              <LogOut className="h-4 w-4" />
+              ออกจากระบบ
+            </Button>
+          </Form>
         </CardContent>
       </Card>
     </div>

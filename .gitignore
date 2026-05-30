@@ -23,6 +23,10 @@ test-results/
 .env.local
 .env.*.local
 
+# Local app data
+.data/
+app/.data/
+
 # Editor
 .vscode/
 .idea/

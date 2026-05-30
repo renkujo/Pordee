@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("quick-parse + submit lands on /history with the new row", async ({
   page,

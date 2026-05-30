@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("create goal shows it on goals and dashboard", async ({ page }) => {
   const unique = `เป้าหมาย-${Date.now()}`;

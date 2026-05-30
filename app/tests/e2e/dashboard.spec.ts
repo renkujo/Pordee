@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("dashboard reflects month income/expense after adding rows", async ({
   page,

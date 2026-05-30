@@ -1,13 +1,14 @@
-import { NavLink } from "react-router";
-import { PlusCircle } from "lucide-react";
+import { Form, NavLink } from "react-router";
+import { LogOut, PlusCircle } from "lucide-react";
 import { NAV_ITEMS } from "./nav-items";
 import { PordeeLogo } from "~/components/brand/logo";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/cn";
+import type { AuthUser } from "~/lib/auth.server";
 
 const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter(({ to }) => to !== "/add");
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: AuthUser }) {
   return (
     <aside className="border-line bg-surface sticky top-0 hidden h-dvh w-72 shrink-0 overflow-y-auto border-r lg:flex lg:flex-col">
       <div className="border-line border-b px-5 py-7">
@@ -15,7 +16,11 @@ export function Sidebar() {
           to="/"
           className="focus-visible:ring-coral/40 flex flex-col items-center gap-2 rounded-sm text-center outline-none focus-visible:ring-2"
         >
-          <PordeeLogo size={52} className="gap-3" wordmarkClassName="text-2xl" />
+          <PordeeLogo
+            size={52}
+            className="gap-3"
+            wordmarkClassName="text-2xl"
+          />
           <span className="text-muted text-sm">เงินพอดี ชีวิตเบาขึ้น</span>
         </NavLink>
       </div>
@@ -100,11 +105,20 @@ export function Sidebar() {
             />
             <div className="min-w-0">
               <p className="text-ink text-sm font-semibold">พอดีช่วยตั้งหลัก</p>
-              <p className="text-muted mt-1 text-sm leading-6">
-                เริ่มจากบันทึกรายการวันนี้ แล้วค่อยดูภาพรวมเงินเข้าออก
-              </p>
+              <p className="text-muted mt-1 text-sm leading-6">{user.email}</p>
             </div>
           </div>
+          <Form method="post" action="/logout" className="mt-3">
+            <Button
+              type="submit"
+              variant="secondary"
+              size="sm"
+              className="w-full justify-center"
+            >
+              <LogOut className="h-4 w-4" />
+              ออกจากระบบ
+            </Button>
+          </Form>
         </div>
       </div>
     </aside>

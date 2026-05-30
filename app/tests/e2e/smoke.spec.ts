@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("home loads and shows the Pordee shell", async ({ page }) => {
   await page.goto("/");

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("edit transaction updates the row in history", async ({ page }) => {
   const unique = `แก้ทดสอบ-${Date.now()}`;
