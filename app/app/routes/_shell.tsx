@@ -10,7 +10,7 @@ export default function Shell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileHeader />
         <main className="flex-1 pb-20 lg:pb-0">
-          <div className="mx-auto w-full max-w-xl px-4 py-4 lg:max-w-6xl lg:px-8 lg:py-8 xl:max-w-7xl">
+          <div className="mx-auto w-full max-w-xl px-4 py-4 md:max-w-3xl md:px-6 lg:max-w-6xl lg:px-8 lg:py-8 xl:max-w-7xl">
             <Outlet />
           </div>
         </main>

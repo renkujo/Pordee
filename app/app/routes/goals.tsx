@@ -248,7 +248,7 @@ export default function Goals() {
           : "เลือกเรื่องเดียวที่อยากกันเงินไว้ก่อน จำนวนไม่ต้องใหญ่ แค่ทำให้เริ่มเก็บง่ายขึ้น"}
       </MascotTip>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:items-start">
         <section
           aria-label="เป้าหมายที่กำลังเก็บ"
           className="border-line bg-surface rounded-lg border"
@@ -284,7 +284,7 @@ export default function Goals() {
           </div>
         </section>
 
-        <aside className="border-line bg-surface rounded-lg border lg:sticky lg:top-5">
+        <aside className="border-line bg-surface rounded-lg border 2xl:sticky 2xl:top-5">
           <div className="border-line border-b px-4 py-3 sm:px-5">
             <h2 className="text-ink text-base font-semibold">เพิ่มเป้าหมาย</h2>
             <p className="text-muted text-sm">
@@ -372,7 +372,7 @@ function GoalItem({
 
   return (
     <li className="border-line rounded-md border">
-      <article className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+      <article className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_17rem] md:items-end 2xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
