@@ -4,6 +4,7 @@ import { ArrowRight, ListChecks, Plus, Target } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { MascotTip } from "~/components/brand/mascot-state";
 import { repo } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
 import { getMonthRange } from "~/lib/date/month-range";
 import { fmtBaht } from "~/lib/format/baht";
 import { cn } from "~/lib/cn";
@@ -25,14 +26,15 @@ interface PocketCta {
   label: string;
 }
 
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
   const now = new Date();
   const { from, to } = getMonthRange(now);
   const [allTx, monthTx, categories, goals] = await Promise.all([
-    repo.listTransactions(),
-    repo.listTransactions({ from, to }),
-    repo.listCategories(),
-    repo.listGoals(),
+    repo.listTransactions(user.id),
+    repo.listTransactions(user.id, { from, to }),
+    repo.listCategories(user.id),
+    repo.listGoals(user.id),
   ]);
 
   let totalIncome = 0;

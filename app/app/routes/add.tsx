@@ -29,6 +29,7 @@ import {
 } from "~/lib/date/day-value";
 import { repo } from "~/lib/db";
 import type { Category, TransactionKind } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
 import { createTransactionSchema } from "~/lib/validators/transaction";
 import { parseQuickEntry } from "~/lib/parse/quick-entry";
 
@@ -38,8 +39,9 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: "พอดี — บันทึกรายการ" }];
 }
 
-export async function loader() {
-  const categories = await repo.listCategories();
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
+  const categories = await repo.listCategories(user.id);
   return { categories };
 }
 
@@ -57,6 +59,7 @@ type ActionResult =
 export async function action({
   request,
 }: Route.ActionArgs): Promise<ActionResult | Response> {
+  const user = await requireUser(request);
   const form = await request.formData();
   const categoryId = form.get("categoryId");
   const rawAmount = form.get("amount");
@@ -128,7 +131,7 @@ export async function action({
     };
   }
 
-  await repo.createTransaction({
+  await repo.createTransaction(user.id, {
     kind: parsed.data.kind,
     title: parsed.data.title,
     amount: parsed.data.amount,

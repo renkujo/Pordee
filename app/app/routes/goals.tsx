@@ -15,6 +15,7 @@ import { Label } from "~/components/ui/label";
 import { DatePicker } from "~/components/ui/date-picker";
 import type { Goal } from "~/lib/db";
 import { repo } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
 import { cn } from "~/lib/cn";
 import { fmtBaht } from "~/lib/format/baht";
 import { dayValueToIso, todayDayValue } from "~/lib/date/day-value";
@@ -24,8 +25,9 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: "พอดี — เป้าหมาย" }];
 }
 
-export async function loader() {
-  const goals = await repo.listGoals();
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
+  const goals = await repo.listGoals(user.id);
   return { goals };
 }
 
@@ -58,6 +60,7 @@ type ActionResult =
 export async function action({
   request,
 }: Route.ActionArgs): Promise<ActionResult | Response> {
+  const user = await requireUser(request);
   const form = await request.formData();
   const intent = form.get("intent");
 
@@ -100,7 +103,7 @@ export async function action({
       };
     }
 
-    const goals = await repo.listGoals();
+    const goals = await repo.listGoals(user.id);
     if (!goals.some((goal) => goal.id === parsed.data.goalId)) {
       return {
         ok: false,
@@ -114,7 +117,7 @@ export async function action({
       };
     }
 
-    await repo.addContribution(parsed.data);
+    await repo.addContribution(user.id, parsed.data);
     return redirect("/goals");
   }
 
@@ -147,7 +150,7 @@ export async function action({
     };
   }
 
-  await repo.createGoal(parsed.data);
+  await repo.createGoal(user.id, parsed.data);
   return redirect("/goals");
 }
 
