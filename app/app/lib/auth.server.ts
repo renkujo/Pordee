@@ -1,21 +1,11 @@
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { redirect } from "react-router";
 import { betterAuth } from "better-auth";
 import { APIError, isAPIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
-
-const authDbPath =
-  process.env.PORDEE_AUTH_DB_PATH ??
-  resolve(process.cwd(), ".data/auth.sqlite");
-
-mkdirSync(dirname(authDbPath), { recursive: true });
-
-const database = new DatabaseSync(authDbPath);
+import { pool } from "~/lib/db/client";
 
 export const auth = betterAuth({
-  database,
+  database: pool,
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:5173",
   secret:
     process.env.BETTER_AUTH_SECRET ??
