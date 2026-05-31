@@ -8,6 +8,7 @@ import type {
 } from "./types";
 
 interface Store {
+  seededUsers: Set<string>;
   categories: Category[];
   transactions: Transaction[];
   goals: Goal[];
@@ -18,22 +19,25 @@ declare global {
   var __pordeeStore: Store | undefined;
 }
 
-function seed(): Store {
+const DEFAULT_CATEGORIES: Array<Pick<Category, "name" | "kind">> = [
+  { name: "อาหาร", kind: "expense" },
+  { name: "เดินทาง", kind: "expense" },
+  { name: "บิล", kind: "expense" },
+  { name: "เงินเดือน", kind: "income" },
+  { name: "งานเสริม", kind: "income" },
+];
+
+function emptyStore(): Store {
   return {
-    categories: [
-      { id: "cat-food", name: "อาหาร", kind: "expense" },
-      { id: "cat-transport", name: "เดินทาง", kind: "expense" },
-      { id: "cat-bills", name: "บิล", kind: "expense" },
-      { id: "cat-salary", name: "เงินเดือน", kind: "income" },
-      { id: "cat-side", name: "งานเสริม", kind: "income" },
-    ],
+    seededUsers: new Set<string>(),
+    categories: [],
     transactions: [],
     goals: [],
     contributions: [],
   };
 }
 
-const store: Store = (globalThis.__pordeeStore ??= seed());
+const store: Store = (globalThis.__pordeeStore ??= emptyStore());
 
 function nowIso() {
   return new Date().toISOString();
@@ -45,61 +49,89 @@ function inRange(occurredAt: string, from?: string, to?: string) {
   return true;
 }
 
+// Seed the default category set the first time we see a user.
+function ensureSeeded(userId: string) {
+  if (store.seededUsers.has(userId)) return;
+  store.seededUsers.add(userId);
+  for (const def of DEFAULT_CATEGORIES) {
+    store.categories.push({ id: randomUUID(), userId, ...def });
+  }
+}
+
 export const mockRepo: PordeeRepo = {
-  async listCategories() {
-    return [...store.categories];
+  async listCategories(userId) {
+    ensureSeeded(userId);
+    return store.categories.filter((c) => c.userId === userId);
   },
 
-  async createCategory(input) {
-    const category: Category = {
-      id: randomUUID(),
-      ...input,
-    };
+  async createCategory(userId, input) {
+    ensureSeeded(userId);
+    const category: Category = { id: randomUUID(), userId, ...input };
     store.categories.push(category);
     return category;
   },
 
-  async updateCategory(id, input) {
-    const idx = store.categories.findIndex((c) => c.id === id);
+  async updateCategory(userId, id, input) {
+    const idx = store.categories.findIndex(
+      (c) => c.id === id && c.userId === userId
+    );
     if (idx === -1) return null;
-    const existing = store.categories[idx];
-    const next: Category = {
-      ...existing,
-      name: input.name,
-    };
+    const next: Category = { ...store.categories[idx], name: input.name };
     store.categories[idx] = next;
     return next;
   },
 
-  async deleteCategory(id) {
-    if (store.transactions.some((t) => t.categoryId === id)) return false;
-    const idx = store.categories.findIndex((c) => c.id === id);
+  async deleteCategory(userId, id) {
+    if (
+      store.transactions.some(
+        (t) => t.categoryId === id && t.userId === userId
+      )
+    ) {
+      return false;
+    }
+    const idx = store.categories.findIndex(
+      (c) => c.id === id && c.userId === userId
+    );
     if (idx === -1) return false;
     store.categories.splice(idx, 1);
     return true;
   },
 
-  async countTransactionsByCategory(categoryId) {
-    return store.transactions.filter((t) => t.categoryId === categoryId).length;
+  async countTransactionsByCategory(userId, categoryId) {
+    return store.transactions.filter(
+      (t) => t.categoryId === categoryId && t.userId === userId
+    ).length;
   },
 
-  async listTransactions(opts = {}) {
+  async listTransactions(userId, opts = {}) {
     return store.transactions
+      .filter((t) => t.userId === userId)
       .filter((t) => inRange(t.occurredAt, opts.from, opts.to))
       .filter((t) => (opts.kind ? t.kind === opts.kind : true))
       .filter((t) =>
         opts.categoryId ? t.categoryId === opts.categoryId : true
       )
-      .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+      .sort((a, b) => {
+        if (a.occurredAt !== b.occurredAt) {
+          return a.occurredAt < b.occurredAt ? 1 : -1;
+        }
+        if (a.createdAt !== b.createdAt) {
+          return a.createdAt < b.createdAt ? 1 : -1;
+        }
+        return 0;
+      });
   },
 
-  async getTransaction(id) {
-    return store.transactions.find((t) => t.id === id) ?? null;
+  async getTransaction(userId, id) {
+    return (
+      store.transactions.find((t) => t.id === id && t.userId === userId) ?? null
+    );
   },
 
-  async createTransaction(input) {
+  async createTransaction(userId, input) {
     const tx: Transaction = {
       id: randomUUID(),
+      userId,
       createdAt: nowIso(),
       ...input,
     };
@@ -107,34 +139,40 @@ export const mockRepo: PordeeRepo = {
     return tx;
   },
 
-  async updateTransaction(id, input) {
-    const idx = store.transactions.findIndex((t) => t.id === id);
+  async updateTransaction(userId, id, input) {
+    const idx = store.transactions.findIndex(
+      (t) => t.id === id && t.userId === userId
+    );
     if (idx === -1) return null;
     const existing = store.transactions[idx];
     const next: Transaction = {
       ...existing,
       ...input,
       id: existing.id,
+      userId: existing.userId,
       createdAt: existing.createdAt,
     };
     store.transactions[idx] = next;
     return next;
   },
 
-  async deleteTransaction(id) {
-    const idx = store.transactions.findIndex((t) => t.id === id);
+  async deleteTransaction(userId, id) {
+    const idx = store.transactions.findIndex(
+      (t) => t.id === id && t.userId === userId
+    );
     if (idx === -1) return false;
     store.transactions.splice(idx, 1);
     return true;
   },
 
-  async listGoals() {
-    return [...store.goals];
+  async listGoals(userId) {
+    return store.goals.filter((g) => g.userId === userId);
   },
 
-  async createGoal(input) {
+  async createGoal(userId, input) {
     const goal: Goal = {
       id: randomUUID(),
+      userId,
       createdAt: nowIso(),
       saved: 0,
       ...input,
@@ -143,13 +181,16 @@ export const mockRepo: PordeeRepo = {
     return goal;
   },
 
-  async addContribution(input) {
+  async addContribution(userId, input) {
     const contribution: GoalContribution = {
       id: randomUUID(),
+      userId,
       ...input,
     };
     store.contributions.push(contribution);
-    const goal = store.goals.find((g) => g.id === input.goalId);
+    const goal = store.goals.find(
+      (g) => g.id === input.goalId && g.userId === userId
+    );
     if (goal) {
       goal.saved += input.amount;
     }
