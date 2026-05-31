@@ -28,17 +28,22 @@ The brand should not promise wealth, optimization, or strict discipline. It shou
 
 ## Logo Concept
 
-![Pordee final semi-flat PD logo mark](../assets/logo/pordee-pd-logo-semiflat-v1.png)
+![Pordee final semi-flat PD logo mark](../app/public/logo/pordee-pd-logo.png)
 
 ### Final Logo Direction
 
 The current final visual direction is:
 
-- `assets/logo/pordee-pd-logo-semiflat-v1.png`
+- `app/public/logo/pordee-pd-logo.png`
+- `assets/logo/pordee-option-b-pwa-icon-concept.png`
 
-Use this semi-flat PD mark across brand preview/mockup work. It keeps the coral loop, teal balance smile, and lime milestone dot from the selected PD exploration while removing the earlier inflated glossy/3D treatment.
+Use this compact Option B semi-flat PD mark across brand preview/mockup work.
+It keeps the coral loop, teal balance smile, and lime milestone dot from the
+selected PD exploration while making the mark tighter and more app-icon
+friendly.
 
-This is still a generated PNG reference. Trace/vectorize it before production, app-store, favicon, or trademark-grade use.
+The imagegen PWA icon in `assets/logo/` is the approved source for the refresh.
+The runtime PNG is generated from it by the icon pipeline.
 
 ### Archived Production Candidate Assets
 
@@ -50,13 +55,15 @@ Additional `P + D` monogram directions live in `source/rebrand-source/logo-pd-mo
 
 ![Pordee PD monogram board](../source/rebrand-source/logo-pd-monogram-v1/pordee-pd-monogram-board.svg)
 
-- **PD Option A: Loop Ligature** - selected direction after visual review. This is the leftmost generated concept: readable `P + D`, soft coral movement, teal smile, and lime milestone dot.
-- **PD Option B: Negative Space** - strongest silhouette, but more geometric and less soft.
+- **PD Option A: Loop Ligature** - earlier selected direction: readable `P + D`, soft coral movement, teal smile, and lime milestone dot.
+- **PD Option B: Negative Space** - current selected direction: stronger silhouette, tighter spacing, and more compact app-icon behavior.
 - **PD Option C: Soft Tile** - best bridge between a PD monogram and the approved soft balance-loop language.
 
 ![Pordee selected PD loop direction](../source/rebrand-source/logo-pd-monogram-v1/pordee-pd-selected-left-board.svg)
 
-Recommendation: use the semi-flat PD mark in `assets/logo/pordee-pd-logo-semiflat-v1.png` as the final visual direction. Keep Option A, B, and C only as historical exploration.
+Recommendation: use the compact Option B semi-flat PD mark in
+`app/public/logo/pordee-pd-logo.png` as the final visual direction. Keep Option
+A and C as historical exploration.
 
 ### Wordmark
 
@@ -75,7 +82,7 @@ The mark uses a soft loop plus a small balance path:
 - Lime dot: tiny milestone or spark, never a dominant color.
 - Sky background: calm, friendly, Thai-first app surface.
 
-The original concept SVGs are kept as exploration material. The current final logo visual direction lives in `assets/logo/pordee-pd-logo-semiflat-v1.png`.
+The original concept SVGs are kept as exploration material. The current final logo visual direction lives in `app/public/logo/pordee-pd-logo.png`.
 
 ## Mascot Concept
 
@@ -169,8 +176,9 @@ Friendly and habit-oriented, but it sounds like a product review phrase and is n
 
 - Rebrand direction is approved as `พอดี / Pordee`.
 - Docs source of truth has been updated to make Pordee the current product direction.
-- Final logo visual direction is `assets/logo/pordee-pd-logo-semiflat-v1.png`.
-- Mascot PNG trial assets exist under `assets/mascots/`.
+- Final logo visual direction is `app/public/logo/pordee-pd-logo.png`.
+- Mascot PNG trial assets used by the app exist under
+  `app/public/brand/mascots/`.
 - Historical logo and mascot exploration assets remain under `source/rebrand-source/`.
 - App UI copy has not been changed yet; do that when UI implementation begins.
 - Keep old TangMod assets as historical source material until implementation cleanup.

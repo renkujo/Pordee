@@ -12,7 +12,7 @@ final visual direction is a **semi-flat `P + D` loop monogram** with a teal
 balance smile and a small lime milestone dot, sitting on a calm sky tile.
 
 There is already a raster reference at
-`assets/logo/pordee-pd-logo-semiflat-v1.png` (1254×1254, opaque sky background).
+`app/public/logo/pordee-pd-logo.png` (1254×1254, opaque sky background).
 **Do not auto-trace it.** Hand-author the SVG so the proportions match the
 brand spec below, not the raster's anti-aliased edges.
 
@@ -138,5 +138,5 @@ variant={variant} withTile />` instead of the current `<img>` tag, keeping
 
 - `docs/logo-direction.md` — selected direction, color usage, do-not list
 - `docs/rebrand-direction.md` — App Mark and color rationale
-- `brief.md` — emotional promise and visual principles
+- `docs/brief.md` — emotional promise and visual principles
 - `docs/ui-direction.md` — calm-not-fintech principle

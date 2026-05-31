@@ -57,7 +57,7 @@ Lime should stay tiny. Do not let it become a primary UI color.
 
 ## Logo Usage
 
-Use `assets/logo/pordee-pd-logo-semiflat-v1.png` as the current final logo direction across preview/mockup work.
+Use `app/public/logo/pordee-pd-logo.png` as the current final logo direction across preview/mockup work.
 
 In implementation:
 
@@ -68,7 +68,7 @@ In implementation:
 
 ## Mascot Usage
 
-Use mascot PNG assets from `assets/mascots/` only in supportive moments.
+Use mascot PNG assets from `app/public/brand/mascots/` only in supportive moments.
 
 Do not place the mascot in the core dashboard chrome or primary logo area.
 

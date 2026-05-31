@@ -6,19 +6,22 @@ Historical note: this repo was previously branded as `TangMod / ตังค์�
 
 ## Selected Direction
 
-Use the final semi-flat `P + D` loop mark as the primary logo direction. This direction keeps the selected PD concept: coral loop monogram, teal balance smile, and tiny lime milestone dot, but removes the earlier inflated glossy/3D treatment.
+Use the compact Option B semi-flat `P + D` loop mark as the primary logo
+direction. This direction keeps the selected PD concept: coral loop monogram,
+teal balance smile, and tiny lime milestone dot, but tightens the negative
+space and app-icon silhouette.
 
-![Pordee final semi-flat PD logo mark](../assets/logo/pordee-pd-logo-semiflat-v1.png)
+![Pordee final semi-flat PD logo mark](../app/public/logo/pordee-pd-logo.png)
 
 Current strategy and exploration:
 
-- `docs/rebrand-direction.md`
+- `rebrand-direction.md`
 - `source/rebrand-source/pordee-brand-board.svg`
 - `source/rebrand-source/pordee-mascot-contact-sheet-v1.png`
 
 ## Logo Principles
 
-- The main logo is the final semi-flat `P + D` loop mark in `assets/logo/pordee-pd-logo-semiflat-v1.png`.
+- The main logo is the compact Option B semi-flat `P + D` loop mark in `app/public/logo/pordee-pd-logo.png`.
 - `Pordee` is English support text for URLs, app stores, and bilingual contexts.
 - The product UI font is `IBM Plex Sans Thai`.
 - The coral loop is the key action detail.
@@ -44,9 +47,11 @@ Coral is the primary accent. Lime must remain a small highlight, not the main lo
 
 Current final visual direction:
 
-- `assets/logo/pordee-pd-logo-semiflat-v1.png`
+- `assets/logo/pordee-option-b-pwa-icon-concept.png`
+- `app/public/logo/pordee-pd-logo.png`
 
-The selected file is a generated PNG reference. Trace/vectorize it before production, app-store, favicon, or trademark-grade use.
+The imagegen PWA icon in `assets/logo/` is the approved source. The runtime PNG
+is generated from it by the icon pipeline.
 
 Historical SVG candidates remain under `source/rebrand-source/production/`, but they are no longer the active logo direction.
 
@@ -75,14 +80,14 @@ Legacy TangMod files still exist in `docs/images/logo-source/` for historical co
 
 Phase 1 progress (in `app/`):
 
-- Sized rasters generated from the selected PNG via `app/scripts/build-icons.mjs`:
+- Sized rasters generated from the approved source image via `app/scripts/build-icons.mjs`:
   - `app/public/brand/icon-32.png` (browser favicon companion)
   - `app/public/brand/icon-180.png` (apple-touch-icon)
   - `app/public/brand/icon-192.png`, `icon-512.png` (PWA manifest)
   - `app/public/brand/icon-maskable-512.png` (PWA maskable, sky-padded safe zone)
   - `app/public/favicon.ico` (16/32/48 multi-size)
 - `vite.config.ts` PWA manifest and `root.tsx` link tags reference these sized
-  icons directly. Run `pnpm icons:build` after replacing the source PNG.
+  icons directly. Run `pnpm icons:build` after replacing the approved source image.
 - `app/components/brand/logo.tsx` renders the sized raster as a placeholder
   with a `variant: 'light' | 'dark'` prop for future on-dark placements.
 
