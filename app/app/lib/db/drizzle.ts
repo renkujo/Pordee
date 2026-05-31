@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./client";
+import { ensureFinanceDatabase } from "./migrate.server";
 import { categories, goalContributions, goals, transactions } from "./schema";
 import type {
   Category,
@@ -63,8 +64,24 @@ async function ensureSeeded(userId: string): Promise<void> {
   );
 }
 
+async function ensureOwnedCategory(
+  userId: string,
+  categoryId: string | null
+): Promise<void> {
+  if (!categoryId) return;
+  const owned = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
+    .limit(1);
+  if (owned.length === 0) {
+    throw new Error("category not found for user");
+  }
+}
+
 export const drizzleRepo: PordeeRepo = {
   async listCategories(userId) {
+    await ensureFinanceDatabase();
     await ensureSeeded(userId);
     const rows = await db
       .select()
@@ -74,6 +91,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async createCategory(userId, input) {
+    await ensureFinanceDatabase();
     const row = {
       id: randomUUID(),
       userId,
@@ -85,6 +103,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async updateCategory(userId, id, input) {
+    await ensureFinanceDatabase();
     const updated = await db
       .update(categories)
       .set({ name: input.name })
@@ -94,6 +113,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async deleteCategory(userId, id) {
+    await ensureFinanceDatabase();
     const used = await db
       .select({ id: transactions.id })
       .from(transactions)
@@ -110,6 +130,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async countTransactionsByCategory(userId, categoryId) {
+    await ensureFinanceDatabase();
     const result = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(transactions)
@@ -123,6 +144,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async listTransactions(userId, opts = {}) {
+    await ensureFinanceDatabase();
     const conditions = [eq(transactions.userId, userId)];
     if (opts.from) {
       conditions.push(sql`${transactions.occurredAt} >= ${opts.from}`);
@@ -145,6 +167,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async getTransaction(userId, id) {
+    await ensureFinanceDatabase();
     const rows = await db
       .select()
       .from(transactions)
@@ -154,6 +177,8 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async createTransaction(userId, input) {
+    await ensureFinanceDatabase();
+    await ensureOwnedCategory(userId, input.categoryId);
     const row = {
       id: randomUUID(),
       userId,
@@ -170,6 +195,8 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async updateTransaction(userId, id, input) {
+    await ensureFinanceDatabase();
+    await ensureOwnedCategory(userId, input.categoryId);
     const updated = await db
       .update(transactions)
       .set({
@@ -186,6 +213,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async deleteTransaction(userId, id) {
+    await ensureFinanceDatabase();
     const deleted = await db
       .delete(transactions)
       .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
@@ -194,6 +222,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async listGoals(userId) {
+    await ensureFinanceDatabase();
     const rows = await db
       .select({
         id: goals.id,
@@ -221,6 +250,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async createGoal(userId, input) {
+    await ensureFinanceDatabase();
     const row = {
       id: randomUUID(),
       userId,
@@ -241,6 +271,7 @@ export const drizzleRepo: PordeeRepo = {
   },
 
   async addContribution(userId, input) {
+    await ensureFinanceDatabase();
     return db.transaction(async (tx) => {
       // Ownership check: the goal must belong to this user.
       const owned = await tx
