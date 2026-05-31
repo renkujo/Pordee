@@ -38,8 +38,8 @@ The codebase was explicitly staged for this migration.
 | User scoping | `userId: string` as **first arg** of every repo method; all finance tables carry `user_id` |
 | Auth store | Move Better Auth SQLite → **Postgres** (same `DATABASE_URL`) |
 | First slice | **Transactions** (schema → migration → drizzleRepo → routes → tests) |
-| `Goal.saved` | **Derived** `SUM(goal_contributions.amount)`, not a stored column |
-| `amount` representation | **Integer baht** (keep current); satang deferred |
+| `Goal.saved` | **Derived** `SUM(goal_contributions.amount)`, not a stored column; returned as `number` |
+| `amount` representation | **Postgres `numeric(12,2)`**; mapped at the repo boundary so the app keeps `Money = number` (see §4.4) |
 | Drizzle test infra | **CI Postgres service** (GitHub Actions `services:`) |
 
 ## 3. Scope Correction (explicit)
@@ -64,7 +64,8 @@ Two concerns change, sequenced so each step is independently verifiable:
 ### 4.1 Schema — `app/lib/db/schema.ts`
 
 Four finance tables. Each carries `user_id text not null` referencing Better
-Auth's `user.id`. `Money` stays integer baht.
+Auth's `user.id`. Money columns are `numeric(12,2)` (see §4.4 for the
+JS-`number` boundary).
 
 ```
 categories
@@ -79,7 +80,7 @@ transactions
   user_id text not null  -> user.id
   kind text not null
   title text not null
-  amount integer not null            -- baht (integer)
+  amount numeric(12,2) not null
   category_id text null   -> categories.id
   note text null
   occurred_at timestamptz not null
@@ -90,7 +91,7 @@ goals
   id text pk
   user_id text not null  -> user.id
   name text not null
-  target integer not null            -- baht (integer)
+  target numeric(12,2) not null
   created_at timestamptz not null
   -- `saved` is NOT stored; it is SUM(goal_contributions.amount)
 
@@ -98,7 +99,7 @@ goal_contributions
   id text pk
   goal_id text not null   -> goals.id
   user_id text not null   -> user.id    -- denormalized for direct user filtering
-  amount integer not null            -- baht (integer)
+  amount numeric(12,2) not null
   note text null
   occurred_at timestamptz not null
   index (goal_id)
@@ -152,7 +153,29 @@ stays on the `Goal` type as a computed value returned by `listGoals`.
 - `getTransaction` / `updateTransaction` / `deleteTransaction` scope by
   `(id AND user_id)`.
 
-### 4.4 Auth on Postgres — `app/lib/auth.server.ts`
+### 4.4 Money boundary (`numeric` ↔ `number`)
+
+Drizzle maps `numeric` to a JS **`string`** by default (to avoid float
+precision loss). The app contract is `Money = number` (`types.ts:1`) and all
+downstream code — `fmtSignedBaht` (`app/lib/format/baht.ts`), the Zod
+validators, and the sum/aggregate arithmetic in `dashboard`/`wallet` — assumes
+`number`. To avoid a wide blast radius, the conversion is **contained entirely
+in `drizzleRepo`**:
+
+- **On read:** parse the `numeric` string to `number` (`Number(row.amount)`)
+  before returning typed domain objects. `numeric(12,2)` with baht-scale values
+  is well within `number`'s safe-integer-ish range, so no precision concern at
+  this app's scale.
+- **On write:** pass the `number` through Drizzle's `numeric` column (it accepts
+  number/string input and stores exact decimal).
+- `Money = number` and every consumer stay **unchanged**. The string↔number
+  seam lives only in `drizzle.ts`.
+
+This is the deliberate cost of choosing `numeric` over an integer column; it
+buys exact decimal storage (future-proof for satang/fractional baht) without
+forcing a `Money = string` refactor across the app.
+
+### 4.5 Auth on Postgres — `app/lib/auth.server.ts`
 
 - Replace `betterAuth({ database: new DatabaseSync(...) })` with Better Auth's
   Postgres adapter pointed at the same pool / `DATABASE_URL`. Better Auth's
@@ -162,7 +185,7 @@ stays on the `Goal` type as a computed value returned by `listGoals`.
   migrated.**
 - Remove `PORDEE_AUTH_DB_PATH`; `DATABASE_URL` replaces it.
 
-### 4.5 Routes
+### 4.6 Routes
 
 Each loader/action calls `requireUser(request)` (already imported in `_shell`;
 add where missing) and passes `user.id` as the first arg to every `repo.*` call.
@@ -210,7 +233,9 @@ request → loader/action
   provided by a GitHub Actions `services: postgres` block with `DATABASE_URL`.
   It re-asserts the repo contract (the same behaviors the mock tests cover) plus
   SQL-specific concerns: scoping, `saved` aggregation, the `(user_id,
-  occurred_at, created_at)` ordering, and `addContribution` atomicity.
+  occurred_at, created_at)` ordering, `addContribution` atomicity, and the
+  `numeric`→`number` boundary (a written `12.50` reads back as `12.5`, not
+  `"12.50"`).
 - Existing Playwright e2e (`tests/e2e/`) continues to exercise the real stack.
 
 ## 9. Build Sequence
@@ -234,7 +259,8 @@ request → loader/action
 
 ## 10. Out of Scope (YAGNI)
 
-- Satang/decimal money representation (kept as integer baht).
+- Changing `Money` to `string` app-wide (the `numeric`↔`number` seam is
+  contained in `drizzle.ts` instead — see §4.4).
 - Multi-instance / connection-pool tuning beyond a single pool.
 - Data migration from the throwaway SQLite auth file.
 - Categories/goals as *separate* slices beyond reusing the established pattern —
