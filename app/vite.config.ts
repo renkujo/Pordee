@@ -50,9 +50,19 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallback: "/offline.html",
-        navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ["**/*.{html,js,css,woff2,png,svg,ico}"],
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkOnly",
+            options: {
+              precacheFallback: {
+                fallbackURL: "/offline.html",
+              },
+            },
+          },
+        ],
       },
       devOptions: {
         enabled: false,
