@@ -83,9 +83,7 @@ export const mockRepo: PordeeRepo = {
 
   async deleteCategory(userId, id) {
     if (
-      store.transactions.some(
-        (t) => t.categoryId === id && t.userId === userId
-      )
+      store.transactions.some((t) => t.categoryId === id && t.userId === userId)
     ) {
       return false;
     }

@@ -31,16 +31,16 @@ The codebase was explicitly staged for this migration.
 
 ## 2. Locked Decisions
 
-| Area | Choice |
-|---|---|
-| DB / ORM (finance) | Postgres + `drizzle-orm` + `drizzle-kit` |
-| Migration seam | Keep `PordeeRepo` interface; swap impl in `index.ts` |
-| User scoping | `userId: string` as **first arg** of every repo method; all finance tables carry `user_id` |
-| Auth store | Move Better Auth SQLite → **Postgres** (same `DATABASE_URL`) |
-| First slice | **Transactions** (schema → migration → drizzleRepo → routes → tests) |
-| `Goal.saved` | **Derived** `SUM(goal_contributions.amount)`, not a stored column; returned as `number` |
+| Area                    | Choice                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| DB / ORM (finance)      | Postgres + `drizzle-orm` + `drizzle-kit`                                                               |
+| Migration seam          | Keep `PordeeRepo` interface; swap impl in `index.ts`                                                   |
+| User scoping            | `userId: string` as **first arg** of every repo method; all finance tables carry `user_id`             |
+| Auth store              | Move Better Auth SQLite → **Postgres** (same `DATABASE_URL`)                                           |
+| First slice             | **Transactions** (schema → migration → drizzleRepo → routes → tests)                                   |
+| `Goal.saved`            | **Derived** `SUM(goal_contributions.amount)`, not a stored column; returned as `number`                |
 | `amount` representation | **Postgres `numeric(12,2)`**; mapped at the repo boundary so the app keeps `Money = number` (see §4.4) |
-| Drizzle test infra | **CI Postgres service** (GitHub Actions `services:`) |
+| Drizzle test infra      | **CI Postgres service** (GitHub Actions `services:`)                                                   |
 
 ## 3. Scope Correction (explicit)
 
@@ -106,7 +106,7 @@ goal_contributions
 ```
 
 The Better Auth tables (`user`, `session`, `account`, `verification`) are owned
-and migrated by Better Auth; the Drizzle schema only *references* `user.id`. We
+and migrated by Better Auth; the Drizzle schema only _references_ `user.id`. We
 do not redefine them in `schema.ts`.
 
 ### 4.2 Interface change — `app/lib/db/types.ts`
@@ -119,22 +119,51 @@ belonging to another user returns `null` / `false`.
 ```ts
 interface PordeeRepo {
   listCategories(userId: string): Promise<Category[]>;
-  createCategory(userId: string, input: Omit<Category, "id" | "userId">): Promise<Category>;
-  updateCategory(userId: string, id: string, input: Pick<Category, "name">): Promise<Category | null>;
+  createCategory(
+    userId: string,
+    input: Omit<Category, "id" | "userId">
+  ): Promise<Category>;
+  updateCategory(
+    userId: string,
+    id: string,
+    input: Pick<Category, "name">
+  ): Promise<Category | null>;
   deleteCategory(userId: string, id: string): Promise<boolean>;
-  countTransactionsByCategory(userId: string, categoryId: string): Promise<number>;
+  countTransactionsByCategory(
+    userId: string,
+    categoryId: string
+  ): Promise<number>;
 
-  listTransactions(userId: string, opts?: {
-    from?: string; to?: string; kind?: TransactionKind; categoryId?: string;
-  }): Promise<Transaction[]>;
+  listTransactions(
+    userId: string,
+    opts?: {
+      from?: string;
+      to?: string;
+      kind?: TransactionKind;
+      categoryId?: string;
+    }
+  ): Promise<Transaction[]>;
   getTransaction(userId: string, id: string): Promise<Transaction | null>;
-  createTransaction(userId: string, input: Omit<Transaction, "id" | "createdAt" | "userId">): Promise<Transaction>;
-  updateTransaction(userId: string, id: string, input: Omit<Transaction, "id" | "createdAt" | "userId">): Promise<Transaction | null>;
+  createTransaction(
+    userId: string,
+    input: Omit<Transaction, "id" | "createdAt" | "userId">
+  ): Promise<Transaction>;
+  updateTransaction(
+    userId: string,
+    id: string,
+    input: Omit<Transaction, "id" | "createdAt" | "userId">
+  ): Promise<Transaction | null>;
   deleteTransaction(userId: string, id: string): Promise<boolean>;
 
   listGoals(userId: string): Promise<Goal[]>;
-  createGoal(userId: string, input: Omit<Goal, "id" | "createdAt" | "saved" | "userId">): Promise<Goal>;
-  addContribution(userId: string, input: Omit<GoalContribution, "id" | "userId">): Promise<GoalContribution>;
+  createGoal(
+    userId: string,
+    input: Omit<Goal, "id" | "createdAt" | "saved" | "userId">
+  ): Promise<Goal>;
+  addContribution(
+    userId: string,
+    input: Omit<GoalContribution, "id" | "userId">
+  ): Promise<GoalContribution>;
 }
 ```
 
@@ -233,7 +262,7 @@ request → loader/action
   provided by a GitHub Actions `services: postgres` block with `DATABASE_URL`.
   It re-asserts the repo contract (the same behaviors the mock tests cover) plus
   SQL-specific concerns: scoping, `saved` aggregation, the `(user_id,
-  occurred_at, created_at)` ordering, `addContribution` atomicity, and the
+occurred_at, created_at)` ordering, `addContribution` atomicity, and the
   `numeric`→`number` boundary (a written `12.50` reads back as `12.5`, not
   `"12.50"`).
 - Existing Playwright e2e (`tests/e2e/`) continues to exercise the real stack.
@@ -241,21 +270,15 @@ request → loader/action
 ## 9. Build Sequence
 
 **Phase A (mock, no DB):**
+
 1. Add `userId` to `PordeeRepo` + domain types (`types.ts`).
 2. Update `mock.ts` to scope all operations by `userId`.
 3. Update `mock-repo.test.ts`; add cross-user isolation test. Green.
 4. Update all 8 route call sites to thread `user.id` from `requireUser`. Green
    (typecheck + vitest + e2e).
 
-**Phase B (Drizzle + Postgres):**
-5. Add deps: `drizzle-orm`, `drizzle-kit`, `pg` (+ types). `drizzle.config.ts`.
-6. Write `schema.ts`; `db:generate` initial migration.
-7. Implement `drizzleRepo` in `drizzle.ts`.
-8. Add CI Postgres service + Drizzle integration tests. Green.
-9. Switch `index.ts` to export `drizzleRepo`.
-10. Move Better Auth to Postgres; drop SQLite path + env.
-11. Update DEPLOY.md / .env.example / READMEs; wire Dokploy Postgres + pre-start
-    migrate.
+**Phase B (Drizzle + Postgres):** 5. Add deps: `drizzle-orm`, `drizzle-kit`, `pg` (+ types). `drizzle.config.ts`. 6. Write `schema.ts`; `db:generate` initial migration. 7. Implement `drizzleRepo` in `drizzle.ts`. 8. Add CI Postgres service + Drizzle integration tests. Green. 9. Switch `index.ts` to export `drizzleRepo`. 10. Move Better Auth to Postgres; drop SQLite path + env. 11. Update DEPLOY.md / .env.example / READMEs; wire Dokploy Postgres + pre-start
+migrate.
 
 ## 10. Out of Scope (YAGNI)
 
@@ -263,5 +286,5 @@ request → loader/action
   contained in `drizzle.ts` instead — see §4.4).
 - Multi-instance / connection-pool tuning beyond a single pool.
 - Data migration from the throwaway SQLite auth file.
-- Categories/goals as *separate* slices beyond reusing the established pattern —
+- Categories/goals as _separate_ slices beyond reusing the established pattern —
   they ship after the Transactions slice proves the pattern.

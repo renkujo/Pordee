@@ -4,7 +4,7 @@
 
 **Goal:** Migrate the finance data layer from the in-memory mock to Postgres via Drizzle with per-user data scoping, moving Better Auth onto the same Postgres, landing a complete Transactions vertical slice and the supporting Categories/Goals migrations.
 
-**Architecture:** Keep `PordeeRepo` as the single seam (`app/lib/db/index.ts`). **Phase A** changes only the *interface* (adds `userId` as first arg) against the still-in-memory mock so every route + unit test goes green with no database. **Phase B** implements `drizzleRepo` against Postgres, swaps the export, moves auth to Postgres, and wires migrations + CI Postgres + Dokploy.
+**Architecture:** Keep `PordeeRepo` as the single seam (`app/lib/db/index.ts`). **Phase A** changes only the _interface_ (adds `userId` as first arg) against the still-in-memory mock so every route + unit test goes green with no database. **Phase B** implements `drizzleRepo` against Postgres, swaps the export, moves auth to Postgres, and wires migrations + CI Postgres + Dokploy.
 
 **Tech Stack:** React Router v7 (SSR loaders/actions), Drizzle ORM + drizzle-kit, `pg` (node-postgres), Postgres `numeric(12,2)` money mapped to JS `number` at the repo boundary, Better Auth (Postgres dialect via kysely), Vitest, Playwright, Dokploy.
 
@@ -15,6 +15,7 @@ Spec: `app/docs/superpowers/specs/2026-05-31-db-phase1-postgres-drizzle-design.m
 ## File Structure
 
 **Phase A (interface-first, on mock):**
+
 - Modify `app/lib/db/types.ts` — add `userId` to domain types + every `PordeeRepo` method signature.
 - Modify `app/lib/db/mock.ts` — scope all store operations by `userId`; seed categories per-user.
 - Modify `tests/unit/mock-repo.test.ts` — pass `userId`; add cross-user isolation tests.
@@ -22,6 +23,7 @@ Spec: `app/docs/superpowers/specs/2026-05-31-db-phase1-postgres-drizzle-design.m
   `app/routes/add.tsx`, `dashboard.tsx`, `wallet.tsx`, `history.tsx`, `history.$id.tsx`, `goals.tsx`, `settings.tsx`. (`_shell.tsx` already calls `requireUser`.)
 
 **Phase B (Drizzle + Postgres):**
+
 - Create `app/lib/db/schema.ts` — Drizzle table definitions.
 - Create `app/lib/db/client.ts` — `pg` Pool + `drizzle()` instance, cached on `globalThis`.
 - Create `app/lib/db/drizzle.ts` — `drizzleRepo: PordeeRepo`.
@@ -41,6 +43,7 @@ Spec: `app/docs/superpowers/specs/2026-05-31-db-phase1-postgres-drizzle-design.m
 ## Task A1: Add `userId` to domain types and the repo interface
 
 **Files:**
+
 - Modify: `app/lib/db/types.ts`
 
 - [ ] **Step 1: Add `userId` to domain entities and `userId`-first method signatures**
@@ -156,6 +159,7 @@ git commit -m "feat(db): add userId to PordeeRepo interface and domain types"
 ## Task A2: Scope the mock store by userId (per-user category seeding)
 
 **Files:**
+
 - Modify: `app/lib/db/mock.ts`
 
 - [ ] **Step 1: Rewrite the mock to scope every operation by userId**
@@ -248,9 +252,7 @@ export const mockRepo: PordeeRepo = {
 
   async deleteCategory(userId, id) {
     if (
-      store.transactions.some(
-        (t) => t.categoryId === id && t.userId === userId
-      )
+      store.transactions.some((t) => t.categoryId === id && t.userId === userId)
     ) {
       return false;
     }
@@ -381,9 +383,10 @@ git commit -m "feat(db): scope mock store by userId with per-user category seedi
 ## Task A3: Update mock unit tests + add cross-user isolation tests
 
 **Files:**
+
 - Modify: `tests/unit/mock-repo.test.ts`
 
-The old test reached into `globalThis.__pordeeStore` and pushed 5 fixed-id categories. The new seeding is per-user with random ids, so the seed test changes to assert the default *names* for a user, and every call passes a `userId`.
+The old test reached into `globalThis.__pordeeStore` and pushed 5 fixed-id categories. The new seeding is per-user with random ids, so the seed test changes to assert the default _names_ for a user, and every call passes a `userId`.
 
 - [ ] **Step 1: Rewrite the test file**
 
@@ -732,6 +735,7 @@ Each route loader/action must obtain the user id and pass it as the first arg.
 that don't yet receive `request` must add it to their args.
 
 **Files:**
+
 - Modify: `app/routes/add.tsx`
 - Modify: `app/routes/dashboard.tsx`
 - Modify: `app/routes/wallet.tsx`
@@ -743,10 +747,13 @@ that don't yet receive `request` must add it to their args.
 - [ ] **Step 1: `add.tsx`** — add the import, get the user in loader + action.
 
 At the top with the other `~/lib` imports add:
+
 ```ts
 import { requireUser } from "~/lib/auth.server";
 ```
+
 Replace the loader (`app/routes/add.tsx:41-44`):
+
 ```ts
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
@@ -754,48 +761,60 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { categories };
 }
 ```
+
 In the action signature change `{ request }` stays, and at the top of the action body (after `const form = await request.formData();` is fine, but get the user first) add right after the `action({ request }: ...)` opening:
+
 ```ts
-  const user = await requireUser(request);
+const user = await requireUser(request);
 ```
+
 Replace the `repo.createTransaction({...})` call (`app/routes/add.tsx:131-138`) with:
+
 ```ts
-  await repo.createTransaction(user.id, {
-    kind: parsed.data.kind,
-    title: parsed.data.title,
-    amount: parsed.data.amount,
-    categoryId: parsed.data.categoryId,
-    note: parsed.data.note,
-    occurredAt: parsed.data.occurredAt,
-  });
+await repo.createTransaction(user.id, {
+  kind: parsed.data.kind,
+  title: parsed.data.title,
+  amount: parsed.data.amount,
+  categoryId: parsed.data.categoryId,
+  note: parsed.data.note,
+  occurredAt: parsed.data.occurredAt,
+});
 ```
 
 - [ ] **Step 2: `dashboard.tsx`** — loader already takes `{ request }`.
 
 Add import:
+
 ```ts
 import { requireUser } from "~/lib/auth.server";
 ```
+
 In the loader, immediately after `export async function loader({ request }: Route.LoaderArgs) {` add:
+
 ```ts
-  const user = await requireUser(request);
+const user = await requireUser(request);
 ```
+
 Replace the `Promise.all` block (`app/routes/dashboard.tsx:27-31`):
+
 ```ts
-  const [monthTx, categories, goals] = await Promise.all([
-    repo.listTransactions(user.id, { from, to }),
-    repo.listCategories(user.id),
-    repo.listGoals(user.id),
-  ]);
+const [monthTx, categories, goals] = await Promise.all([
+  repo.listTransactions(user.id, { from, to }),
+  repo.listCategories(user.id),
+  repo.listGoals(user.id),
+]);
 ```
 
 - [ ] **Step 3: `wallet.tsx`** — loader currently takes no args.
 
 Add import:
+
 ```ts
 import { requireUser } from "~/lib/auth.server";
 ```
+
 Replace the loader signature + `Promise.all` (`app/routes/wallet.tsx:28-36`):
+
 ```ts
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
@@ -812,10 +831,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 - [ ] **Step 4: `history.tsx`** — loader takes no args; action takes `{ request }`.
 
 Add import:
+
 ```ts
 import { requireUser } from "~/lib/auth.server";
 ```
+
 Replace the loader (`app/routes/history.tsx:55-66`):
+
 ```ts
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
@@ -831,19 +853,24 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 ```
+
 In the action, after `const form = await request.formData();` get the user, then pass it. Replace `const ok = await repo.deleteTransaction(id);` (`app/routes/history.tsx:77`) with:
+
 ```ts
-  const user = await requireUser(request);
-  const ok = await repo.deleteTransaction(user.id, id);
+const user = await requireUser(request);
+const ok = await repo.deleteTransaction(user.id, id);
 ```
 
 - [ ] **Step 5: `history.$id.tsx`** — loader takes `{ params }`; action takes `{ params, request }`.
 
 Add import:
+
 ```ts
 import { requireUser } from "~/lib/auth.server";
 ```
+
 Replace the loader (`app/routes/history.$id.tsx:56-63`):
+
 ```ts
 export async function loader({ params, request }: Route.LoaderArgs) {
   const user = await requireUser(request);
@@ -855,26 +882,35 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return { tx, categories };
 }
 ```
+
 In the action, after `const form = await request.formData();` add:
+
 ```ts
-  const user = await requireUser(request);
+const user = await requireUser(request);
 ```
+
 Replace `const ok = await repo.deleteTransaction(params.id);` (`:81`) with:
+
 ```ts
-    const ok = await repo.deleteTransaction(user.id, params.id);
+const ok = await repo.deleteTransaction(user.id, params.id);
 ```
+
 Replace `const updated = await repo.updateTransaction(params.id, parsed.data);` (`:116`) with:
+
 ```ts
-  const updated = await repo.updateTransaction(user.id, params.id, parsed.data);
+const updated = await repo.updateTransaction(user.id, params.id, parsed.data);
 ```
 
 - [ ] **Step 6: `goals.tsx`** — loader takes no args; action takes `{ request }`.
 
 Add import:
+
 ```ts
 import { requireUser } from "~/lib/auth.server";
 ```
+
 Replace the loader (`app/routes/goals.tsx:27-30`):
+
 ```ts
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
@@ -882,30 +918,41 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { goals };
 }
 ```
+
 In the action, after `const form = await request.formData();` add:
+
 ```ts
-  const user = await requireUser(request);
+const user = await requireUser(request);
 ```
+
 Replace `const goals = await repo.listGoals();` (`:103`) with:
+
 ```ts
-    const goals = await repo.listGoals(user.id);
+const goals = await repo.listGoals(user.id);
 ```
+
 Replace `await repo.addContribution(parsed.data);` (`:117`) with:
+
 ```ts
-    await repo.addContribution(user.id, parsed.data);
+await repo.addContribution(user.id, parsed.data);
 ```
+
 Replace `await repo.createGoal(parsed.data);` (`:150`) with:
+
 ```ts
-  await repo.createGoal(user.id, parsed.data);
+await repo.createGoal(user.id, parsed.data);
 ```
 
 - [ ] **Step 7: `settings.tsx`** — loader takes no args; action takes `{ request }`. Note this file has a `findDuplicateCategory` helper that also calls `repo.listCategories()` — find and thread it too.
 
 Add import:
+
 ```ts
 import { requireUser } from "~/lib/auth.server";
 ```
+
 Replace the loader (`app/routes/settings.tsx:57-69`):
+
 ```ts
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
@@ -922,11 +969,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { categories, usageByCategoryId };
 }
 ```
+
 In the action, after `const form = await request.formData();` add:
+
 ```ts
-  const user = await requireUser(request);
+const user = await requireUser(request);
 ```
+
 Then update each repo call in the action body:
+
 - `:103` `await repo.createCategory(parsed.data);` → `await repo.createCategory(user.id, parsed.data);`
 - `:117` `const categories = await repo.listCategories();` → `const categories = await repo.listCategories(user.id);`
 - `:132` `await repo.updateCategory(category.id, { name: parsed.data.name });` → `await repo.updateCategory(user.id, category.id, { name: parsed.data.name });`
@@ -968,20 +1019,24 @@ git commit -m "feat(routes): thread authenticated user.id into all repo calls"
 ## Task B1: Add dependencies and scripts
 
 **Files:**
+
 - Modify: `package.json`
 
 - [ ] **Step 1: Install runtime + dev deps**
 
 Run:
+
 ```bash
 pnpm add drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 ```
+
 Expected: `package.json` gains `drizzle-orm`, `pg` (deps) and `drizzle-kit`, `@types/pg` (devDeps); `pnpm-lock.yaml` updates.
 
 - [ ] **Step 2: Add `pg` to pnpm `onlyBuiltDependencies`**
 
 `pg` and its native deps may need build approval. In `package.json`, update the `pnpm.onlyBuiltDependencies` array (currently `["esbuild", "sharp"]`) to also include `"pg"`:
+
 ```json
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -995,6 +1050,7 @@ Expected: `package.json` gains `drizzle-orm`, `pg` (deps) and `drizzle-kit`, `@t
 - [ ] **Step 3: Add scripts**
 
 In `package.json` `scripts`, add:
+
 ```json
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -1018,6 +1074,7 @@ git commit -m "build(db): add drizzle-orm, pg, drizzle-kit deps and db scripts"
 ## Task B2: Drizzle schema
 
 **Files:**
+
 - Create: `app/lib/db/schema.ts`
 
 Money columns are `numeric(12,2)`. Better Auth owns the `user` table; we only
@@ -1027,15 +1084,10 @@ migrations to Better Auth's DDL. FK is declared against the literal table/column
 - [ ] **Step 1: Write the schema**
 
 Create `app/lib/db/schema.ts`:
+
 ```ts
 import { sql } from "drizzle-orm";
-import {
-  index,
-  numeric,
-  pgTable,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { index, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // Better Auth owns the `user` table; reference its id without redefining it.
 const userIdRef = (name = "user_id") =>
@@ -1119,6 +1171,7 @@ export const goalContributions = pgTable(
 - [ ] **Step 2: Remove unused imports to satisfy lint**
 
 Since the columns use plain `text().notNull()` (no FK), delete the `import { sql } ...` line and the `userIdRef` helper. Final imports should be only:
+
 ```ts
 import { index, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 ```
@@ -1140,12 +1193,14 @@ git commit -m "feat(db): add drizzle schema for finance tables (numeric money)"
 ## Task B3: drizzle-kit config + initial migration
 
 **Files:**
+
 - Create: `drizzle.config.ts` (app root)
 - Create: `app/lib/db/migrations/*` (generated)
 
 - [ ] **Step 1: Write `drizzle.config.ts`**
 
 Create `drizzle.config.ts` at the app root:
+
 ```ts
 import { defineConfig } from "drizzle-kit";
 
@@ -1176,11 +1231,13 @@ git commit -m "feat(db): drizzle-kit config and initial finance migration"
 ## Task B4: Postgres client (pooled, globalThis-cached)
 
 **Files:**
+
 - Create: `app/lib/db/client.ts`
 
 - [ ] **Step 1: Write the client**
 
 Create `app/lib/db/client.ts`:
+
 ```ts
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -1226,6 +1283,7 @@ git commit -m "feat(db): pooled postgres client with drizzle instance"
 ## Task B5: drizzleRepo implementation
 
 **Files:**
+
 - Create: `app/lib/db/drizzle.ts`
 
 The `numeric` ↔ `number` boundary lives entirely here: parse on read, pass number
@@ -1234,16 +1292,12 @@ on write. `listGoals` computes `saved` as a SUM via a left join + group by.
 - [ ] **Step 1: Write the repo**
 
 Create `app/lib/db/drizzle.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./client";
-import {
-  categories,
-  goalContributions,
-  goals,
-  transactions,
-} from "./schema";
+import { categories, goalContributions, goals, transactions } from "./schema";
 import type {
   Category,
   Goal,
@@ -1536,6 +1590,7 @@ git commit -m "feat(db): implement user-scoped drizzleRepo against postgres"
 ## Task B6: Integration tests against real Postgres
 
 **Files:**
+
 - Create: `vitest.integration.config.ts`
 - Create: `tests/integration/drizzle-repo.test.ts`
 
@@ -1546,6 +1601,7 @@ then `DATABASE_URL=postgres://postgres:pordee@localhost:5433/pordee_test pnpm db
 - [ ] **Step 1: Write the integration vitest config**
 
 Create `vitest.integration.config.ts`:
+
 ```ts
 import { defineConfig } from "vitest/config";
 
@@ -1567,6 +1623,7 @@ export default defineConfig({
 - [ ] **Step 2: Write the integration test**
 
 Create `tests/integration/drizzle-repo.test.ts`:
+
 ```ts
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { drizzleRepo } from "~/lib/db/drizzle";
@@ -1751,6 +1808,7 @@ describe("drizzleRepo user isolation", () => {
 - [ ] **Step 3: Run migrations against a local disposable Postgres, then run integration tests**
 
 Run:
+
 ```bash
 docker run -d --name pordee-itest -e POSTGRES_PASSWORD=pordee -e POSTGRES_DB=pordee_test -p 5433:5432 postgres:16
 export DATABASE_URL=postgres://postgres:pordee@localhost:5433/pordee_test
@@ -1758,6 +1816,7 @@ export DATABASE_URL=postgres://postgres:pordee@localhost:5433/pordee_test
 pnpm db:migrate
 pnpm test:integration
 ```
+
 Expected: all integration tests PASS. The numeric round-trip test confirms `12.5`/`2000.25` come back as `number`, and the isolation/ownership tests pass.
 
 - [ ] **Step 4: Tear down local Postgres**
@@ -1776,6 +1835,7 @@ git commit -m "test(db): integration suite for drizzleRepo against postgres"
 ## Task B7: Move Better Auth to Postgres
 
 **Files:**
+
 - Modify: `app/lib/auth.server.ts`
 
 Better Auth accepts a kysely-compatible dialect or a `pg` Pool. We pass the same
@@ -1787,6 +1847,7 @@ Postgres.
 - [ ] **Step 1: Rewrite the database wiring in `auth.server.ts`**
 
 Replace the top of `app/lib/auth.server.ts` (lines 1-29, through the `betterAuth({...})` call) with:
+
 ```ts
 import { redirect } from "react-router";
 import { betterAuth } from "better-auth";
@@ -1808,15 +1869,18 @@ export const auth = betterAuth({
   },
 });
 ```
+
 Leave everything from `let migrationPromise` downward unchanged.
 
 > If Better Auth's installed version does not accept a raw `pg.Pool` for
 > `database`, wrap it in a kysely `PostgresDialect` (kysely is already a dep):
+>
 > ```ts
 > import { Kysely, PostgresDialect } from "kysely";
 > // ...
 > database: { db: new Kysely({ dialect: new PostgresDialect({ pool }) }), type: "postgres" }
 > ```
+>
 > Verify against the installed `better-auth@1.6.11` adapter docs before choosing;
 > prefer the plain `pool` form if it compiles and migrates.
 
@@ -1828,6 +1892,7 @@ Expected: PASS. If `database: pool` is rejected by the type, switch to the kysel
 - [ ] **Step 3: Verify auth migrations run against Postgres**
 
 Run (with a disposable Postgres and `DATABASE_URL` set, as in B6 Step 3, after `pnpm db:migrate`):
+
 ```bash
 docker run -d --name pordee-itest -e POSTGRES_PASSWORD=pordee -e POSTGRES_DB=pordee_test -p 5433:5432 postgres:16
 export DATABASE_URL=postgres://postgres:pordee@localhost:5433/pordee_test
@@ -1844,6 +1909,7 @@ docker exec pordee-itest psql -U postgres -d pordee_test -c "\dt"
 kill %1
 docker rm -f pordee-itest && unset DATABASE_URL
 ```
+
 Expected: the signup returns a session/user JSON (not a 500), and `\dt` lists `user`, `session`, `account`, `verification` alongside the finance tables.
 
 - [ ] **Step 4: Commit**
@@ -1858,11 +1924,13 @@ git commit -m "feat(auth): move better-auth from sqlite to shared postgres pool"
 ## Task B8: Flip the repo export to Drizzle
 
 **Files:**
+
 - Modify: `app/lib/db/index.ts`
 
 - [ ] **Step 1: Switch the export**
 
 Replace the entire contents of `app/lib/db/index.ts` with:
+
 ```ts
 import { drizzleRepo } from "./drizzle";
 import type { PordeeRepo } from "./types";
@@ -1900,6 +1968,7 @@ git commit -m "feat(db): export drizzleRepo as the active repo"
 ## Task B9: CI Postgres service for integration tests
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml`
 
 Add a `services: postgres` block + a migrate + integration-test step to the
@@ -1908,36 +1977,38 @@ Add a `services: postgres` block + a migrate + integration-test step to the
 - [ ] **Step 1: Add the Postgres service and steps to the `check` job**
 
 In `.github/workflows/ci.yml`, under `jobs.check`, add a `services` block (sibling of `runs-on`) and two new steps after `Unit tests`:
+
 ```yaml
-  check:
-    name: typecheck • lint • test • build
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: pordee
-          POSTGRES_DB: pordee_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgres://postgres:pordee@localhost:5432/pordee_test
-    steps:
-      # ... existing checkout / pnpm / node / install / typecheck / lint / format / unit steps ...
+check:
+  name: typecheck • lint • test • build
+  runs-on: ubuntu-latest
+  services:
+    postgres:
+      image: postgres:16
+      env:
+        POSTGRES_PASSWORD: pordee
+        POSTGRES_DB: pordee_test
+      ports:
+        - 5432:5432
+      options: >-
+        --health-cmd "pg_isready -U postgres"
+        --health-interval 10s
+        --health-timeout 5s
+        --health-retries 5
+  env:
+    DATABASE_URL: postgres://postgres:pordee@localhost:5432/pordee_test
+  steps:
+    # ... existing checkout / pnpm / node / install / typecheck / lint / format / unit steps ...
 
-      - name: DB migrate
-        run: pnpm db:migrate
+    - name: DB migrate
+      run: pnpm db:migrate
 
-      - name: Integration tests
-        run: pnpm test:integration
+    - name: Integration tests
+      run: pnpm test:integration
 
-      # ... existing Build step ...
+    # ... existing Build step ...
 ```
+
 Keep all existing steps; insert `DB migrate` + `Integration tests` between `Unit tests` and `Build`. The `env: DATABASE_URL` at job level makes it available to migrate, integration tests, and build.
 
 - [ ] **Step 2: Validate YAML locally**
@@ -1958,6 +2029,7 @@ git commit -m "ci(db): add postgres service, migrate, and integration test steps
 ## Task B10: Deploy + docs + Dockerfile updates
 
 **Files:**
+
 - Modify: `.env.example`
 - Modify: `Dockerfile`
 - Modify: `DEPLOY.md`
@@ -1967,6 +2039,7 @@ git commit -m "ci(db): add postgres service, migrate, and integration test steps
 - [ ] **Step 1: `.env.example` — require `DATABASE_URL`, drop the SQLite path**
 
 Replace the entire contents of `.env.example` with:
+
 ```
 # Pordee — Phase 1 environment
 # Finance data and Better Auth both use Postgres now.
@@ -1981,6 +2054,7 @@ DATABASE_URL=postgres://pordee:pordee@localhost:5432/pordee
 - [ ] **Step 2: `Dockerfile` — remove SQLite env + volume**
 
 In `Dockerfile`, delete line `ENV PORDEE_AUTH_DB_PATH=/app/.data/auth.sqlite` and the `VOLUME ["/app/.data"]` line. The runner stage no longer needs a data volume because state lives in Postgres. Final runner stage:
+
 ```dockerfile
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -1996,6 +2070,7 @@ CMD ["node", "node_modules/@react-router/serve/dist/cli.js", "./build/server/ind
 - [ ] **Step 3: `DEPLOY.md` — Phase 1 Postgres instructions**
 
 Update `DEPLOY.md`: change the "Phase 0 / no Postgres" framing to Phase 1. Specifically:
+
 - Replace the intro paragraph (lines ~3-7) to state finance + auth both use Postgres.
 - In the Docker run example, drop `PORDEE_AUTH_DB_PATH`, the `-v pordee-auth-data:/app/.data` volume, and add `-e DATABASE_URL=...`.
 - In the Dokploy section, replace the SQLite volume-mount step with: add a Postgres service (with its own persistent volume), set `DATABASE_URL` in the app env, and run `pnpm db:migrate` as a pre-start/release step. Remove the `/app/.data` mount step.
@@ -2031,6 +2106,7 @@ Expected: all PASS.
 - [ ] **Step 2: Integration + e2e with a local Postgres**
 
 Run:
+
 ```bash
 docker run -d --name pordee-itest -e POSTGRES_PASSWORD=pordee -e POSTGRES_DB=pordee_test -p 5433:5432 postgres:16
 export DATABASE_URL=postgres://postgres:pordee@localhost:5433/pordee_test
@@ -2039,6 +2115,7 @@ pnpm test:integration
 pnpm build && pnpm e2e
 docker rm -f pordee-itest && unset DATABASE_URL
 ```
+
 Expected: integration tests PASS; e2e smoke PASS against the real Postgres-backed stack.
 
 - [ ] **Step 3: Push and confirm CI green** (only when the user asks to push)
