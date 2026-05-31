@@ -16,6 +16,7 @@ import "@fontsource/ibm-plex-sans-thai/700.css";
 import { ReactGrabDev } from "~/lib/dev/react-grab";
 
 export const links: Route.LinksFunction = () => [
+  { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   {
     rel: "icon",
@@ -25,6 +26,21 @@ export const links: Route.LinksFunction = () => [
   },
   { rel: "apple-touch-icon", href: "/brand/icon-180.png", sizes: "180x180" },
 ];
+
+const serviceWorkerRegistrationScript = `
+if ("serviceWorker" in navigator) {
+  const isLocalhost = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+  const canRegister = window.location.protocol === "https:" || isLocalhost;
+
+  if (canRegister) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((error) => {
+        console.error("Service worker registration failed", error);
+      });
+    });
+  }
+}
+`;
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -36,6 +52,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
         <meta name="theme-color" content="#EAF7FF" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="พอดี" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <Meta />
         <Links />
       </head>
@@ -44,6 +64,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <ReactGrabDev />
         <ScrollRestoration />
         <Scripts />
+        {import.meta.env.PROD ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: serviceWorkerRegistrationScript,
+            }}
+          />
+        ) : null}
       </body>
     </html>
   );
