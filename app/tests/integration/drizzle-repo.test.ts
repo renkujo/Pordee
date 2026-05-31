@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { drizzleRepo } from "~/lib/db/drizzle";
 import { db, pool } from "~/lib/db/client";
+import { ensureFinanceDatabase } from "~/lib/db/migrate.server";
 import {
   categories,
   goalContributions,
@@ -12,6 +13,7 @@ const USER_A = "itest-user-a";
 const USER_B = "itest-user-b";
 
 beforeEach(async () => {
+  await ensureFinanceDatabase();
   await db.delete(goalContributions);
   await db.delete(goals);
   await db.delete(transactions);
@@ -104,6 +106,45 @@ describe("drizzleRepo transactions", () => {
     expect(
       await drizzleRepo.listTransactions(USER_A, { categoryId: bills.id })
     ).toHaveLength(1);
+  });
+
+  it("rejects another user's category on create and update", async () => {
+    const category = await drizzleRepo.createCategory(USER_A, {
+      name: "ส่วนตัว A",
+      kind: "expense",
+    });
+    await expect(
+      drizzleRepo.createTransaction(USER_B, {
+        kind: "expense",
+        title: "แอบใช้หมวด",
+        amount: 10,
+        categoryId: category.id,
+        note: null,
+        occurredAt: "2026-05-10T00:00:00.000Z",
+      })
+    ).rejects.toThrow("category not found for user");
+
+    const tx = await drizzleRepo.createTransaction(USER_B, {
+      kind: "expense",
+      title: "ของ B",
+      amount: 100,
+      categoryId: null,
+      note: null,
+      occurredAt: "2026-05-10T00:00:00.000Z",
+    });
+    await expect(
+      drizzleRepo.updateTransaction(USER_B, tx.id, {
+        kind: "expense",
+        title: "ของ B",
+        amount: 100,
+        categoryId: category.id,
+        note: null,
+        occurredAt: tx.occurredAt,
+      })
+    ).rejects.toThrow("category not found for user");
+    expect(
+      (await drizzleRepo.getTransaction(USER_B, tx.id))?.categoryId
+    ).toBeNull();
   });
 });
 

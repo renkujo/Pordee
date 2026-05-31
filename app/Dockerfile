@@ -21,6 +21,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
+COPY --from=build /app/app/lib/db/migrations ./app/lib/db/migrations
 COPY package.json ./
 EXPOSE 3000
 CMD ["node", "node_modules/@react-router/serve/dist/cli.js", "./build/server/index.js"]
