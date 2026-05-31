@@ -2,10 +2,12 @@ import { useState } from "react";
 import { data, Form, Link, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/history";
 import {
+  CalendarRange,
   MoreHorizontal,
   Pencil,
   PlusCircle,
   Search,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -13,12 +15,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
 import { DatePicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
-import type { Transaction } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
+import type { Transaction, TransactionKind } from "~/lib/db";
 import { fmtSignedBaht } from "~/lib/format/baht";
 import { isoToDayValue, todayDayValue } from "~/lib/date/day-value";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,13 +53,15 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: "พอดี — ประวัติรายการ" }];
 }
 
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
   const [transactions, categories] = await Promise.all([
-    repo.listTransactions(),
-    repo.listCategories(),
+    repo.listTransactions(user.id),
+    repo.listCategories(user.id),
   ]);
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   return {
+    categories,
     transactions,
     categoryNameById: Object.fromEntries(categoryNameById),
   };
@@ -63,7 +76,8 @@ export async function action({ request }: Route.ActionArgs) {
     throw data("คำสั่งไม่ถูกต้อง", { status: 400 });
   }
 
-  const ok = await repo.deleteTransaction(id);
+  const user = await requireUser(request);
+  const ok = await repo.deleteTransaction(user.id, id);
   if (!ok) {
     throw data("ไม่พบรายการ", { status: 404 });
   }
@@ -76,14 +90,36 @@ const fmtDate = new Intl.DateTimeFormat("th-TH", {
   month: "short",
 });
 
+const ALL_KINDS_VALUE = "__all_kinds__";
+const ALL_CATEGORIES_VALUE = "__all_categories__";
+
+type KindFilter = typeof ALL_KINDS_VALUE | TransactionKind;
+type MonthPreset = "all" | "this-month" | "last-month" | "custom";
+
 export default function History() {
-  const { transactions, categoryNameById } = useLoaderData<typeof loader>();
+  const { categories, transactions, categoryNameById } =
+    useLoaderData<typeof loader>();
   const [searchQuery, setSearchQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState<KindFilter>(ALL_KINDS_VALUE);
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES_VALUE);
+  const [monthPreset, setMonthPreset] = useState<MonthPreset>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const normalizedSearchQuery = normalizeSearch(searchQuery);
   const hasDateRange = fromDate !== "" || toDate !== "";
+  const availableCategories = categories.filter((category) =>
+    kindFilter === ALL_KINDS_VALUE ? true : category.kind === kindFilter
+  );
   const filteredTransactions = transactions.filter((transaction) => {
+    if (kindFilter !== ALL_KINDS_VALUE && transaction.kind !== kindFilter) {
+      return false;
+    }
+    if (
+      categoryFilter !== ALL_CATEGORIES_VALUE &&
+      transaction.categoryId !== categoryFilter
+    ) {
+      return false;
+    }
     if (
       normalizedSearchQuery &&
       !getTransactionSearchText(transaction, categoryNameById).includes(
@@ -98,7 +134,7 @@ export default function History() {
     return true;
   });
   const latest = transactions[0];
-  const totals = transactions.reduce(
+  const totals = filteredTransactions.reduce(
     (sum, transaction) => {
       if (transaction.kind === "income") {
         sum.income += transaction.amount;
@@ -111,7 +147,49 @@ export default function History() {
   );
   const net = totals.income - totals.expense;
   const hasSearch = normalizedSearchQuery.length > 0;
-  const hasFilter = hasSearch || hasDateRange;
+  const hasKindFilter = kindFilter !== ALL_KINDS_VALUE;
+  const hasCategoryFilter = categoryFilter !== ALL_CATEGORIES_VALUE;
+  const hasFilter =
+    hasSearch || hasDateRange || hasKindFilter || hasCategoryFilter;
+
+  function clearFilters() {
+    setSearchQuery("");
+    setKindFilter(ALL_KINDS_VALUE);
+    setCategoryFilter(ALL_CATEGORIES_VALUE);
+    setMonthPreset("all");
+    setFromDate("");
+    setToDate("");
+  }
+
+  function applyMonthPreset(value: MonthPreset) {
+    setMonthPreset(value);
+    if (value === "custom") return;
+    const range = getMonthPresetRange(value);
+    setFromDate(range.from);
+    setToDate(range.to);
+  }
+
+  function updateKindFilter(value: KindFilter) {
+    setKindFilter(value);
+    if (
+      categoryFilter !== ALL_CATEGORIES_VALUE &&
+      value !== ALL_KINDS_VALUE &&
+      categories.find((category) => category.id === categoryFilter)?.kind !==
+        value
+    ) {
+      setCategoryFilter(ALL_CATEGORIES_VALUE);
+    }
+  }
+
+  function updateFromDate(value: string) {
+    setFromDate(value);
+    setMonthPreset("custom");
+  }
+
+  function updateToDate(value: string) {
+    setToDate(value);
+    setMonthPreset("custom");
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -141,9 +219,13 @@ export default function History() {
         aria-label="สรุปประวัติ"
         className="border-line bg-surface grid gap-3 rounded-md border p-4 sm:grid-cols-3"
       >
-        <SummaryCell label="รายรับทั้งหมด" tone="teal" value={totals.income} />
         <SummaryCell
-          label="รายจ่ายทั้งหมด"
+          label={hasFilter ? "รายรับตามตัวกรอง" : "รายรับทั้งหมด"}
+          tone="teal"
+          value={totals.income}
+        />
+        <SummaryCell
+          label={hasFilter ? "รายจ่ายตามตัวกรอง" : "รายจ่ายทั้งหมด"}
           tone="coral"
           value={totals.expense}
         />
@@ -165,65 +247,176 @@ export default function History() {
             </span>
           </div>
           {transactions.length > 0 ? (
-            <div className="border-line focus-within:ring-coral/35 flex h-11 items-center gap-2 rounded-sm border bg-white px-3 focus-within:ring-2">
-              <Search className="text-muted h-4 w-4 shrink-0" />
-              <Input
-                aria-label="ค้นหารายการ"
-                className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-                inputMode="search"
-                onChange={(event) => setSearchQuery(event.currentTarget.value)}
-                placeholder="ค้นหาชื่อรายการ หมวด ประเภท หรือยอดเงิน"
-                role="searchbox"
-                type="text"
-                value={searchQuery}
-              />
-              {hasSearch ? (
-                <Button
-                  aria-label="ล้างคำค้นหา"
-                  className="h-8 w-8 rounded-xs"
-                  onClick={() => setSearchQuery("")}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-          {transactions.length > 0 ? (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-              <div className="flex flex-1 flex-col gap-1.5">
-                <span className="text-muted text-xs">ตั้งแต่วันที่</span>
-                <DatePicker
-                  value={fromDate}
-                  max={toDate || todayDayValue()}
-                  onChange={setFromDate}
-                  placeholder="ไม่จำกัด"
+            <div className="flex flex-col gap-3">
+              <div className="border-line focus-within:ring-coral/35 flex h-11 items-center gap-2 rounded-sm border bg-white px-3 focus-within:ring-2">
+                <Search className="text-muted h-4 w-4 shrink-0" />
+                <Input
+                  id="history-search"
+                  name="historySearch"
+                  aria-label="ค้นหารายการ"
+                  className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  inputMode="search"
+                  onChange={(event) =>
+                    setSearchQuery(event.currentTarget.value)
+                  }
+                  placeholder="ค้นหาชื่อรายการ หมวด ประเภท หรือยอดเงิน"
+                  role="searchbox"
+                  type="text"
+                  value={searchQuery}
                 />
+                {hasSearch ? (
+                  <Button
+                    aria-label="ล้างคำค้นหา"
+                    className="h-8 w-8 rounded-xs"
+                    onClick={() => setSearchQuery("")}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                ) : null}
               </div>
-              <div className="flex flex-1 flex-col gap-1.5">
-                <span className="text-muted text-xs">ถึงวันที่</span>
-                <DatePicker
-                  value={toDate}
-                  max={todayDayValue()}
-                  onChange={setToDate}
-                  placeholder="ไม่จำกัด"
-                />
+
+              <div className="border-line bg-sky/30 grid gap-3 rounded-sm border p-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end">
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    className="text-muted flex items-center gap-1.5 text-xs"
+                    htmlFor="history-month-preset"
+                  >
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    ช่วงเวลา
+                  </Label>
+                  <Select
+                    name="historyMonthPreset"
+                    value={monthPreset}
+                    onValueChange={(value) =>
+                      applyMonthPreset(value as MonthPreset)
+                    }
+                  >
+                    <SelectTrigger
+                      id="history-month-preset"
+                      aria-label="ช่วงเวลา"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">ทั้งหมด</SelectItem>
+                      <SelectItem value="this-month">เดือนนี้</SelectItem>
+                      <SelectItem value="last-month">เดือนก่อน</SelectItem>
+                      <SelectItem value="custom">กำหนดเอง</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    className="text-muted flex items-center gap-1.5 text-xs"
+                    htmlFor="history-kind-filter"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    ประเภท
+                  </Label>
+                  <Select
+                    name="historyKindFilter"
+                    value={kindFilter}
+                    onValueChange={(value) =>
+                      updateKindFilter(value as KindFilter)
+                    }
+                  >
+                    <SelectTrigger id="history-kind-filter" aria-label="ประเภท">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_KINDS_VALUE}>ทั้งหมด</SelectItem>
+                      <SelectItem value="expense">รายจ่าย</SelectItem>
+                      <SelectItem value="income">รายรับ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    className="text-muted text-xs"
+                    htmlFor="history-category-filter"
+                  >
+                    หมวด
+                  </Label>
+                  <Select
+                    name="historyCategoryFilter"
+                    value={categoryFilter}
+                    onValueChange={setCategoryFilter}
+                  >
+                    <SelectTrigger
+                      id="history-category-filter"
+                      aria-label="หมวด"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_CATEGORIES_VALUE}>
+                        ทุกหมวด
+                      </SelectItem>
+                      {availableCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    className="text-muted text-xs"
+                    htmlFor="history-from-date"
+                  >
+                    ตั้งแต่วันที่
+                  </Label>
+                  <DatePicker
+                    id="history-from-date"
+                    value={fromDate}
+                    max={toDate || todayDayValue()}
+                    onChange={updateFromDate}
+                    placeholder="ไม่จำกัด"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    className="text-muted text-xs"
+                    htmlFor="history-to-date"
+                  >
+                    ถึงวันที่
+                  </Label>
+                  <DatePicker
+                    id="history-to-date"
+                    value={toDate}
+                    max={todayDayValue()}
+                    onChange={updateToDate}
+                    placeholder="ไม่จำกัด"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 md:col-span-2 xl:col-span-1">
+                  <Button
+                    className="rounded-sm"
+                    disabled={!hasFilter}
+                    onClick={clearFilters}
+                    type="button"
+                    variant="secondary"
+                  >
+                    <X className="h-4 w-4" />
+                    ล้างตัวกรอง
+                  </Button>
+                </div>
               </div>
-              {hasDateRange ? (
-                <Button
-                  className="rounded-sm sm:w-auto"
-                  onClick={() => {
-                    setFromDate("");
-                    setToDate("");
-                  }}
-                  type="button"
-                  variant="secondary"
-                >
-                  <X className="h-4 w-4" />
-                  ล้างช่วงวันที่
-                </Button>
+
+              {hasFilter ? (
+                <p className="text-muted text-xs">
+                  กำลังแสดง {filteredTransactions.length} จาก{" "}
+                  {transactions.length} รายการ และสรุปยอดตามตัวกรองนี้
+                </p>
               ) : null}
             </div>
           ) : null}
@@ -271,6 +464,22 @@ export default function History() {
 
 function normalizeSearch(value: string) {
   return value.toLocaleLowerCase("th-TH").replace(/\s+/g, " ").trim();
+}
+
+function getMonthPresetRange(value: MonthPreset) {
+  if (value === "all" || value === "custom") {
+    return { from: "", to: "" };
+  }
+
+  const now = new Date();
+  const monthOffset = value === "last-month" ? -1 : 0;
+  const start = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 0);
+
+  return {
+    from: todayDayValue(start),
+    to: todayDayValue(end),
+  };
 }
 
 function getTransactionSearchText(

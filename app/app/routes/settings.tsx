@@ -25,6 +25,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { MascotTip } from "~/components/brand/mascot-state";
 import { repo } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
 import type { Category, TransactionKind } from "~/lib/db";
 import {
   createCategorySchema,
@@ -54,13 +55,14 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: "พอดี — ตั้งค่า" }];
 }
 
-export async function loader() {
-  const categories = await repo.listCategories();
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
+  const categories = await repo.listCategories(user.id);
   const usageByCategoryId = Object.fromEntries(
     await Promise.all(
       categories.map(async (category) => [
         category.id,
-        await repo.countTransactionsByCategory(category.id),
+        await repo.countTransactionsByCategory(user.id, category.id),
       ])
     )
   );
@@ -71,6 +73,7 @@ export async function loader() {
 export async function action({
   request,
 }: Route.ActionArgs): Promise<ActionResult | Response> {
+  const user = await requireUser(request);
   const form = await request.formData();
   const intent = form.get("intent");
 
@@ -93,6 +96,7 @@ export async function action({
     }
 
     const duplicate = await findDuplicateCategory(
+      user.id,
       parsed.data.name,
       parsed.data.kind
     );
@@ -100,7 +104,7 @@ export async function action({
       return fieldError(intent, { name: "มีหมวดชื่อนี้แล้ว" }, form);
     }
 
-    await repo.createCategory(parsed.data);
+    await repo.createCategory(user.id, parsed.data);
     return redirect("/settings");
   }
 
@@ -114,13 +118,14 @@ export async function action({
       return zodFieldError(intent, parsed.error.issues, form);
     }
 
-    const categories = await repo.listCategories();
+    const categories = await repo.listCategories(user.id);
     const category = categories.find((c) => c.id === parsed.data.id);
     if (!category) {
       return fieldError(intent, { general: "ไม่พบหมวดนี้" }, form);
     }
 
     const duplicate = await findDuplicateCategory(
+      user.id,
       parsed.data.name,
       category.kind,
       category.id
@@ -129,7 +134,7 @@ export async function action({
       return fieldError(intent, { name: "มีหมวดชื่อนี้แล้ว" }, form);
     }
 
-    await repo.updateCategory(category.id, { name: parsed.data.name });
+    await repo.updateCategory(user.id, category.id, { name: parsed.data.name });
     return redirect("/settings");
   }
 
@@ -139,7 +144,7 @@ export async function action({
     return zodFieldError(intent, parsed.error.issues, form);
   }
 
-  const usage = await repo.countTransactionsByCategory(parsed.data.id);
+  const usage = await repo.countTransactionsByCategory(user.id, parsed.data.id);
   if (usage > 0) {
     return fieldError(
       intent,
@@ -148,7 +153,7 @@ export async function action({
     );
   }
 
-  const ok = await repo.deleteCategory(parsed.data.id);
+  const ok = await repo.deleteCategory(user.id, parsed.data.id);
   if (!ok) {
     return fieldError(intent, { general: "ไม่พบหมวดนี้" }, form);
   }
@@ -410,12 +415,13 @@ function CategoryRow({
 }
 
 async function findDuplicateCategory(
+  userId: string,
   name: string,
   kind: TransactionKind,
   exceptId?: string
 ) {
   const normalizedName = normalizeCategoryName(name);
-  const categories = await repo.listCategories();
+  const categories = await repo.listCategories(userId);
   return categories.find(
     (category) =>
       category.id !== exceptId &&

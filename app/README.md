@@ -1,27 +1,31 @@
 # Pordee (พอดี) — App
 
 Thai-first personal finance PWA. React Router v7 (framework mode), Vite,
-Tailwind v4, IBM Plex Sans Thai, in-memory mock data layer.
+Tailwind v4, IBM Plex Sans Thai, Postgres data layer via Drizzle ORM.
 
-> Brand and product direction live in `/docs` and `/brief.md` at the repo
-> root. This README is for running the app.
+> Brand and product direction live under `/docs` at the repo root. This README
+> is for running the app.
 
 ## Requirements
 
 - Node 22 (see `.nvmrc`)
 - pnpm 10
+- Postgres — set `DATABASE_URL` (see `.env.example`). Finance data and Better
+  Auth both live in Postgres.
 
 ## Common scripts
 
 ```bash
 pnpm install
+pnpm db:migrate        # apply finance migrations (needs DATABASE_URL)
 pnpm dev               # http://localhost:5173
 
 # Quality gates (mirror CI)
 pnpm typecheck
 pnpm lint
 pnpm format:check
-pnpm test              # vitest (jsdom)
+pnpm test              # vitest unit (no DB)
+pnpm test:integration  # vitest integration (needs DATABASE_URL)
 pnpm e2e               # playwright (chromium)
 pnpm build
 
@@ -38,7 +42,7 @@ First-time Playwright setup: `pnpm e2e:install`.
 app/                React Router routes + UI
   components/       brand, shell, ui (shadcn-style, hand-rolled)
   lib/
-    db/             PordeeRepo interface + mockRepo (Drizzle swap-point)
+    db/             PordeeRepo interface, drizzleRepo (active), mockRepo (tests)
     validators/     Zod schemas
 scripts/            icon pipeline, codex prompts
 tests/

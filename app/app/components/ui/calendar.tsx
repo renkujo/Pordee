@@ -54,7 +54,10 @@ export function Calendar({
           defaults.button_next,
           "border-line text-muted hover:bg-sky hover:text-ink inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border transition-colors disabled:opacity-40"
         ),
-        month_grid: cn(defaults.month_grid, "w-full basis-full border-collapse"),
+        month_grid: cn(
+          defaults.month_grid,
+          "w-full basis-full border-collapse"
+        ),
         weekdays: cn(defaults.weekdays, "flex"),
         weekday: cn(
           defaults.weekday,

@@ -7,6 +7,7 @@ import { Button } from "~/components/ui/button";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
 import { DatePicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
 import { fmtBaht, fmtSignedBaht } from "~/lib/format/baht";
 import { getMonthRange } from "~/lib/date/month-range";
 import { parseDayValue, todayDayValue } from "~/lib/date/day-value";
@@ -20,14 +21,15 @@ export function meta(_: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
   const url = new URL(request.url);
   const selectedDay = parseDayValue(url.searchParams.get("date"));
   const now = selectedDay ?? new Date();
   const { from, to } = getMonthRange(now);
   const [monthTx, categories, goals] = await Promise.all([
-    repo.listTransactions({ from, to }),
-    repo.listCategories(),
-    repo.listGoals(),
+    repo.listTransactions(user.id, { from, to }),
+    repo.listCategories(user.id),
+    repo.listGoals(user.id),
   ]);
 
   let income = 0;

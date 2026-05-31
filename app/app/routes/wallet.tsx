@@ -4,6 +4,7 @@ import { ArrowRight, ListChecks, Plus, Target } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { MascotTip } from "~/components/brand/mascot-state";
 import { repo } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
 import { getMonthRange } from "~/lib/date/month-range";
 import { fmtBaht } from "~/lib/format/baht";
 import { cn } from "~/lib/cn";
@@ -25,14 +26,15 @@ interface PocketCta {
   label: string;
 }
 
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
   const now = new Date();
   const { from, to } = getMonthRange(now);
   const [allTx, monthTx, categories, goals] = await Promise.all([
-    repo.listTransactions(),
-    repo.listTransactions({ from, to }),
-    repo.listCategories(),
-    repo.listGoals(),
+    repo.listTransactions(user.id),
+    repo.listTransactions(user.id, { from, to }),
+    repo.listCategories(user.id),
+    repo.listGoals(user.id),
   ]);
 
   let totalIncome = 0;
@@ -91,7 +93,10 @@ export async function loader() {
   const billsTarget = getPocketTarget(monthIncome * 0.22, billsSpent);
   const travelRemaining = Math.max(0, travelTarget - travelSpent);
   const billsRemaining = Math.max(0, billsTarget - billsSpent);
-  const dailyRemaining = Math.max(0, available - travelRemaining - billsRemaining);
+  const dailyRemaining = Math.max(
+    0,
+    available - travelRemaining - billsRemaining
+  );
   const dailyTarget = getPocketTarget(
     dailyRemaining + foodSpent,
     foodSpent,
@@ -256,7 +261,9 @@ export default function Wallet() {
           <div className="bg-teal/10 flex flex-col gap-4 p-4 sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-ink text-sm font-semibold">เงินที่ยังใช้ได้</p>
+                <p className="text-ink text-sm font-semibold">
+                  เงินที่ยังใช้ได้
+                </p>
                 <p
                   className={cn(
                     "mt-2 text-4xl font-semibold tracking-tight sm:text-5xl",
@@ -388,10 +395,7 @@ function SummaryTile({
   );
 }
 
-const statusMeta: Record<
-  PocketStatus,
-  { label: string; toneClass: string }
-> = {
+const statusMeta: Record<PocketStatus, { label: string; toneClass: string }> = {
   empty: { label: "ยังไม่ได้กันเงิน", toneClass: "bg-sky text-muted" },
   low: { label: "ใกล้หมด", toneClass: "bg-coral/10 text-coral" },
   over: { label: "ใช้เกินที่กันไว้", toneClass: "bg-coral/10 text-coral" },
@@ -429,7 +433,9 @@ function PocketCard({ pocket }: { pocket: PocketView }) {
             {status.label}
           </span>
         </div>
-        <p className="text-muted mt-1 text-sm leading-6">{pocket.description}</p>
+        <p className="text-muted mt-1 text-sm leading-6">
+          {pocket.description}
+        </p>
 
         <div className="mt-auto pt-5">
           <p className="text-muted text-sm font-semibold">เหลือใช้ได้</p>
@@ -511,7 +517,9 @@ function SpendBreakdown({
             />
             <div>
               <p className="text-ink text-sm font-semibold">
-                {hasMonthData ? "ยังไม่มีรายจ่ายเดือนนี้" : "ยังไม่มีรายการเดือนนี้"}
+                {hasMonthData
+                  ? "ยังไม่มีรายจ่ายเดือนนี้"
+                  : "ยังไม่มีรายการเดือนนี้"}
               </p>
               <p className="text-muted mt-1 text-sm leading-6">
                 เมื่อมีรายจ่าย พอดีจะเรียงหมวดที่ใช้เยอะสุดไว้ให้ดูตรงนี้

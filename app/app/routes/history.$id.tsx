@@ -31,6 +31,7 @@ import {
 import { DatePicker } from "~/components/ui/date-picker";
 import { cn } from "~/lib/cn";
 import { repo } from "~/lib/db";
+import { requireUser } from "~/lib/auth.server";
 import type { Category } from "~/lib/db";
 import { updateTransactionSchema } from "~/lib/validators/transaction";
 import { fmtSignedBaht } from "~/lib/format/baht";
@@ -53,12 +54,13 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: "พอดี — แก้ไขรายการ" }];
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
-  const tx = await repo.getTransaction(params.id);
+export async function loader({ params, request }: Route.LoaderArgs) {
+  const user = await requireUser(request);
+  const tx = await repo.getTransaction(user.id, params.id);
   if (!tx) {
     throw data("ไม่พบรายการ", { status: 404 });
   }
-  const categories = await repo.listCategories();
+  const categories = await repo.listCategories(user.id);
   return { tx, categories };
 }
 
@@ -74,11 +76,12 @@ export async function action({
   params,
   request,
 }: Route.ActionArgs): Promise<ActionResult | Response> {
+  const user = await requireUser(request);
   const form = await request.formData();
   const intent = form.get("intent");
 
   if (intent === "delete") {
-    const ok = await repo.deleteTransaction(params.id);
+    const ok = await repo.deleteTransaction(user.id, params.id);
     if (!ok) {
       throw data("ไม่พบรายการ", { status: 404 });
     }
@@ -113,7 +116,7 @@ export async function action({
     return { ok: false, errors };
   }
 
-  const updated = await repo.updateTransaction(params.id, parsed.data);
+  const updated = await repo.updateTransaction(user.id, params.id, parsed.data);
   if (!updated) {
     throw data("ไม่พบรายการ", { status: 404 });
   }
