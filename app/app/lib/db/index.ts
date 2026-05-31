@@ -1,7 +1,7 @@
-import { mockRepo } from "./mock";
+import { drizzleRepo } from "./drizzle";
 import type { PordeeRepo } from "./types";
 
-export const repo: PordeeRepo = mockRepo;
+export const repo: PordeeRepo = drizzleRepo;
 export type { PordeeRepo } from "./types";
 export type {
   Category,
