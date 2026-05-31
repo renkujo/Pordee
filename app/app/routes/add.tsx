@@ -175,11 +175,10 @@ export default function Add() {
         : "";
 
   const filteredCategories = categories.filter((c) => c.kind === effectiveKind);
-  const inferredCategory =
-    preview.categoryId &&
-    filteredCategories.some((c) => c.id === preview.categoryId)
-      ? preview.categoryId
-      : null;
+  const inferredCategory = preview.categoryName
+    ? (filteredCategories.find((c) => c.name === preview.categoryName)?.id ??
+      null)
+    : null;
   const effectiveCategory =
     categoryOverride !== null ? categoryOverride : inferredCategory;
   const amountNumber = Number(effectiveAmount);

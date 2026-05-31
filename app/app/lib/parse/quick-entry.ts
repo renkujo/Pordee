@@ -4,7 +4,12 @@ export interface QuickEntryParse {
   amount: number | null;
   kind: TransactionKind;
   title: string;
-  categoryId: string | null;
+  /**
+   * Canonical name of the inferred default category (e.g. "อาหาร"), or null.
+   * The UI resolves this to the user's actual category id by name, since
+   * categories are seeded per-user with non-deterministic ids.
+   */
+  categoryName: string | null;
 }
 
 const INCOME_KEYWORDS = [
@@ -17,9 +22,13 @@ const INCOME_KEYWORDS = [
   "ค่าจ้าง",
 ];
 
-const CATEGORY_RULES: { id: string; keywords: string[] }[] = [
+// `name` matches the per-user default category names seeded by the repo,
+// so the UI can resolve the inferred category by name regardless of its id.
+const INCOME_CATEGORY_NAMES = ["เงินเดือน", "งานเสริม"] as const;
+
+const CATEGORY_RULES: { name: string; keywords: string[] }[] = [
   {
-    id: "cat-food",
+    name: "อาหาร",
     keywords: [
       "ข้าว",
       "กาแฟ",
@@ -33,19 +42,19 @@ const CATEGORY_RULES: { id: string; keywords: string[] }[] = [
     ],
   },
   {
-    id: "cat-transport",
+    name: "เดินทาง",
     keywords: ["รถ", "แท็กซี่", "วิน", "bts", "mrt", "น้ำมัน", "grab", "ค่ารถ"],
   },
   {
-    id: "cat-bills",
+    name: "บิล",
     keywords: ["บิล", "ค่าน้ำ", "ค่าไฟ", "ค่าเน็ต", "ค่าโทรศัพท์", "ผ่อน"],
   },
   {
-    id: "cat-salary",
+    name: "เงินเดือน",
     keywords: ["เงินเดือน", "ค่าจ้าง"],
   },
   {
-    id: "cat-side",
+    name: "งานเสริม",
     keywords: ["งานเสริม", "ฟรีแลนซ์", "โบนัส"],
   },
 ];
@@ -72,33 +81,25 @@ export function parseQuickEntry(input: string): QuickEntryParse {
     : raw;
   const title = titleWithoutAmount.length > 0 ? titleWithoutAmount : raw;
 
-  const categoryId = inferCategory(lowered, kind);
+  const categoryName = inferCategory(lowered, kind);
 
   return {
     amount: amount !== null && Number.isFinite(amount) ? amount : null,
     kind,
     title,
-    categoryId,
+    categoryName,
   };
 }
 
 function inferCategory(lowered: string, kind: TransactionKind): string | null {
   for (const rule of CATEGORY_RULES) {
-    if (
-      kind === "expense" &&
-      (rule.id === "cat-salary" || rule.id === "cat-side")
-    ) {
-      continue;
-    }
-    if (
-      kind === "income" &&
-      rule.id !== "cat-salary" &&
-      rule.id !== "cat-side"
-    ) {
-      continue;
-    }
+    const isIncomeRule = INCOME_CATEGORY_NAMES.includes(
+      rule.name as (typeof INCOME_CATEGORY_NAMES)[number]
+    );
+    if (kind === "expense" && isIncomeRule) continue;
+    if (kind === "income" && !isIncomeRule) continue;
     if (rule.keywords.some((kw) => lowered.includes(kw.toLowerCase()))) {
-      return rule.id;
+      return rule.name;
     }
   }
   return null;

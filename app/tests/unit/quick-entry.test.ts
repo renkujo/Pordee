@@ -7,31 +7,31 @@ describe("parseQuickEntry", () => {
     expect(r.amount).toBe(65);
     expect(r.kind).toBe("expense");
     expect(r.title).toBe("กาแฟ");
-    expect(r.categoryId).toBe("cat-food");
+    expect(r.categoryName).toBe("อาหาร");
   });
 
-  it("infers income from เงินเดือน keyword and routes to cat-salary", () => {
+  it("infers income from เงินเดือน keyword and routes to เงินเดือน", () => {
     const r = parseQuickEntry("เงินเดือน 25000");
     expect(r.amount).toBe(25000);
     expect(r.kind).toBe("income");
-    expect(r.categoryId).toBe("cat-salary");
+    expect(r.categoryName).toBe("เงินเดือน");
   });
 
-  it("routes side hustle phrasing to cat-side", () => {
+  it("routes side hustle phrasing to งานเสริม", () => {
     const r = parseQuickEntry("งานเสริม 800");
     expect(r.kind).toBe("income");
-    expect(r.categoryId).toBe("cat-side");
+    expect(r.categoryName).toBe("งานเสริม");
   });
 
-  it("hits cat-transport on รถ/แท็กซี่/grab", () => {
-    expect(parseQuickEntry("ค่ารถ 40").categoryId).toBe("cat-transport");
-    expect(parseQuickEntry("grab 120").categoryId).toBe("cat-transport");
-    expect(parseQuickEntry("แท็กซี่ 90").categoryId).toBe("cat-transport");
+  it("hits เดินทาง on รถ/แท็กซี่/grab", () => {
+    expect(parseQuickEntry("ค่ารถ 40").categoryName).toBe("เดินทาง");
+    expect(parseQuickEntry("grab 120").categoryName).toBe("เดินทาง");
+    expect(parseQuickEntry("แท็กซี่ 90").categoryName).toBe("เดินทาง");
   });
 
-  it("hits cat-bills on bill phrasing", () => {
-    expect(parseQuickEntry("ค่าน้ำ 320").categoryId).toBe("cat-bills");
-    expect(parseQuickEntry("ค่าไฟ 1500").categoryId).toBe("cat-bills");
+  it("hits บิล on bill phrasing", () => {
+    expect(parseQuickEntry("ค่าน้ำ 320").categoryName).toBe("บิล");
+    expect(parseQuickEntry("ค่าไฟ 1500").categoryName).toBe("บิล");
   });
 
   it("returns null amount when no number is present", () => {
@@ -51,9 +51,9 @@ describe("parseQuickEntry", () => {
     expect(r.title).toBe("ข้าว 2 จาน");
   });
 
-  it("leaves categoryId null when no keyword matches", () => {
+  it("leaves categoryName null when no keyword matches", () => {
     const r = parseQuickEntry("ของขวัญ 500");
-    expect(r.categoryId).toBeNull();
+    expect(r.categoryName).toBeNull();
   });
 
   it("preserves the whole input as title when only a number is given", () => {
