@@ -12,28 +12,31 @@ Original app repo:
 - `asset-index.md` - selected asset list
 - `next-steps.md` - implementation sequence
 - `prompts/` - reusable image-generation prompts
-- `docs/rebrand-direction.md` - full rebrand strategy
-- `docs/logo-direction.md` - logo direction and production notes
-- `docs/tech-stack.md` - app stack and deployment direction
-- `docs/ui-direction.md` - accepted product UI direction and screen guidance
+- `rebrand-direction.md` - full rebrand strategy
+- `logo-direction.md` - logo direction and production notes
+- `tech-stack.md` - app stack and deployment direction
+- `ui-direction.md` - accepted product UI direction and screen guidance
 
 ## Asset Folders
 
-- `assets/` - curated assets for current use
+- `app/public/` - app-runtime logo, icons, and mascot assets
+- `assets/boards/` - reference boards for brand direction
 - `source/rebrand-source/` - full exploration archive moved from TangMod
 
 ## Current Selected Asset
 
 Use this as the final logo visual direction for mockup trials and production tracing:
 
-- `assets/logo/pordee-pd-logo-semiflat-v1.png`
+- `app/public/logo/pordee-pd-logo.png`
 
 ## Notes
 
 - TangMod remains the app repo.
 - This folder owns the rebrand exploration and asset package.
-- Brand preview and mockup files should use curated assets from `assets/`, not `source/rebrand-source/`.
-- Use `assets/logo/pordee-pd-logo-semiflat-v1.png` as the current final logo direction across preview/mockup work.
-- Use mascot PNG files from `assets/mascots/` for brand preview/mockup trials.
+- Brand preview and mockup files should use app-runtime assets from
+  `app/public/`, not `source/rebrand-source/`.
+- Use `app/public/logo/pordee-pd-logo.png` as the current final logo direction across preview/mockup work.
+- Use mascot PNG files from `app/public/brand/mascots/` for brand
+  preview/mockup trials.
 - Do not treat generated PNG assets as final production vectors.
 - Trace the approved mark into SVG before production/app-store use.

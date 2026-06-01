@@ -1,6 +1,6 @@
 # Pordee Semi-Flat PD Logo Prompt Set
 
-Use these prompts one asset at a time. The final selected visual direction is `assets/logo/pordee-pd-logo-semiflat-v1.png`.
+Use these prompts one asset at a time. The final selected visual direction is `app/public/logo/pordee-pd-logo.png`.
 
 ## 1. Standalone Transparent / Cutout Source
 

@@ -2,7 +2,7 @@
 
 ## 1. Final Logo Direction
 
-Use `assets/logo/pordee-pd-logo-semiflat-v1.png` as the final logo visual direction in brand preview/mockup work:
+Use `app/public/logo/pordee-pd-logo.png` as the final logo visual direction in brand preview/mockup work:
 
 - app header
 - mobile home screen
@@ -52,9 +52,9 @@ Still to do:
 
 ## 5. Update Docs After Implementation
 
-- `docs/logo-direction.md` — updated to reflect Phase 1 raster pipeline and
+- `logo-direction.md` — updated to reflect Phase 1 raster pipeline and
   remaining vector work.
-- `docs/design-system.md` — does not exist yet; introduce once UI features
+- `design-system.md` — does not exist yet; introduce once UI features
   ship in Phase 2 so it documents real components, not aspirations.
 - `AGENTS.md` — does not exist in this repo yet; introduce when a contributor
   workflow is needed.

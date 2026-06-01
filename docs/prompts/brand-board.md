@@ -9,7 +9,7 @@ Input image role: the attached reference image is the primary style, layout, and
 
 Primary request: Create a premium vertical brand identity board for a Thai personal finance app named "พอดี" with English support text "PORDEE".
 
-Logo direction: a semi-flat rounded P + D monogram made from softened coral rounded shapes, with a friendly muted teal curved smile/balance stroke underneath and one small pale lime dot near the lower right. The monogram should feel soft, minimal, product-ready, app-icon ready, warm, friendly, and close to the selected final reference in `assets/logo/pordee-pd-logo-semiflat-v1.png`. It must not look inflated, glossy, plastic, or 3D.
+Logo direction: a semi-flat rounded P + D monogram made from softened coral rounded shapes, with a friendly muted teal curved smile/balance stroke underneath and one small pale lime dot near the lower right. The monogram should feel soft, minimal, product-ready, app-icon ready, warm, friendly, and close to the selected final reference in `app/public/logo/pordee-pd-logo.png`. It must not look inflated, glossy, plastic, or 3D.
 
 Composition: vertical portrait brand board, clean white outer background. Top header row with small logo mark on the left, thin divider line, and simple color/navigation bars. Large pale-sky rounded card in the center. Inside the card, show one large hero logo mark centered. Below it, show two app icon variants: white tile version and teal tile version. Below that, show the wordmark lockup: logo mark + Thai text "พอดี" in dark charcoal, with "PORDEE" in teal letter-spaced uppercase underneath. At the bottom, show a simple construction formula: P + D = final logo. Include small color swatches: coral red, teal, lime, charcoal, white, pale sky.
 

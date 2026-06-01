@@ -1,0 +1,50 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1254"
+  height="1254"
+  viewBox="0 0 1254 1254"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Pordee transparent logo mark</title>
+  <desc id="desc">
+    Transparent-background Option B Pordee logo mark with coral P and D loop,
+    teal balance path, and lime milestone dot.
+  </desc>
+  <defs>
+    <linearGradient id="coral" x1="338" x2="880" y1="268" y2="814">
+      <stop offset="0" stop-color="#ff7a67" />
+      <stop offset="0.58" stop-color="#ff6b5a" />
+      <stop offset="1" stop-color="#f95b4d" />
+    </linearGradient>
+    <linearGradient id="teal" x1="410" x2="715" y1="681" y2="770">
+      <stop offset="0" stop-color="#16b7a7" />
+      <stop offset="1" stop-color="#07988c" />
+    </linearGradient>
+  </defs>
+
+  <g
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    transform="translate(10 0)"
+  >
+    <path
+      d="M 377 806 V 421 C 377 319 458 258 553 268 C 646 278 699 354 677 443 C 657 523 586 566 494 555"
+      stroke="url(#coral)"
+      stroke-width="86"
+    />
+    <path
+      d="M 785 430 C 822 470 834 529 813 591 C 795 644 761 681 719 702"
+      stroke="url(#coral)"
+      stroke-width="68"
+    />
+    <path
+      d="M 467 711 C 533 762 632 776 699 738"
+      stroke="url(#teal)"
+      stroke-width="68"
+    />
+  </g>
+
+  <circle cx="790" cy="789" r="30" fill="#b7f34a" />
+</svg>

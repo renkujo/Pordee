@@ -42,6 +42,32 @@ export function dayValueToIso(value?: string | null): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+/** Convert a local `YYYY-MM-DD` string to the first instant of that day. */
+export function dayValueToStartIso(value?: string | null): string | null {
+  const match = value ? DAY_PATTERN.exec(value.trim()) : null;
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/** Convert a local `YYYY-MM-DD` string to the last instant of that day. */
+export function dayValueToEndIso(value?: string | null): string | null {
+  const match = value ? DAY_PATTERN.exec(value.trim()) : null;
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const date = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    23,
+    59,
+    59,
+    999
+  );
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 /** Convert an ISO datetime to a local `YYYY-MM-DD` string, or `""` when invalid. */
 export function isoToDayValue(iso?: string | null): string {
   if (!iso) return "";

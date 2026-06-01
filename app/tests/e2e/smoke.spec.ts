@@ -3,7 +3,9 @@ import { expect, test } from "./fixtures";
 test("home loads and shows the Pordee shell", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/พอดี/);
-  await expect(page.getByText("ภาพรวมเดือนนี้", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "ภาพรวมการเงิน" })
+  ).toBeVisible();
 });
 
 test("desktop nav reaches /add, /history, /goals, /settings", async ({

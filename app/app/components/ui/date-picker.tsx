@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { DateRange } from "react-day-picker";
 import { CalendarDays } from "lucide-react";
 import { Calendar } from "~/components/ui/calendar";
 import {
@@ -19,6 +20,24 @@ interface DatePickerProps {
   value: string;
   /** Called with the new `YYYY-MM-DD` string when a day is picked. */
   onChange: (value: string) => void;
+  /** Earliest selectable day as `YYYY-MM-DD`. Earlier days are disabled. */
+  min?: string;
+  /** Latest selectable day as `YYYY-MM-DD`. Later days are disabled. */
+  max?: string;
+  id?: string;
+  placeholder?: string;
+  "aria-describedby"?: string;
+}
+
+interface DateRangePickerProps {
+  /** Selected start day as a local `YYYY-MM-DD` string. */
+  from: string;
+  /** Selected end day as a local `YYYY-MM-DD` string. */
+  to: string;
+  /** Called with local `YYYY-MM-DD` strings when the selected range changes. */
+  onChange: (range: { from: string; to: string }) => void;
+  /** Earliest selectable day as `YYYY-MM-DD`. Earlier days are disabled. */
+  min?: string;
   /** Latest selectable day as `YYYY-MM-DD`. Later days are disabled. */
   max?: string;
   id?: string;
@@ -29,6 +48,7 @@ interface DatePickerProps {
 export function DatePicker({
   value,
   onChange,
+  min,
   max,
   id,
   placeholder = "เลือกวันที่",
@@ -36,7 +56,12 @@ export function DatePicker({
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const selected = parseLocalDate(value);
+  const minDate = parseLocalDate(min);
   const maxDate = parseLocalDate(max);
+  const disabled = [
+    minDate ? { before: minDate } : null,
+    maxDate ? { after: maxDate } : null,
+  ].filter((rule): rule is NonNullable<typeof rule> => Boolean(rule));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -49,15 +74,17 @@ export function DatePicker({
           selected ? "text-ink" : "text-muted"
         )}
       >
-        <span>{selected ? labelFormatter.format(selected) : placeholder}</span>
+        <span className="min-w-0 truncate whitespace-nowrap">
+          {selected ? labelFormatter.format(selected) : placeholder}
+        </span>
         <CalendarDays className="text-muted h-4 w-4 shrink-0" />
       </PopoverTrigger>
       <PopoverContent align="start">
         <Calendar
           mode="single"
           selected={selected}
-          defaultMonth={selected ?? maxDate ?? undefined}
-          disabled={maxDate ? { after: maxDate } : undefined}
+          defaultMonth={selected ?? maxDate ?? minDate ?? undefined}
+          disabled={disabled.length > 0 ? disabled : undefined}
           onSelect={(day) => {
             if (!day) return;
             onChange(toLocalDateValue(day));
@@ -67,6 +94,74 @@ export function DatePicker({
       </PopoverContent>
     </Popover>
   );
+}
+
+export function DateRangePicker({
+  from,
+  to,
+  onChange,
+  min,
+  max,
+  id,
+  placeholder = "เลือกช่วงวันที่",
+  "aria-describedby": ariaDescribedBy,
+}: DateRangePickerProps) {
+  const [open, setOpen] = React.useState(false);
+  const fromDate = parseLocalDate(from);
+  const toDate = parseLocalDate(to);
+  const minDate = parseLocalDate(min);
+  const maxDate = parseLocalDate(max);
+  const selected =
+    fromDate && toDate ? { from: fromDate, to: toDate } : undefined;
+  const disabled = [
+    minDate ? { before: minDate } : null,
+    maxDate ? { after: maxDate } : null,
+  ].filter((rule): rule is NonNullable<typeof rule> => Boolean(rule));
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        id={id}
+        type="button"
+        aria-describedby={ariaDescribedBy}
+        className={cn(
+          "border-line bg-surface focus-visible:ring-coral/30 flex h-11 w-full items-center justify-between gap-2 rounded-[12px] border px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          selected ? "text-ink" : "text-muted"
+        )}
+      >
+        <span className="min-w-0 truncate whitespace-nowrap">
+          {selected ? formatRangeLabel(selected) : placeholder}
+        </span>
+        <CalendarDays className="text-muted h-4 w-4 shrink-0" />
+      </PopoverTrigger>
+      <PopoverContent align="start">
+        <Calendar
+          mode="range"
+          selected={selected}
+          defaultMonth={fromDate ?? maxDate ?? minDate ?? undefined}
+          disabled={disabled.length > 0 ? disabled : undefined}
+          onSelect={(range) => {
+            if (!range?.from) return;
+            const nextFrom = toLocalDateValue(range.from);
+            const nextTo = toLocalDateValue(range.to ?? range.from);
+            onChange({ from: nextFrom, to: nextTo });
+            if (range.to) setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function formatRangeLabel(range: DateRange): string {
+  if (!range.from) return "เลือกช่วงวันที่";
+  if (
+    !range.to ||
+    toLocalDateValue(range.from) === toLocalDateValue(range.to)
+  ) {
+    return labelFormatter.format(range.from);
+  }
+  return `${labelFormatter.format(range.from)} - ${labelFormatter.format(range.to)}`;
 }
 
 function parseLocalDate(value?: string): Date | undefined {

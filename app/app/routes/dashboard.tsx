@@ -1,16 +1,35 @@
 import { Link, useLoaderData, useSearchParams } from "react-router";
+import type { ReactNode } from "react";
 import type { Route } from "./+types/dashboard";
-import { ArrowRight, ListChecks, Plus, Target } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  ArrowRight,
+  CalendarRange,
+  ListChecks,
+  Plus,
+  RotateCcw,
+  Target,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { Label } from "~/components/ui/label";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
-import { DatePicker } from "~/components/ui/date-picker";
+import { DateRangePicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
 import { requireUser } from "~/lib/auth.server";
 import { fmtBaht, fmtSignedBaht } from "~/lib/format/baht";
-import { getMonthRange } from "~/lib/date/month-range";
-import { parseDayValue, todayDayValue } from "~/lib/date/day-value";
+import {
+  dayValueToEndIso,
+  dayValueToStartIso,
+  parseDayValue,
+  todayDayValue,
+} from "~/lib/date/day-value";
 import { cn } from "~/lib/cn";
 
 export function meta(_: Route.MetaArgs) {
@@ -24,10 +43,17 @@ export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
   const url = new URL(request.url);
   const selectedDay = parseDayValue(url.searchParams.get("date"));
-  const now = selectedDay ?? new Date();
-  const { from, to } = getMonthRange(now);
+  const today = new Date();
+  const now =
+    selectedDay && selectedDay <= today ? selectedDay : new Date(today);
+  const range = getDashboardDateRange({
+    monthDate: now,
+    fromParam: url.searchParams.get("from"),
+    toParam: url.searchParams.get("to"),
+    today,
+  });
   const [monthTx, categories, goals] = await Promise.all([
-    repo.listTransactions(user.id, { from, to }),
+    repo.listTransactions(user.id, { from: range.fromIso, to: range.toIso }),
     repo.listCategories(user.id),
     repo.listGoals(user.id),
   ]);
@@ -64,14 +90,15 @@ export async function loader({ request }: Route.LoaderArgs) {
     }))
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 4);
-  const today = new Date();
   const isCurrentMonth =
     now.getFullYear() === today.getFullYear() &&
     now.getMonth() === today.getMonth();
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const daysLeft = isCurrentMonth
-    ? Math.max(1, monthEnd.getDate() - today.getDate() + 1)
-    : 0;
+  const todayDay = todayDayValue(today);
+  const toDate = parseDayValue(range.toDay) ?? today;
+  const daysLeft =
+    isCurrentMonth && range.toDay >= todayDay
+      ? Math.max(1, toDate.getDate() - today.getDate() + 1)
+      : 0;
   const balance = income - expense;
 
   return {
@@ -80,13 +107,16 @@ export async function loader({ request }: Route.LoaderArgs) {
       year: "numeric",
     }),
     selectedDay: todayDayValue(now),
+    range,
     isCurrentMonth,
     income,
     expense,
     balance,
     daysLeft,
     dailySafe:
-      isCurrentMonth && income > 0 ? Math.floor(balance / daysLeft) : null,
+      isCurrentMonth && daysLeft > 0 && income > 0
+        ? Math.floor(balance / daysLeft)
+        : null,
     recent: monthTx.slice(0, 5),
     goals: goals.slice(0, 3),
     categoryNameById,
@@ -99,10 +129,115 @@ const fmtDate = new Intl.DateTimeFormat("th-TH", {
   month: "short",
 });
 
+const rangeLabelFormatter = new Intl.DateTimeFormat("th-TH", {
+  day: "numeric",
+  month: "short",
+});
+
+interface DashboardDateRange {
+  fromDay: string;
+  toDay: string;
+  monthStartDay: string;
+  monthEndDay: string;
+  fromIso: string;
+  toIso: string;
+  label: string;
+}
+
+function getDashboardDateRange({
+  monthDate,
+  fromParam,
+  toParam,
+  today = new Date(),
+}: {
+  monthDate: Date;
+  fromParam?: string | null;
+  toParam?: string | null;
+  today?: Date;
+}): DashboardDateRange {
+  const activeMonth = monthDate > today ? today : monthDate;
+  const monthStart = new Date(
+    activeMonth.getFullYear(),
+    activeMonth.getMonth(),
+    1
+  );
+  const calendarMonthEnd = new Date(
+    activeMonth.getFullYear(),
+    activeMonth.getMonth() + 1,
+    0
+  );
+  const monthEnd = isSameMonth(activeMonth, today)
+    ? minDate(calendarMonthEnd, today)
+    : calendarMonthEnd;
+
+  const fromDate = clampDateToRange(
+    parseDayValue(fromParam) ?? monthStart,
+    monthStart,
+    monthEnd
+  );
+  let toDate = clampDateToRange(
+    parseDayValue(toParam) ?? monthEnd,
+    monthStart,
+    monthEnd
+  );
+
+  if (fromDate > toDate) {
+    toDate = fromDate;
+  }
+
+  const fromDay = todayDayValue(fromDate);
+  const toDay = todayDayValue(toDate);
+  const fromIso = dayValueToStartIso(fromDay);
+  const toIso = dayValueToEndIso(toDay);
+
+  if (!fromIso || !toIso) {
+    throw new Error("Invalid dashboard date range");
+  }
+
+  return {
+    fromDay,
+    toDay,
+    monthStartDay: todayDayValue(monthStart),
+    monthEndDay: todayDayValue(monthEnd),
+    fromIso,
+    toIso,
+    label:
+      fromDay === toDay
+        ? rangeLabelFormatter.format(fromDate)
+        : `${rangeLabelFormatter.format(fromDate)} - ${rangeLabelFormatter.format(toDate)}`,
+  };
+}
+
+function clampDateToRange(date: Date, min: Date, max: Date) {
+  if (date < min) return min;
+  if (date > max) return max;
+  return date;
+}
+
+function isSameMonth(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+function minDate(a: Date, b: Date) {
+  return a < b ? a : b;
+}
+
+function normalizeDashboardRangeSelection(range: { from: string; to: string }) {
+  const fromDate = parseDayValue(range.from);
+  const toDate = parseDayValue(range.to);
+  if (!fromDate || !toDate) return range;
+
+  if (!isSameMonth(fromDate, toDate)) {
+    return { from: range.from, to: range.from };
+  }
+
+  return range;
+}
+
 export default function Dashboard() {
   const {
     monthLabel,
-    selectedDay,
+    range,
     isCurrentMonth,
     income,
     expense,
@@ -118,12 +253,33 @@ export default function Dashboard() {
 
   const hasAnyData = income > 0 || expense > 0;
   const topCategory = categorySpend[0] ?? null;
+  const isWholeMonthRange =
+    range.fromDay === range.monthStartDay && range.toDay === range.monthEndDay;
+  const rangeSummary = isWholeMonthRange
+    ? "กำลังดูข้อมูลทั้งเดือน"
+    : `กำลังดู ${range.label}`;
 
-  function handleMonthChange(day: string) {
+  function resetRange() {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.set("date", day);
+        next.set("date", range.monthStartDay);
+        next.set("from", range.monthStartDay);
+        next.set("to", range.monthEndDay);
+        return next;
+      },
+      { preventScrollReset: true }
+    );
+  }
+
+  function handleRangeChange(nextRange: { from: string; to: string }) {
+    const normalizedRange = normalizeDashboardRangeSelection(nextRange);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("date", normalizedRange.from);
+        next.set("from", normalizedRange.from);
+        next.set("to", normalizedRange.to);
         return next;
       },
       { preventScrollReset: true }
@@ -131,45 +287,109 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-5">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-muted text-sm">
-            {isCurrentMonth ? "ภาพรวมเดือนนี้" : "ภาพรวมย้อนหลัง"}
-          </p>
-          <h1 className="text-ink text-2xl font-semibold">{monthLabel}</h1>
-        </div>
-        <div className="flex items-end gap-2">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-muted text-xs">เลือกเดือน</span>
-            <DatePicker
-              value={selectedDay}
-              max={todayDayValue()}
-              onChange={handleMonthChange}
-            />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:gap-6">
+      <header>
+        <Card className="overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,31rem)]">
+            <CardHeader
+              className={cn(
+                "justify-between gap-5 p-4 sm:p-5 lg:min-h-48",
+                isCurrentMonth ? "bg-teal/10" : "bg-[#EAF2F3]"
+              )}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={isCurrentMonth ? "teal" : "muted"}>
+                  {isCurrentMonth ? "เดือนนี้" : "ย้อนหลัง"}
+                </Badge>
+                <Badge tone="neutral" className="rounded-xs">
+                  {range.label}
+                </Badge>
+              </div>
+              <div>
+                <CardDescription>
+                  {isWholeMonthRange
+                    ? "ภาพรวมทั้งเดือน"
+                    : "ภาพรวมเฉพาะช่วงวันที่เลือก"}
+                </CardDescription>
+                <CardTitle className="mt-2 text-3xl font-semibold sm:text-4xl">
+                  {monthLabel}
+                </CardTitle>
+              </div>
+            </CardHeader>
+
+            <CardContent className="border-line bg-surface flex flex-col gap-4 border-t p-4 sm:p-5 lg:border-t-0 lg:border-l">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <CalendarRange className="text-coral h-4 w-4" />
+                    <p className="text-ink text-sm font-semibold">
+                      ช่วงเวลาที่ใช้คำนวณ
+                    </p>
+                  </div>
+                  <p className="text-muted mt-1 text-xs leading-5">
+                    {rangeSummary} · ช่วงที่เลือกต้องอยู่ในเดือนเดียวกัน
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={isWholeMonthRange ? "ghost" : "secondary"}
+                  size="sm"
+                  onClick={resetRange}
+                  disabled={isWholeMonthRange}
+                  className="shrink-0"
+                  aria-label="กลับไปดูทั้งเดือน"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  รีเซ็ต
+                </Button>
+              </div>
+
+              <div className="border-line bg-sky/45 overflow-hidden rounded-md border">
+                <DashboardDateField
+                  label="เลือกช่วงวันที่"
+                  helper={`เลือกวันเริ่มและวันจบในปฏิทินเดียว ถ้าเลือกเดือนอื่น พอดีจะเปลี่ยนภาพรวมไปเดือนนั้น`}
+                  className="p-3 sm:p-4"
+                >
+                  <DateRangePicker
+                    from={range.fromDay}
+                    to={range.toDay}
+                    max={todayDayValue()}
+                    onChange={handleRangeChange}
+                  />
+                </DashboardDateField>
+              </div>
+
+              <Button asChild className="h-11 lg:hidden">
+                <Link to="/add">
+                  <Plus className="h-4 w-4" />
+                  บันทึกรายการ
+                </Link>
+              </Button>
+            </CardContent>
           </div>
-          <Button asChild size="sm" className="lg:hidden">
-            <Link to="/add">
-              <Plus className="h-4 w-4" />
-              บันทึก
-            </Link>
-          </Button>
-        </div>
+        </Card>
       </header>
 
       <section
         aria-label="ภาพรวมการเงิน"
         className="grid gap-4 lg:grid-flow-dense lg:auto-rows-[minmax(150px,auto)] lg:grid-cols-6"
       >
-        <Card className="lg:col-span-4">
+        <Card className="overflow-hidden lg:col-span-4">
           <CardContent className="flex h-full flex-col p-4 sm:p-5">
-            <div className="flex flex-col gap-4 sm:gap-5">
+            <div
+              className={cn(
+                "-m-4 flex flex-1 flex-col gap-4 p-4 sm:-m-5 sm:gap-5 sm:p-5",
+                getBalanceSurfaceClass(balance, income)
+              )}
+            >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <Badge tone={getBalanceTone(balance, income)}>
                     {getBalanceLabel(balance, income)}
                   </Badge>
-                  <p className="text-muted mt-4 text-sm">คงเหลือเดือนนี้</p>
+                  <p className="text-muted mt-4 text-sm">
+                    {isWholeMonthRange ? "คงเหลือเดือนนี้" : "คงเหลือช่วงนี้"}
+                  </p>
                   <p
                     className="text-ink mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
                     data-testid="balance"
@@ -211,18 +431,20 @@ export default function Dashboard() {
                 />
               </div>
 
-              <div className="border-line bg-sky/45 rounded-md border p-3 sm:p-4">
+              <div className="border-line bg-surface rounded-md border p-3 sm:p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-ink text-sm font-semibold">
                       {isCurrentMonth
-                        ? `เหลืออีก ${daysLeft} วันในเดือนนี้`
-                        : `สรุปเดือน ${monthLabel}`}
+                        ? daysLeft > 0
+                          ? `เหลืออีก ${daysLeft} วันในช่วงนี้`
+                          : "สรุปช่วงวันที่เลือก"
+                        : `สรุปช่วง ${range.label}`}
                     </p>
                     <p className="text-muted mt-1 text-sm leading-6">
-                      {isCurrentMonth
+                      {isCurrentMonth && daysLeft > 0
                         ? getDailySafeCopy(dailySafe)
-                        : `เดือนนี้คงเหลือ ${fmtBaht(balance)} จากรายรับ ${fmtBaht(income)}`}
+                        : `ช่วง ${range.label} คงเหลือ ${fmtBaht(balance)} จากรายรับ ${fmtBaht(income)}`}
                     </p>
                   </div>
                   <Button asChild className="w-full sm:w-auto">
@@ -237,7 +459,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2 lg:row-span-2">
+        <Card className="bg-surface overflow-hidden lg:col-span-2 lg:row-span-2">
           <CardHeader>
             <CardTitle>ควรทำอะไรต่อ</CardTitle>
           </CardHeader>
@@ -283,6 +505,26 @@ export default function Dashboard() {
   );
 }
 
+function DashboardDateField({
+  children,
+  className,
+  helper,
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  helper?: string;
+  label: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <Label className="text-muted text-xs">{label}</Label>
+      {children}
+      {helper ? <p className="text-muted text-xs leading-5">{helper}</p> : null}
+    </div>
+  );
+}
+
 function SummaryMetric({
   label,
   value,
@@ -295,7 +537,14 @@ function SummaryMetric({
   testId?: string;
 }) {
   return (
-    <div className="border-line bg-surface rounded-sm border p-2.5 sm:p-3">
+    <div
+      className={cn(
+        "border-line rounded-sm border p-2.5 sm:p-3",
+        tone === "teal" && "bg-teal/10",
+        tone === "coral" && "bg-coral/10",
+        tone === "neutral" && "bg-surface"
+      )}
+    >
       <p className="text-muted text-xs">{label}</p>
       <p
         className={cn(
@@ -310,6 +559,12 @@ function SummaryMetric({
       </p>
     </div>
   );
+}
+
+function getBalanceSurfaceClass(balance: number, income: number) {
+  if (income === 0) return "bg-sky/45";
+  if (balance < 0) return "bg-coral/10";
+  return "bg-teal/10";
 }
 
 function SpendRatio({ income, expense }: { income: number; expense: number }) {
