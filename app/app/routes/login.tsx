@@ -17,16 +17,18 @@ import {
   ensureAuthDatabase,
   getAuthUser,
   getSafeRedirectTo,
+  isGoogleAuthEnabled,
   redirectWithAuthCookies,
 } from "~/lib/auth.server";
 import { cn } from "~/lib/cn";
 
 type AuthIntent = "signIn" | "signUp";
+type ActionIntent = AuthIntent | "socialSignIn";
 
 interface ActionResult {
   ok: false;
   error: string;
-  intent: AuthIntent;
+  intent: ActionIntent;
   values: {
     email: string;
     name: string;
@@ -47,6 +49,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     mode,
     redirectTo: getSafeRedirectTo(url.searchParams.get("redirectTo")),
+    socialProviders: {
+      google: isGoogleAuthEnabled(),
+    },
   };
 }
 
@@ -56,13 +61,66 @@ export async function action({
   await ensureAuthDatabase();
 
   const form = await request.formData();
-  const intent = form.get("intent") === "signUp" ? "signUp" : "signIn";
+  const intentValue = form.get("intent");
+  const intent: ActionIntent =
+    intentValue === "signUp"
+      ? "signUp"
+      : intentValue === "socialSignIn"
+        ? "socialSignIn"
+        : "signIn";
   const email = String(form.get("email") ?? "")
     .trim()
     .toLowerCase();
   const password = String(form.get("password") ?? "");
   const name = String(form.get("name") ?? "").trim();
   const redirectTo = getSafeRedirectTo(form.get("redirectTo"));
+
+  if (intent === "socialSignIn") {
+    const provider = form.get("provider");
+    if (provider !== "google") {
+      return formError("socialSignIn", "ผู้ให้บริการเข้าสู่ระบบไม่ถูกต้อง", {
+        email: "",
+        name: "",
+        redirectTo,
+      });
+    }
+
+    if (!isGoogleAuthEnabled()) {
+      return formError("socialSignIn", "ยังไม่ได้เปิดใช้งาน Google Login", {
+        email: "",
+        name: "",
+        redirectTo,
+      });
+    }
+
+    try {
+      const { headers, response } = await auth.api.signInSocial({
+        body: {
+          provider: "google",
+          callbackURL: redirectTo,
+          errorCallbackURL: `/login?redirectTo=${encodeURIComponent(redirectTo)}`,
+        },
+        headers: request.headers,
+        returnHeaders: true,
+      });
+
+      if (!response.url) {
+        return formError("socialSignIn", "เริ่มเข้าสู่ระบบด้วย Google ไม่ได้", {
+          email: "",
+          name: "",
+          redirectTo,
+        });
+      }
+
+      return redirectWithAuthCookies(response.url, headers);
+    } catch (error) {
+      return formError("socialSignIn", authErrorMessage(error), {
+        email: "",
+        name: "",
+        redirectTo,
+      });
+    }
+  }
 
   if (!email || !password || (intent === "signUp" && !name)) {
     return formError(intent, "กรอกข้อมูลบัญชีให้ครบก่อน", {
@@ -105,10 +163,14 @@ export async function action({
 }
 
 export default function Login() {
-  const { mode, redirectTo } = useLoaderData<typeof loader>();
+  const { mode, redirectTo, socialProviders } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
   const activeIntent: AuthIntent =
-    actionData?.intent ?? (mode === "signup" ? "signUp" : "signIn");
+    actionData?.intent === "signIn" || actionData?.intent === "signUp"
+      ? actionData.intent
+      : mode === "signup"
+        ? "signUp"
+        : "signIn";
   const isSignUp = activeIntent === "signUp";
   const values = actionData?.values;
   const heading = isSignUp ? "เริ่มใช้พอดี" : "เข้าสู่พอดี";
@@ -116,7 +178,7 @@ export default function Login() {
     ? "เริ่มจากบัญชีเดียวก่อน"
     : "กลับมาจัดการเงินต่อ";
   const supportCopy = isSignUp
-    ? "ตอนนี้พอดีใช้บัญชีเพื่อกันพื้นที่ส่วนตัวของคุณไว้ ก่อนย้ายข้อมูลการเงินไปผูกกับฐานข้อมูลจริงในเฟสถัดไป"
+    ? "พอดีใช้บัญชีเพื่อแยกพื้นที่ข้อมูลการเงินของคุณไว้ในฐานข้อมูลของแอป"
     : "เข้าสู่ระบบแล้วไปต่อที่ภาพรวมเดือนนี้ บันทึกรายการ หรือเป้าหมายที่ค้างไว้";
 
   return (
@@ -158,7 +220,7 @@ export default function Login() {
             <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
               <TrustRow>บันทึกรายการส่วนตัว</TrustRow>
               <TrustRow>ออกจากระบบได้ทุกเวลา</TrustRow>
-              <TrustRow>พร้อมย้ายไปฐานข้อมูลจริง</TrustRow>
+              <TrustRow>ข้อมูลแยกตามบัญชี</TrustRow>
             </div>
           </div>
         </aside>
@@ -244,10 +306,74 @@ export default function Login() {
                 {isSignUp ? "สมัครและเข้าใช้งาน" : "เข้าสู่ระบบ"}
               </Button>
             </Form>
+
+            {socialProviders.google && (
+              <SocialSignIn redirectTo={redirectTo} isSignUp={isSignUp} />
+            )}
           </div>
         </section>
       </div>
     </main>
+  );
+}
+
+function SocialSignIn({
+  isSignUp,
+  redirectTo,
+}: {
+  isSignUp: boolean;
+  redirectTo: string;
+}) {
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-3">
+        <div className="bg-line h-px flex-1" />
+        <span className="text-muted text-xs">หรือ</span>
+        <div className="bg-line h-px flex-1" />
+      </div>
+      <Form method="post" className="mt-5">
+        <input type="hidden" name="intent" value="socialSignIn" />
+        <input type="hidden" name="provider" value="google" />
+        <input type="hidden" name="redirectTo" value={redirectTo} />
+        <Button
+          type="submit"
+          variant="secondary"
+          size="lg"
+          className="h-12 w-full"
+        >
+          <GoogleMark className="h-4 w-4" />
+          {isSignUp ? "สมัครด้วย Google" : "เข้าสู่ระบบด้วย Google"}
+        </Button>
+      </Form>
+    </div>
+  );
+}
+
+function GoogleMark({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M21.6 12.23c0-.76-.07-1.49-.2-2.19H12v4.14h5.37a4.59 4.59 0 0 1-1.99 3.01v2.5h3.22c1.89-1.74 3-4.3 3-7.46Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 22c2.7 0 4.96-.89 6.61-2.41l-3.22-2.5c-.9.6-2.04.95-3.39.95-2.6 0-4.8-1.76-5.59-4.12H3.08v2.58A9.98 9.98 0 0 0 12 22Z"
+        fill="#34A853"
+      />
+      <path
+        d="M6.41 13.92A6.01 6.01 0 0 1 6.1 12c0-.67.11-1.31.31-1.92V7.5H3.08A9.98 9.98 0 0 0 2 12c0 1.61.39 3.14 1.08 4.5l3.33-2.58Z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.96c1.47 0 2.78.5 3.82 1.49l2.86-2.86C16.95 2.98 14.7 2 12 2a9.98 9.98 0 0 0-8.92 5.5l3.33 2.58C7.2 7.72 9.4 5.96 12 5.96Z"
+        fill="#EA4335"
+      />
+    </svg>
   );
 }
 
@@ -329,7 +455,7 @@ function ModeLink({
 }
 
 function formError(
-  intent: AuthIntent,
+  intent: ActionIntent,
   error: string,
   values: ActionResult["values"]
 ): ActionResult {

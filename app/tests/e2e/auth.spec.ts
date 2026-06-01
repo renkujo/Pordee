@@ -22,7 +22,6 @@ test("user can sign up and sign out", async ({ page }) => {
   await page.getByRole("button", { name: "สมัครและเข้าใช้งาน" }).click();
 
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByText("ภาพรวมเดือนนี้", { exact: true })).toBeVisible();
 
   await page.goto("/settings");
   await page

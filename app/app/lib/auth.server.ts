@@ -4,6 +4,8 @@ import { APIError, isAPIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
 import { pool } from "~/lib/db/client";
 
+const googleSocialProvider = getGoogleSocialProvider();
+
 export const auth = betterAuth({
   database: pool,
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:5173",
@@ -13,6 +15,19 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  account: {
+    accountLinking: {
+      trustedProviders: ["google"],
+      requireLocalEmailVerified: false,
+    },
+  },
+  ...(googleSocialProvider
+    ? {
+        socialProviders: {
+          google: googleSocialProvider,
+        },
+      }
+    : {}),
   advanced: {
     cookiePrefix: "pordee",
   },
@@ -93,6 +108,22 @@ export function authErrorMessage(error: unknown) {
   }
 
   return "เกิดข้อผิดพลาดในการเข้าสู่ระบบ";
+}
+
+export function isGoogleAuthEnabled() {
+  return Boolean(googleSocialProvider);
+}
+
+function getGoogleSocialProvider() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) return null;
+
+  return {
+    clientId,
+    clientSecret,
+  };
 }
 
 function mapApiError(error: APIError) {

@@ -1,10 +1,25 @@
 import { Form, redirect, useActionData, useLoaderData } from "react-router";
-import { LogOut, Plus, Save, Trash2 } from "lucide-react";
+import type { ComponentType } from "react";
+import {
+  CheckCircle2,
+  CloudOff,
+  Database,
+  KeyRound,
+  Link2,
+  LogOut,
+  Mail,
+  Plus,
+  Save,
+  ShieldCheck,
+  Trash2,
+  WifiOff,
+} from "lucide-react";
 import type { Route } from "./+types/settings";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Badge } from "~/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -23,9 +38,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
+import { AccountAvatar } from "~/components/brand/account-avatar";
 import { MascotTip } from "~/components/brand/mascot-state";
 import { repo } from "~/lib/db";
-import { requireUser } from "~/lib/auth.server";
+import { auth, requireUser } from "~/lib/auth.server";
+import type { AuthUser } from "~/lib/auth.server";
 import type { Category, TransactionKind } from "~/lib/db";
 import {
   createCategorySchema,
@@ -34,6 +51,12 @@ import {
 } from "~/lib/validators/category";
 
 type SettingsIntent = "createCategory" | "updateCategory" | "deleteCategory";
+
+type AccountMethod = {
+  description: string;
+  label: string;
+  providerId: string;
+};
 
 interface ActionErrors {
   categoryId?: string;
@@ -58,6 +81,7 @@ export function meta(_: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
   const categories = await repo.listCategories(user.id);
+  const accountMethods = await listAccountMethods(request, user.email);
   const usageByCategoryId = Object.fromEntries(
     await Promise.all(
       categories.map(async (category) => [
@@ -67,7 +91,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     )
   );
 
-  return { categories, usageByCategoryId };
+  return { accountMethods, categories, usageByCategoryId, user };
 }
 
 export async function action({
@@ -162,7 +186,8 @@ export async function action({
 }
 
 export default function Settings() {
-  const { categories, usageByCategoryId } = useLoaderData<typeof loader>();
+  const { accountMethods, categories, usageByCategoryId, user } =
+    useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const incomeCategories = categories.filter((c) => c.kind === "income");
@@ -170,10 +195,12 @@ export default function Settings() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-ink text-2xl font-semibold">ตั้งค่า</h1>
-      <MascotTip mood="normal" title="พอดียังเก็บทุกอย่างไว้ในเครื่องนี้">
-        ตอนนี้เป็นโหมดผู้ใช้คนเดียว ข้อมูลทดลองจะอยู่ใน session ของแอป
-        ยังไม่มีการซิงก์บัญชีหรือเชื่อมธนาคาร
+      <MascotTip mood="normal" title="พอดีเก็บข้อมูลไว้ในฐานข้อมูลของแอป">
+        รายการเงิน หมวดหมู่ และเป้าหมายผูกกับบัญชีที่เข้าสู่ระบบอยู่
+        แต่ยังไม่ได้เชื่อมธนาคารหรือซิงก์กับคลาวด์ภายนอก
       </MascotTip>
+
+      <AccountSection accountMethods={accountMethods} user={user} />
 
       <Card>
         <CardHeader>
@@ -207,25 +234,228 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>บัญชี</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <p className="text-muted text-sm">
-            เข้าสู่ระบบแล้ว ข้อมูลการเงินจะผูกกับบัญชีในเฟสฐานข้อมูลถัดไป
-          </p>
-          <Form method="post" action="/logout">
-            <Button type="submit" variant="secondary">
+function AccountSection({
+  accountMethods,
+  user,
+}: {
+  accountMethods: AccountMethod[];
+  user: AuthUser;
+}) {
+  const displayName = user.name || "ผู้ใช้พอดี";
+  const providerSummary =
+    accountMethods.length > 1
+      ? `${accountMethods.length} วิธีเข้าสู่ระบบ`
+      : accountMethods[0]?.label || "อีเมลและรหัสผ่าน";
+
+  return (
+    <Card className="overflow-hidden rounded-[18px]">
+      <CardHeader className="border-line border-b p-0">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <AccountAvatar user={user} size="lg" />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-lg">บัญชี</CardTitle>
+                  <Badge tone="teal" className="rounded-md">
+                    พร้อมใช้งาน
+                  </Badge>
+                </div>
+                <p className="text-ink mt-3 truncate text-base font-semibold">
+                  {displayName}
+                </p>
+                <p className="text-muted mt-1 flex min-w-0 items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{user.email}</span>
+                </p>
+              </div>
+            </div>
+            <div
+              aria-hidden="true"
+              className="border-line bg-sky/50 hidden min-w-[11rem] rounded-[14px] border px-4 py-3 text-sm sm:block"
+            >
+              <p className="text-muted">เข้าสู่ระบบด้วย</p>
+              <p className="text-ink mt-1 font-semibold">{providerSummary}</p>
+            </div>
+          </div>
+          <div className="border-line bg-sky/35 flex flex-col justify-center gap-3 border-t p-5 xl:border-t-0 xl:border-l">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="text-teal h-4 w-4" />
+              <p className="text-ink text-sm font-semibold">
+                ข้อมูลผูกกับบัญชีนี้
+              </p>
+            </div>
+            <p className="text-muted text-sm leading-6">
+              รายการเงิน หมวดหมู่ และเป้าหมายถูกอ่าน/เขียนผ่านฐานข้อมูลของแอป
+              โดยแยกตามผู้ใช้ที่เข้าสู่ระบบ
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="border-line border-b p-5 lg:border-r lg:border-b-0">
+          <div className="mb-4 flex items-center gap-2">
+            <ShieldCheck className="text-teal h-5 w-5" />
+            <h2 className="text-ink text-sm font-semibold">
+              วิธีเข้าสู่ระบบที่ผูกไว้
+            </h2>
+          </div>
+          <div className="flex flex-col gap-3">
+            {accountMethods.map((method) => (
+              <AccountMethodRow key={method.providerId} method={method} />
+            ))}
+          </div>
+        </div>
+
+        <div className="p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Database className="text-teal h-5 w-5" />
+            <h2 className="text-ink text-sm font-semibold">
+              ข้อมูลและการเชื่อมต่อ
+            </h2>
+          </div>
+          <div className="grid gap-3">
+            <AccountStatusItem
+              icon={Database}
+              title="ฐานข้อมูลของแอป"
+              description="ข้อมูลการเงินบันทึกแยกตามบัญชีผู้ใช้ในระบบพอดี"
+            />
+            <AccountStatusItem
+              icon={CloudOff}
+              title="ยังไม่ซิงก์ภายนอก"
+              description="ยังไม่ได้เชื่อมธนาคาร คลาวด์ หรืออุปกรณ์อื่น"
+            />
+            <AccountStatusItem
+              icon={WifiOff}
+              title="ใช้งานจาก session นี้"
+              description="เมื่อออกจากระบบ เครื่องนี้จะต้องเข้าสู่ระบบใหม่"
+            />
+          </div>
+        </div>
+
+        <div className="border-line flex flex-col gap-3 border-t p-5 md:flex-row md:items-center md:justify-between lg:col-span-2">
+          <div className="min-w-0">
+            <p className="text-ink text-sm font-semibold">ออกจากบัญชีนี้</p>
+            <p className="text-muted mt-1 text-sm leading-6">
+              ใช้เมื่อจบงานบนเครื่องร่วมกัน ครั้งถัดไปต้องเข้าสู่ระบบใหม่
+            </p>
+          </div>
+          <Form method="post" action="/logout" className="shrink-0">
+            <Button
+              type="submit"
+              variant="secondary"
+              className="w-full md:w-auto"
+            >
               <LogOut className="h-4 w-4" />
               ออกจากระบบ
             </Button>
           </Form>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccountMethodRow({ method }: { method: AccountMethod }) {
+  return (
+    <div className="border-line bg-surface flex min-w-0 items-start gap-3 rounded-[12px] border p-3">
+      <div className="bg-sky text-teal flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]">
+        <AccountMethodIcon providerId={method.providerId} />
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-ink text-sm font-semibold">{method.label}</p>
+          <Badge tone="muted" className="rounded-md">
+            ผูกแล้ว
+          </Badge>
+        </div>
+        <p className="text-muted mt-1 text-sm leading-6 break-words">
+          {method.description}
+        </p>
+      </div>
     </div>
   );
+}
+
+function AccountMethodIcon({ providerId }: { providerId: string }) {
+  if (providerId === "google") return <Link2 className="h-5 w-5" />;
+  if (providerId === "credential") return <KeyRound className="h-5 w-5" />;
+  return <ShieldCheck className="h-5 w-5" />;
+}
+
+function AccountStatusItem({
+  description,
+  icon: Icon,
+  title,
+}: {
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+}) {
+  return (
+    <div className="flex min-w-0 gap-3">
+      <div className="border-line flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border">
+        <Icon className="text-teal h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-ink text-sm font-semibold">{title}</p>
+        <p className="text-muted mt-1 text-sm leading-6">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+async function listAccountMethods(
+  request: Request,
+  email: string
+): Promise<AccountMethod[]> {
+  try {
+    const accounts = await auth.api.listUserAccounts({
+      headers: request.headers,
+    });
+    return mapAccountMethods(accounts, email);
+  } catch {
+    return mapAccountMethods([], email);
+  }
+}
+
+function mapAccountMethods(
+  accounts: Array<{ providerId: string }>,
+  email: string
+): AccountMethod[] {
+  const providerIds = [
+    ...new Set(accounts.map((account) => account.providerId)),
+  ];
+  const fallbackProviderIds =
+    providerIds.length > 0 ? providerIds : ["credential"];
+
+  return fallbackProviderIds.map((providerId) => {
+    if (providerId === "google") {
+      return {
+        providerId,
+        label: "Google",
+        description: "ใช้บัญชี Google เพื่อเข้าสู่ระบบพอดี",
+      };
+    }
+
+    if (providerId === "credential") {
+      return {
+        providerId,
+        label: "อีเมลและรหัสผ่าน",
+        description: email,
+      };
+    }
+
+    return {
+      providerId,
+      label: providerId,
+      description: "provider นี้ผูกอยู่กับบัญชีพอดี",
+    };
+  });
 }
 
 function CreateCategoryForm({ actionData }: { actionData: ActionResult }) {

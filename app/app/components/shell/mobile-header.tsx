@@ -1,4 +1,5 @@
 import { NavLink } from "react-router";
+import { AccountAvatar } from "~/components/brand/account-avatar";
 import { PordeeLogo } from "~/components/brand/logo";
 import type { AuthUser } from "~/lib/auth.server";
 
@@ -12,9 +13,7 @@ export function MobileHeader({ user }: { user: AuthUser }) {
         >
           <PordeeLogo size={34} wordmarkClassName="text-xl" />
         </NavLink>
-        <div className="border-line bg-sky text-teal flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold">
-          {user.name.slice(0, 1).toUpperCase()}
-        </div>
+        <AccountAvatar user={user} size="sm" />
       </div>
     </header>
   );

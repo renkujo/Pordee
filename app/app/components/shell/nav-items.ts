@@ -51,7 +51,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     to: "/settings",
     label: "ตั้งค่า",
-    description: "จัดการข้อมูลในเครื่อง",
+    description: "บัญชีและหมวดหมู่",
     icon: Settings,
   },
 ];

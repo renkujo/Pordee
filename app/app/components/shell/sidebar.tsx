@@ -1,6 +1,7 @@
 import { Form, NavLink } from "react-router";
 import { LogOut, PlusCircle } from "lucide-react";
 import { NAV_ITEMS } from "./nav-items";
+import { AccountAvatar } from "~/components/brand/account-avatar";
 import { PordeeLogo } from "~/components/brand/logo";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/cn";
@@ -97,15 +98,12 @@ export function Sidebar({ user }: { user: AuthUser }) {
       <div className="mt-auto px-4 pb-4">
         <div className="border-line bg-sky/55 rounded-md border p-3">
           <div className="flex items-start gap-3">
-            <img
-              alt=""
-              className="h-14 w-14 shrink-0 object-contain"
-              loading="lazy"
-              src="/brand/mascots/normal.png"
-            />
+            <AccountAvatar user={user} size="md" />
             <div className="min-w-0">
               <p className="text-ink text-sm font-semibold">พอดีช่วยตั้งหลัก</p>
-              <p className="text-muted mt-1 text-sm leading-6">{user.email}</p>
+              <p className="text-muted mt-1 text-sm leading-6 break-all">
+                {user.email}
+              </p>
             </div>
           </div>
           <Form method="post" action="/logout" className="mt-3">

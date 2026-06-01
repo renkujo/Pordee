@@ -16,7 +16,9 @@ import "@fontsource/ibm-plex-sans-thai/700.css";
 import { ReactGrabDev } from "~/lib/dev/react-grab";
 
 export const links: Route.LinksFunction = () => [
-  { rel: "manifest", href: "/manifest.webmanifest" },
+  ...(import.meta.env.PROD
+    ? [{ rel: "manifest", href: "/manifest.webmanifest" }]
+    : []),
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   {
     rel: "icon",
