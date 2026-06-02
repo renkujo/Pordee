@@ -470,6 +470,7 @@ export default function Add() {
                 value={occurredDate}
                 max={todayDayValue()}
                 onChange={setOccurredDate}
+                showPresets
                 aria-describedby="occurred-hint"
               />
               <input type="hidden" name="occurredAt" value={occurredDate} />

@@ -52,6 +52,26 @@ test("kind override flips to รายรับ and updates category options", a
   await expect(page.getByRole("option", { name: "อาหาร" })).toHaveCount(0);
 });
 
+test("occurred date picker supports past presets", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/add");
+  await page.waitForLoadState("networkidle");
+
+  const occurredAt = page.locator("#occurredAt");
+  await occurredAt.click();
+  await page.getByRole("button", { name: "เมื่อวาน" }).click();
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const expected = [
+    yesterday.getFullYear(),
+    String(yesterday.getMonth() + 1).padStart(2, "0"),
+    String(yesterday.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  await expect(page.locator('input[name="occurredAt"]')).toHaveValue(expected);
+});
+
 test("discount field records the net expense amount", async ({ page }) => {
   const unique = `บิลทดสอบ-${Date.now()}`;
   await page.setViewportSize({ width: 1280, height: 800 });

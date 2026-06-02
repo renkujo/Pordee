@@ -6,6 +6,11 @@ const datePickerLabel = new Intl.DateTimeFormat("th-TH", {
   year: "numeric",
 });
 
+const monthPickerLabel = new Intl.DateTimeFormat("th-TH", {
+  month: "long",
+  year: "numeric",
+});
+
 function dayValue(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -46,7 +51,7 @@ test("dashboard reflects month income/expense after adding rows", async ({
   await expect(page.getByTestId("expense-badge")).not.toContainText("฿0");
 });
 
-test("dashboard clamps custom range to the selected month", async ({
+test("dashboard keeps custom day query on the selected month", async ({
   page,
 }) => {
   const today = new Date();
@@ -60,7 +65,7 @@ test("dashboard clamps custom range to the selected month", async ({
   await page.waitForLoadState("networkidle");
 
   await expect(
-    page.getByText(datePickerLabel.format(currentMonthStart)).first()
+    page.getByText(monthPickerLabel.format(currentMonthStart)).first()
   ).toBeVisible();
   await expect(
     page.getByText(datePickerLabel.format(previousMonthEnd))

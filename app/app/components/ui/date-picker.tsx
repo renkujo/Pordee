@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { DateRange } from "react-day-picker";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "~/components/ui/button";
 import { Calendar } from "~/components/ui/calendar";
 import {
   Popover,
@@ -15,6 +16,27 @@ const labelFormatter = new Intl.DateTimeFormat("th-TH", {
   year: "numeric",
 });
 
+const monthLabelFormatter = new Intl.DateTimeFormat("th-TH", {
+  month: "long",
+  year: "numeric",
+});
+
+const shortMonthFormatter = new Intl.DateTimeFormat("th-TH", {
+  month: "short",
+});
+
+type PastDatePreset =
+  | { label: string; daysFromToday: number; monthStart?: never }
+  | { label: string; monthStart: true; daysFromToday?: never };
+
+const pastDatePresets: PastDatePreset[] = [
+  { label: "วันนี้", daysFromToday: 0 },
+  { label: "เมื่อวาน", daysFromToday: -1 },
+  { label: "3 วันที่แล้ว", daysFromToday: -3 },
+  { label: "7 วันที่แล้ว", daysFromToday: -7 },
+  { label: "ต้นเดือน", monthStart: true },
+];
+
 interface DatePickerProps {
   /** Selected value as a local `YYYY-MM-DD` string, or empty when unset. */
   value: string;
@@ -23,6 +45,21 @@ interface DatePickerProps {
   /** Earliest selectable day as `YYYY-MM-DD`. Earlier days are disabled. */
   min?: string;
   /** Latest selectable day as `YYYY-MM-DD`. Later days are disabled. */
+  max?: string;
+  id?: string;
+  placeholder?: string;
+  showPresets?: boolean;
+  "aria-describedby"?: string;
+}
+
+interface MonthPickerProps {
+  /** Selected value as a local `YYYY-MM` string, or empty when unset. */
+  value: string;
+  /** Called with the new `YYYY-MM` string when a month is picked. */
+  onChange: (value: string) => void;
+  /** Earliest selectable month as `YYYY-MM`. Earlier months are disabled. */
+  min?: string;
+  /** Latest selectable month as `YYYY-MM`. Later months are disabled. */
   max?: string;
   id?: string;
   placeholder?: string;
@@ -52,19 +89,34 @@ export function DatePicker({
   max,
   id,
   placeholder = "เลือกวันที่",
+  showPresets = false,
   "aria-describedby": ariaDescribedBy,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const selected = parseLocalDate(value);
   const minDate = parseLocalDate(min);
   const maxDate = parseLocalDate(max);
+  const [monthOverride, setMonthOverride] = React.useState<Date | undefined>();
+  const month = monthOverride ?? selected ?? maxDate ?? minDate ?? undefined;
   const disabled = [
     minDate ? { before: minDate } : null,
     maxDate ? { after: maxDate } : null,
   ].filter((rule): rule is NonNullable<typeof rule> => Boolean(rule));
 
+  function selectDate(day: Date) {
+    onChange(toLocalDateValue(day));
+    setMonthOverride(day);
+    setOpen(false);
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) setMonthOverride(undefined);
+      }}
+    >
       <PopoverTrigger
         id={id}
         type="button"
@@ -80,17 +132,157 @@ export function DatePicker({
         <CalendarDays className="text-muted h-4 w-4 shrink-0" />
       </PopoverTrigger>
       <PopoverContent align="start">
-        <Calendar
-          mode="single"
-          selected={selected}
-          defaultMonth={selected ?? maxDate ?? minDate ?? undefined}
-          disabled={disabled.length > 0 ? disabled : undefined}
-          onSelect={(day) => {
-            if (!day) return;
-            onChange(toLocalDateValue(day));
-            setOpen(false);
-          }}
-        />
+        <div className="w-fit">
+          <Calendar
+            mode="single"
+            selected={selected}
+            month={month}
+            onMonthChange={setMonthOverride}
+            disabled={disabled.length > 0 ? disabled : undefined}
+            onSelect={(day) => {
+              if (!day) return;
+              selectDate(day);
+            }}
+          />
+          {showPresets ? (
+            <div className="border-line mt-3 grid w-full grid-cols-2 gap-2 border-t pt-3">
+              {pastDatePresets.map((preset) => {
+                const day = resolvePresetDate(preset);
+                const isPresetDisabled = !isSelectableDay(
+                  day,
+                  minDate,
+                  maxDate
+                );
+
+                return (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={isPresetDisabled}
+                    className={cn(
+                      "h-8 rounded-md px-2 text-xs",
+                      preset.monthStart ? "col-span-2" : null
+                    )}
+                    onClick={() => selectDate(day)}
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function MonthPicker({
+  value,
+  onChange,
+  min,
+  max,
+  id,
+  placeholder = "เลือกเดือน",
+  "aria-describedby": ariaDescribedBy,
+}: MonthPickerProps) {
+  const [open, setOpen] = React.useState(false);
+  const selected = parseMonthValue(value);
+  const minMonth = parseMonthValue(min);
+  const maxMonth = parseMonthValue(max);
+  const [visibleYearOverride, setVisibleYearOverride] = React.useState<
+    number | undefined
+  >();
+  const visibleYear =
+    visibleYearOverride ??
+    selected?.getFullYear() ??
+    maxMonth?.getFullYear() ??
+    minMonth?.getFullYear() ??
+    new Date().getFullYear();
+
+  const canGoPrevious = !minMonth || visibleYear > minMonth.getFullYear();
+  const canGoNext = !maxMonth || visibleYear < maxMonth.getFullYear();
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) setVisibleYearOverride(undefined);
+      }}
+    >
+      <PopoverTrigger
+        id={id}
+        type="button"
+        aria-describedby={ariaDescribedBy}
+        className={cn(
+          "border-line bg-surface focus-visible:ring-coral/30 flex h-11 w-full items-center justify-between gap-2 rounded-[12px] border px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          selected ? "text-ink" : "text-muted"
+        )}
+      >
+        <span className="min-w-0 truncate whitespace-nowrap">
+          {selected ? monthLabelFormatter.format(selected) : placeholder}
+        </span>
+        <CalendarDays className="text-muted h-4 w-4 shrink-0" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[276px]">
+        <div className="text-ink">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              className="border-line text-muted hover:bg-sky hover:text-ink inline-flex h-9 w-9 items-center justify-center rounded-sm border transition-colors disabled:opacity-40"
+              disabled={!canGoPrevious}
+              onClick={() => setVisibleYearOverride(visibleYear - 1)}
+              aria-label="ปีก่อนหน้า"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <p className="text-sm font-semibold">
+              {formatThaiYear(visibleYear)}
+            </p>
+            <button
+              type="button"
+              className="border-line text-muted hover:bg-sky hover:text-ink inline-flex h-9 w-9 items-center justify-center rounded-sm border transition-colors disabled:opacity-40"
+              disabled={!canGoNext}
+              onClick={() => setVisibleYearOverride(visibleYear + 1)}
+              aria-label="ปีถัดไป"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {Array.from({ length: 12 }, (_, monthIndex) => {
+              const monthDate = new Date(visibleYear, monthIndex, 1);
+              const monthValue = toLocalMonthValue(monthDate);
+              const isSelected = value === monthValue;
+              const isDisabled =
+                (minMonth && monthDate < minMonth) ||
+                (maxMonth && monthDate > maxMonth);
+
+              return (
+                <button
+                  key={monthValue}
+                  type="button"
+                  className={cn(
+                    "hover:bg-sky focus-visible:ring-coral/40 disabled:text-muted/40 flex h-10 items-center justify-center rounded-sm px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none",
+                    isSelected
+                      ? "bg-coral-strong hover:bg-coral font-semibold text-white"
+                      : "text-ink"
+                  )}
+                  disabled={isDisabled}
+                  onClick={() => {
+                    onChange(monthValue);
+                    setOpen(false);
+                  }}
+                >
+                  {shortMonthFormatter.format(monthDate)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -173,9 +365,51 @@ function parseLocalDate(value?: string): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+function parseMonthValue(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const match = /^(\d{4})-(\d{2})$/.exec(value.trim());
+  if (!match) return undefined;
+  const [, year, month] = match;
+  const monthNumber = Number(month);
+  if (monthNumber < 1 || monthNumber > 12) return undefined;
+  const date = new Date(Number(year), monthNumber - 1, 1);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function resolvePresetDate(preset: PastDatePreset): Date {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+
+  if (preset.monthStart) {
+    date.setDate(1);
+    return date;
+  }
+
+  date.setDate(date.getDate() + preset.daysFromToday);
+  return date;
+}
+
+function isSelectableDay(day: Date, minDate?: Date, maxDate?: Date): boolean {
+  if (minDate && day < minDate) return false;
+  if (maxDate && day > maxDate) return false;
+  return true;
+}
+
 function toLocalDateValue(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function toLocalMonthValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function formatThaiYear(year: number): string {
+  return new Intl.NumberFormat("th-TH", { useGrouping: false }).format(
+    year + 543
+  );
 }

@@ -1,6 +1,14 @@
-import { Form, redirect, useActionData, useLoaderData } from "react-router";
+import {
+  Form,
+  Link,
+  redirect,
+  useActionData,
+  useLoaderData,
+  useSearchParams,
+} from "react-router";
 import type { ComponentType } from "react";
 import {
+  Boxes,
   CheckCircle2,
   CloudOff,
   Database,
@@ -12,6 +20,7 @@ import {
   Save,
   ShieldCheck,
   Trash2,
+  UserRound,
   WifiOff,
 } from "lucide-react";
 import type { Route } from "./+types/settings";
@@ -44,6 +53,7 @@ import { repo } from "~/lib/db";
 import { auth, requireUser } from "~/lib/auth.server";
 import type { AuthUser } from "~/lib/auth.server";
 import type { Category, TransactionKind } from "~/lib/db";
+import { cn } from "~/lib/cn";
 import {
   createCategorySchema,
   deleteCategorySchema,
@@ -51,6 +61,7 @@ import {
 } from "~/lib/validators/category";
 
 type SettingsIntent = "createCategory" | "updateCategory" | "deleteCategory";
+type SettingsTab = "categories" | "account";
 
 type AccountMethod = {
   description: string;
@@ -129,7 +140,7 @@ export async function action({
     }
 
     await repo.createCategory(user.id, parsed.data);
-    return redirect("/settings");
+    return redirect("/settings?tab=categories");
   }
 
   if (intent === "updateCategory") {
@@ -159,7 +170,7 @@ export async function action({
     }
 
     await repo.updateCategory(user.id, category.id, { name: parsed.data.name });
-    return redirect("/settings");
+    return redirect("/settings?tab=categories");
   }
 
   const raw = { id: form.get("categoryId") };
@@ -182,59 +193,167 @@ export async function action({
     return fieldError(intent, { general: "ไม่พบหมวดนี้" }, form);
   }
 
-  return redirect("/settings");
+  return redirect("/settings?tab=categories");
 }
 
 export default function Settings() {
   const { accountMethods, categories, usageByCategoryId, user } =
     useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
+  const [searchParams] = useSearchParams();
+  const selectedTab = actionData?.intent
+    ? "categories"
+    : getSettingsTab(searchParams);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const incomeCategories = categories.filter((c) => c.kind === "income");
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-ink text-2xl font-semibold">ตั้งค่า</h1>
-      <MascotTip mood="normal" title="พอดีเก็บข้อมูลไว้ในฐานข้อมูลของแอป">
-        รายการเงิน หมวดหมู่ และเป้าหมายผูกกับบัญชีที่เข้าสู่ระบบอยู่
-        แต่ยังไม่ได้เชื่อมธนาคารหรือซิงก์กับคลาวด์ภายนอก
-      </MascotTip>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:gap-6">
+      <header className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-ink text-3xl font-semibold tracking-tight">
+            ตั้งค่า
+          </h1>
+          <p className="text-muted max-w-2xl text-sm leading-6">
+            จัดการหมวดหมู่การเงินและข้อมูลบัญชีโดยแยกเป็นสองส่วนชัดเจน
+          </p>
+        </div>
+        <SettingsTabNav
+          accountMethodCount={accountMethods.length}
+          categoryCount={categories.length}
+          selectedTab={selectedTab}
+        />
+      </header>
 
-      <AccountSection accountMethods={accountMethods} user={user} />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>หมวดหมู่</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <CreateCategoryForm actionData={actionData} />
-
-          {actionData?.intent === "deleteCategory" &&
-            actionData.errors.general && (
-              <p className="text-coral-strong text-sm">
-                {actionData.errors.general}
-              </p>
-            )}
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <CategoryGroup
-              actionData={actionData}
-              categories={expenseCategories}
-              kind="expense"
-              title="หมวดรายจ่าย"
-              usageByCategoryId={usageByCategoryId}
-            />
-            <CategoryGroup
-              actionData={actionData}
-              categories={incomeCategories}
-              kind="income"
-              title="หมวดรายรับ"
-              usageByCategoryId={usageByCategoryId}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {selectedTab === "account" ? (
+        <AccountSection accountMethods={accountMethods} user={user} />
+      ) : (
+        <CategoriesSection
+          actionData={actionData}
+          expenseCategories={expenseCategories}
+          incomeCategories={incomeCategories}
+          usageByCategoryId={usageByCategoryId}
+        />
+      )}
     </div>
+  );
+}
+
+function SettingsTabNav({
+  accountMethodCount,
+  categoryCount,
+  selectedTab,
+}: {
+  accountMethodCount: number;
+  categoryCount: number;
+  selectedTab: SettingsTab;
+}) {
+  return (
+    <nav
+      aria-label="ส่วนตั้งค่า"
+      className="border-line bg-surface grid gap-1 rounded-[14px] border p-1 sm:max-w-xl sm:grid-cols-2"
+    >
+      <SettingsTabLink
+        active={selectedTab === "categories"}
+        countLabel={`${categoryCount} หมวด`}
+        icon={Boxes}
+        to="/settings?tab=categories"
+      >
+        หมวดหมู่
+      </SettingsTabLink>
+      <SettingsTabLink
+        active={selectedTab === "account"}
+        countLabel={`${Math.max(accountMethodCount, 1)} วิธีเข้าใช้`}
+        icon={UserRound}
+        to="/settings?tab=account"
+      >
+        บัญชี
+      </SettingsTabLink>
+    </nav>
+  );
+}
+
+function SettingsTabLink({
+  active,
+  children,
+  countLabel,
+  icon: Icon,
+  to,
+}: {
+  active: boolean;
+  children: string;
+  countLabel: string;
+  icon: ComponentType<{ className?: string }>;
+  to: string;
+}) {
+  return (
+    <Link
+      aria-label={`${children} ${countLabel}`}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex min-w-0 items-center gap-3 rounded-[10px] px-3 py-3 text-left transition-colors",
+        active ? "bg-sky text-ink" : "text-muted hover:bg-sky/60 hover:text-ink"
+      )}
+      to={to}
+    >
+      <Icon
+        className={cn("h-5 w-5 shrink-0", active ? "text-teal" : "text-muted")}
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{children}</span>
+        <span className="text-muted mt-0.5 block text-xs">{countLabel}</span>
+      </span>
+    </Link>
+  );
+}
+
+function CategoriesSection({
+  actionData,
+  expenseCategories,
+  incomeCategories,
+  usageByCategoryId,
+}: {
+  actionData: ActionResult;
+  expenseCategories: Category[];
+  incomeCategories: Category[];
+  usageByCategoryId: Record<string, number>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="gap-2">
+        <CardTitle>หมวดหมู่</CardTitle>
+        <p className="text-muted text-sm leading-6">
+          เพิ่ม แก้ชื่อ หรือลบหมวดที่ยังไม่มีรายการใช้งานได้จากส่วนนี้
+        </p>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <CreateCategoryForm actionData={actionData} />
+
+        {actionData?.intent === "deleteCategory" &&
+          actionData.errors.general && (
+            <p className="text-coral-strong text-sm">
+              {actionData.errors.general}
+            </p>
+          )}
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <CategoryGroup
+            actionData={actionData}
+            categories={expenseCategories}
+            kind="expense"
+            title="หมวดรายจ่าย"
+            usageByCategoryId={usageByCategoryId}
+          />
+          <CategoryGroup
+            actionData={actionData}
+            categories={incomeCategories}
+            kind="income"
+            title="หมวดรายรับ"
+            usageByCategoryId={usageByCategoryId}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -252,112 +371,122 @@ function AccountSection({
       : accountMethods[0]?.label || "อีเมลและรหัสผ่าน";
 
   return (
-    <Card className="overflow-hidden rounded-[18px]">
-      <CardHeader className="border-line border-b p-0">
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_19rem]">
-          <div className="flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <AccountAvatar user={user} size="lg" />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-lg">บัญชี</CardTitle>
-                  <Badge tone="teal" className="rounded-md">
-                    พร้อมใช้งาน
-                  </Badge>
+    <div className="flex flex-col gap-5">
+      <MascotTip mood="normal" title="พอดีเก็บข้อมูลไว้ในฐานข้อมูลของแอป">
+        รายการเงิน หมวดหมู่ และเป้าหมายผูกกับบัญชีที่เข้าสู่ระบบอยู่
+        แต่ยังไม่ได้เชื่อมธนาคารหรือซิงก์กับคลาวด์ภายนอก
+      </MascotTip>
+      <Card className="overflow-hidden rounded-[18px]">
+        <CardHeader className="border-line border-b p-0">
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_19rem]">
+            <div className="flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 items-start gap-4">
+                <AccountAvatar user={user} size="lg" />
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-lg">บัญชี</CardTitle>
+                    <Badge tone="teal" className="rounded-md">
+                      พร้อมใช้งาน
+                    </Badge>
+                  </div>
+                  <p className="text-ink mt-3 truncate text-base font-semibold">
+                    {displayName}
+                  </p>
+                  <p className="text-muted mt-1 flex min-w-0 items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{user.email}</span>
+                  </p>
                 </div>
-                <p className="text-ink mt-3 truncate text-base font-semibold">
-                  {displayName}
-                </p>
-                <p className="text-muted mt-1 flex min-w-0 items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{user.email}</span>
-                </p>
+              </div>
+              <div
+                aria-hidden="true"
+                className="border-line bg-sky/50 hidden min-w-[11rem] rounded-[14px] border px-4 py-3 text-sm sm:block"
+              >
+                <p className="text-muted">เข้าสู่ระบบด้วย</p>
+                <p className="text-ink mt-1 font-semibold">{providerSummary}</p>
               </div>
             </div>
-            <div
-              aria-hidden="true"
-              className="border-line bg-sky/50 hidden min-w-[11rem] rounded-[14px] border px-4 py-3 text-sm sm:block"
-            >
-              <p className="text-muted">เข้าสู่ระบบด้วย</p>
-              <p className="text-ink mt-1 font-semibold">{providerSummary}</p>
-            </div>
-          </div>
-          <div className="border-line bg-sky/35 flex flex-col justify-center gap-3 border-t p-5 xl:border-t-0 xl:border-l">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="text-teal h-4 w-4" />
-              <p className="text-ink text-sm font-semibold">
-                ข้อมูลผูกกับบัญชีนี้
+            <div className="border-line bg-sky/35 flex flex-col justify-center gap-3 border-t p-5 xl:border-t-0 xl:border-l">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="text-teal h-4 w-4" />
+                <p className="text-ink text-sm font-semibold">
+                  ข้อมูลผูกกับบัญชีนี้
+                </p>
+              </div>
+              <p className="text-muted text-sm leading-6">
+                รายการเงิน หมวดหมู่ และเป้าหมายถูกอ่าน/เขียนผ่านฐานข้อมูลของแอป
+                โดยแยกตามผู้ใช้ที่เข้าสู่ระบบ
               </p>
             </div>
-            <p className="text-muted text-sm leading-6">
-              รายการเงิน หมวดหมู่ และเป้าหมายถูกอ่าน/เขียนผ่านฐานข้อมูลของแอป
-              โดยแยกตามผู้ใช้ที่เข้าสู่ระบบ
-            </p>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="border-line border-b p-5 lg:border-r lg:border-b-0">
-          <div className="mb-4 flex items-center gap-2">
-            <ShieldCheck className="text-teal h-5 w-5" />
-            <h2 className="text-ink text-sm font-semibold">
-              วิธีเข้าสู่ระบบที่ผูกไว้
-            </h2>
+        </CardHeader>
+        <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="border-line border-b p-5 lg:border-r lg:border-b-0">
+            <div className="mb-4 flex items-center gap-2">
+              <ShieldCheck className="text-teal h-5 w-5" />
+              <h2 className="text-ink text-sm font-semibold">
+                วิธีเข้าสู่ระบบที่ผูกไว้
+              </h2>
+            </div>
+            <div className="flex flex-col gap-3">
+              {accountMethods.map((method) => (
+                <AccountMethodRow key={method.providerId} method={method} />
+              ))}
+            </div>
           </div>
-          <div className="flex flex-col gap-3">
-            {accountMethods.map((method) => (
-              <AccountMethodRow key={method.providerId} method={method} />
-            ))}
-          </div>
-        </div>
 
-        <div className="p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Database className="text-teal h-5 w-5" />
-            <h2 className="text-ink text-sm font-semibold">
-              ข้อมูลและการเชื่อมต่อ
-            </h2>
+          <div className="p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Database className="text-teal h-5 w-5" />
+              <h2 className="text-ink text-sm font-semibold">
+                ข้อมูลและการเชื่อมต่อ
+              </h2>
+            </div>
+            <div className="grid gap-3">
+              <AccountStatusItem
+                icon={Database}
+                title="ฐานข้อมูลของแอป"
+                description="ข้อมูลการเงินบันทึกแยกตามบัญชีผู้ใช้ในระบบพอดี"
+              />
+              <AccountStatusItem
+                icon={CloudOff}
+                title="ยังไม่ซิงก์ภายนอก"
+                description="ยังไม่ได้เชื่อมธนาคาร คลาวด์ หรืออุปกรณ์อื่น"
+              />
+              <AccountStatusItem
+                icon={WifiOff}
+                title="ใช้งานจาก session นี้"
+                description="เมื่อออกจากระบบ เครื่องนี้จะต้องเข้าสู่ระบบใหม่"
+              />
+            </div>
           </div>
-          <div className="grid gap-3">
-            <AccountStatusItem
-              icon={Database}
-              title="ฐานข้อมูลของแอป"
-              description="ข้อมูลการเงินบันทึกแยกตามบัญชีผู้ใช้ในระบบพอดี"
-            />
-            <AccountStatusItem
-              icon={CloudOff}
-              title="ยังไม่ซิงก์ภายนอก"
-              description="ยังไม่ได้เชื่อมธนาคาร คลาวด์ หรืออุปกรณ์อื่น"
-            />
-            <AccountStatusItem
-              icon={WifiOff}
-              title="ใช้งานจาก session นี้"
-              description="เมื่อออกจากระบบ เครื่องนี้จะต้องเข้าสู่ระบบใหม่"
-            />
-          </div>
-        </div>
 
-        <div className="border-line flex flex-col gap-3 border-t p-5 md:flex-row md:items-center md:justify-between lg:col-span-2">
-          <div className="min-w-0">
-            <p className="text-ink text-sm font-semibold">ออกจากบัญชีนี้</p>
-            <p className="text-muted mt-1 text-sm leading-6">
-              ใช้เมื่อจบงานบนเครื่องร่วมกัน ครั้งถัดไปต้องเข้าสู่ระบบใหม่
-            </p>
+          <div className="border-line flex flex-col gap-3 border-t p-5 md:flex-row md:items-center md:justify-between lg:col-span-2">
+            <div className="min-w-0">
+              <p className="text-ink text-sm font-semibold">ออกจากบัญชีนี้</p>
+              <p className="text-muted mt-1 text-sm leading-6">
+                ใช้เมื่อจบงานบนเครื่องร่วมกัน ครั้งถัดไปต้องเข้าสู่ระบบใหม่
+              </p>
+            </div>
+            <Form method="post" action="/logout" className="shrink-0">
+              <Button
+                type="submit"
+                variant="secondary"
+                className="w-full md:w-auto"
+              >
+                <LogOut className="h-4 w-4" />
+                ออกจากระบบ
+              </Button>
+            </Form>
           </div>
-          <Form method="post" action="/logout" className="shrink-0">
-            <Button
-              type="submit"
-              variant="secondary"
-              className="w-full md:w-auto"
-            >
-              <LogOut className="h-4 w-4" />
-              ออกจากระบบ
-            </Button>
-          </Form>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
+}
+
+function getSettingsTab(searchParams: URLSearchParams): SettingsTab {
+  return searchParams.get("tab") === "account" ? "account" : "categories";
 }
 
 function AccountMethodRow({ method }: { method: AccountMethod }) {

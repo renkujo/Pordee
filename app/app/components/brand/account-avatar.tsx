@@ -10,51 +10,59 @@ type AccountAvatarVariant = {
 
 const accountAvatarVariants: AccountAvatarVariant[] = [
   {
-    alt: "พอดีโบกมือ",
-    src: "/brand/avatars/pordee-avatar-01-normal-wave.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 1",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-01.png",
   },
   {
-    alt: "พอดียิ้ม",
-    src: "/brand/avatars/pordee-avatar-02-happy.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 2",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-02.png",
   },
   {
-    alt: "พอดีถือเหรียญ",
-    src: "/brand/avatars/pordee-avatar-03-saving-coin.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 3",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-03.png",
   },
   {
-    alt: "พอดีกำลังคิด",
-    src: "/brand/avatars/pordee-avatar-04-thinking.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 4",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-04.png",
   },
   {
-    alt: "พอดีเตือนเบา ๆ",
-    src: "/brand/avatars/pordee-avatar-05-warning.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 5",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-05.png",
   },
   {
-    alt: "พอดีภูมิใจ",
-    src: "/brand/avatars/pordee-avatar-06-proud-star.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 6",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-06.png",
   },
   {
-    alt: "พอดีจดแผนเงิน",
-    src: "/brand/avatars/pordee-avatar-07-planner.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 7",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-07.png",
   },
   {
-    alt: "พอดีตามเป้าหมาย",
-    src: "/brand/avatars/pordee-avatar-08-goal.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 8",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-08.png",
   },
   {
-    alt: "พอดีขยิบตา",
-    src: "/brand/avatars/pordee-avatar-09-wink.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 9",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-09.png",
   },
   {
-    alt: "พอดีถือกุญแจ",
-    src: "/brand/avatars/pordee-avatar-10-secure-key.png",
+    alt: "อวาตาร์ผู้ใช้พอดี 10",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-10.png",
+  },
+  {
+    alt: "อวาตาร์ผู้ใช้พอดี 11",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-11.png",
+  },
+  {
+    alt: "อวาตาร์ผู้ใช้พอดี 12",
+    src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-12.png",
   },
 ];
 
 const sizeClassName: Record<AccountAvatarSize, string> = {
-  sm: "h-11 w-11 rounded-full p-0.5",
-  md: "h-16 w-16 rounded-[18px] p-1",
-  lg: "h-20 w-20 rounded-[22px] p-1",
+  sm: "h-11 w-11 rounded-full",
+  md: "h-16 w-16 rounded-full",
+  lg: "h-20 w-20 rounded-full",
 };
 
 interface AccountAvatarProps {
@@ -80,7 +88,7 @@ export function AccountAvatar({
     >
       <img
         alt={avatar.alt}
-        className="h-full w-full scale-[1.45] object-contain"
+        className="h-full w-full scale-[1.12] rounded-full object-cover"
         draggable={false}
         loading="lazy"
         src={avatar.src}

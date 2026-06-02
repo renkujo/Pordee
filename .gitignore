@@ -27,6 +27,11 @@ test-results/
 .data/
 app/.data/
 
+# Local agent scratch/state
+.agent-state/
+.claude/
+.claire/
+
 # Editor
 .vscode/
 .idea/

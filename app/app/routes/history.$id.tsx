@@ -288,6 +288,7 @@ export default function EditTransaction() {
                       value={occurredDate}
                       max={todayDayValue()}
                       onChange={setOccurredDate}
+                      showPresets
                     />
                   </div>
 

@@ -20,7 +20,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
-import { DateRangePicker } from "~/components/ui/date-picker";
+import { MonthPicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
 import { requireUser } from "~/lib/auth.server";
 import { fmtBaht, fmtSignedBaht } from "~/lib/format/baht";
@@ -48,8 +48,6 @@ export async function loader({ request }: Route.LoaderArgs) {
     selectedDay && selectedDay <= today ? selectedDay : new Date(today);
   const range = getDashboardDateRange({
     monthDate: now,
-    fromParam: url.searchParams.get("from"),
-    toParam: url.searchParams.get("to"),
     today,
   });
   const [monthTx, categories, goals] = await Promise.all([
@@ -146,13 +144,9 @@ interface DashboardDateRange {
 
 function getDashboardDateRange({
   monthDate,
-  fromParam,
-  toParam,
   today = new Date(),
 }: {
   monthDate: Date;
-  fromParam?: string | null;
-  toParam?: string | null;
   today?: Date;
 }): DashboardDateRange {
   const activeMonth = monthDate > today ? today : monthDate;
@@ -169,21 +163,8 @@ function getDashboardDateRange({
   const monthEnd = isSameMonth(activeMonth, today)
     ? minDate(calendarMonthEnd, today)
     : calendarMonthEnd;
-
-  const fromDate = clampDateToRange(
-    parseDayValue(fromParam) ?? monthStart,
-    monthStart,
-    monthEnd
-  );
-  let toDate = clampDateToRange(
-    parseDayValue(toParam) ?? monthEnd,
-    monthStart,
-    monthEnd
-  );
-
-  if (fromDate > toDate) {
-    toDate = fromDate;
-  }
+  const fromDate = monthStart;
+  const toDate = monthEnd;
 
   const fromDay = todayDayValue(fromDate);
   const toDay = todayDayValue(toDate);
@@ -208,12 +189,6 @@ function getDashboardDateRange({
   };
 }
 
-function clampDateToRange(date: Date, min: Date, max: Date) {
-  if (date < min) return min;
-  if (date > max) return max;
-  return date;
-}
-
 function isSameMonth(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 }
@@ -222,16 +197,33 @@ function minDate(a: Date, b: Date) {
   return a < b ? a : b;
 }
 
-function normalizeDashboardRangeSelection(range: { from: string; to: string }) {
-  const fromDate = parseDayValue(range.from);
-  const toDate = parseDayValue(range.to);
-  if (!fromDate || !toDate) return range;
-
-  if (!isSameMonth(fromDate, toDate)) {
-    return { from: range.from, to: range.from };
+function getMonthRangeFromMonthValue(monthValue: string) {
+  const fallbackToday = todayDayValue();
+  const fallbackMonth = fallbackToday.slice(0, 7);
+  const match = /^(\d{4})-(\d{2})$/.exec(monthValue);
+  if (!match) {
+    return { from: `${fallbackMonth}-01`, to: fallbackToday };
   }
 
-  return range;
+  const [, year, month] = match;
+  const monthNumber = Number(month);
+  if (monthNumber < 1 || monthNumber > 12) {
+    return { from: `${fallbackMonth}-01`, to: fallbackToday };
+  }
+
+  const start = new Date(Number(year), monthNumber - 1, 1);
+  const end = new Date(Number(year), monthNumber, 0);
+  const from = todayDayValue(start);
+  const calendarTo = todayDayValue(end);
+
+  if (from > fallbackToday) {
+    return { from: `${fallbackMonth}-01`, to: fallbackToday };
+  }
+
+  return {
+    from,
+    to: calendarTo > fallbackToday ? fallbackToday : calendarTo,
+  };
 }
 
 export default function Dashboard() {
@@ -253,33 +245,35 @@ export default function Dashboard() {
 
   const hasAnyData = income > 0 || expense > 0;
   const topCategory = categorySpend[0] ?? null;
-  const isWholeMonthRange =
-    range.fromDay === range.monthStartDay && range.toDay === range.monthEndDay;
-  const rangeSummary = isWholeMonthRange
-    ? "กำลังดูข้อมูลทั้งเดือน"
-    : `กำลังดู ${range.label}`;
+  const selectedMonth = range.monthStartDay.slice(0, 7);
+  const rangeSummary = isCurrentMonth
+    ? "กำลังดูข้อมูลเดือนนี้ถึงวันนี้"
+    : "กำลังดูข้อมูลทั้งเดือน";
 
   function resetRange() {
+    const currentMonth = getMonthRangeFromMonthValue(
+      todayDayValue().slice(0, 7)
+    );
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.set("date", range.monthStartDay);
-        next.set("from", range.monthStartDay);
-        next.set("to", range.monthEndDay);
+        next.set("date", currentMonth.from);
+        next.set("from", currentMonth.from);
+        next.set("to", currentMonth.to);
         return next;
       },
       { preventScrollReset: true }
     );
   }
 
-  function handleRangeChange(nextRange: { from: string; to: string }) {
-    const normalizedRange = normalizeDashboardRangeSelection(nextRange);
+  function handleMonthChange(monthValue: string) {
+    const monthRange = getMonthRangeFromMonthValue(monthValue);
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.set("date", normalizedRange.from);
-        next.set("from", normalizedRange.from);
-        next.set("to", normalizedRange.to);
+        next.set("date", monthRange.from);
+        next.set("from", monthRange.from);
+        next.set("to", monthRange.to);
         return next;
       },
       { preventScrollReset: true }
@@ -306,11 +300,7 @@ export default function Dashboard() {
                 </Badge>
               </div>
               <div>
-                <CardDescription>
-                  {isWholeMonthRange
-                    ? "ภาพรวมทั้งเดือน"
-                    : "ภาพรวมเฉพาะช่วงวันที่เลือก"}
-                </CardDescription>
+                <CardDescription>ภาพรวมรายเดือน</CardDescription>
                 <CardTitle className="mt-2 text-3xl font-semibold sm:text-4xl">
                   {monthLabel}
                 </CardTitle>
@@ -323,38 +313,37 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <CalendarRange className="text-coral h-4 w-4" />
                     <p className="text-ink text-sm font-semibold">
-                      ช่วงเวลาที่ใช้คำนวณ
+                      เดือนที่ใช้คำนวณ
                     </p>
                   </div>
                   <p className="text-muted mt-1 text-xs leading-5">
-                    {rangeSummary} · ช่วงที่เลือกต้องอยู่ในเดือนเดียวกัน
+                    {rangeSummary}
                   </p>
                 </div>
                 <Button
                   type="button"
-                  variant={isWholeMonthRange ? "ghost" : "secondary"}
+                  variant={isCurrentMonth ? "ghost" : "secondary"}
                   size="sm"
                   onClick={resetRange}
-                  disabled={isWholeMonthRange}
+                  disabled={isCurrentMonth}
                   className="shrink-0"
-                  aria-label="กลับไปดูทั้งเดือน"
+                  aria-label="กลับไปดูเดือนนี้"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  รีเซ็ต
+                  เดือนนี้
                 </Button>
               </div>
 
               <div className="border-line bg-sky/45 overflow-hidden rounded-md border">
                 <DashboardDateField
-                  label="เลือกช่วงวันที่"
-                  helper={`เลือกวันเริ่มและวันจบในปฏิทินเดียว ถ้าเลือกเดือนอื่น พอดีจะเปลี่ยนภาพรวมไปเดือนนั้น`}
+                  label="เลือกเดือน"
+                  helper="พอดีจะคำนวณภาพรวมจากรายการในเดือนที่เลือก"
                   className="p-3 sm:p-4"
                 >
-                  <DateRangePicker
-                    from={range.fromDay}
-                    to={range.toDay}
-                    max={todayDayValue()}
-                    onChange={handleRangeChange}
+                  <MonthPicker
+                    value={selectedMonth}
+                    max={todayDayValue().slice(0, 7)}
+                    onChange={handleMonthChange}
                   />
                 </DashboardDateField>
               </div>
@@ -388,7 +377,9 @@ export default function Dashboard() {
                     {getBalanceLabel(balance, income)}
                   </Badge>
                   <p className="text-muted mt-4 text-sm">
-                    {isWholeMonthRange ? "คงเหลือเดือนนี้" : "คงเหลือช่วงนี้"}
+                    {isCurrentMonth
+                      ? "คงเหลือเดือนนี้"
+                      : "คงเหลือเดือนที่เลือก"}
                   </p>
                   <p
                     className="text-ink mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
@@ -437,14 +428,14 @@ export default function Dashboard() {
                     <p className="text-ink text-sm font-semibold">
                       {isCurrentMonth
                         ? daysLeft > 0
-                          ? `เหลืออีก ${daysLeft} วันในช่วงนี้`
-                          : "สรุปช่วงวันที่เลือก"
-                        : `สรุปช่วง ${range.label}`}
+                          ? `เหลืออีก ${daysLeft} วันในเดือนนี้`
+                          : "สรุปเดือนนี้"
+                        : `สรุปเดือน ${monthLabel}`}
                     </p>
                     <p className="text-muted mt-1 text-sm leading-6">
                       {isCurrentMonth && daysLeft > 0
                         ? getDailySafeCopy(dailySafe)
-                        : `ช่วง ${range.label} คงเหลือ ${fmtBaht(balance)} จากรายรับ ${fmtBaht(income)}`}
+                        : `เดือน ${monthLabel} คงเหลือ ${fmtBaht(balance)} จากรายรับ ${fmtBaht(income)}`}
                     </p>
                   </div>
                   <Button asChild className="w-full sm:w-auto">
