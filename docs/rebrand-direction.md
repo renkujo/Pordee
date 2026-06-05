@@ -138,9 +138,9 @@ Do not switch the logo to black-pill or banking blue. The new identity should st
 
 ## Typography
 
-Primary product font remains `IBM Plex Sans Thai`.
+Primary product font is `LINE Seed Sans`.
 
-For the logo, start with IBM Plex Sans Thai as the reference skeleton, then refine the final wordmark manually before app-store or trademark-grade production export. The current editable wordmark SVG candidates still use live text.
+For the logo, start with LINE Seed Sans as the reference skeleton, then refine the final wordmark manually before app-store or trademark-grade production export. The current editable wordmark SVG candidates still use live text.
 
 ## Naming Alternatives Considered
 

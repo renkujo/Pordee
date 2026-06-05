@@ -9,10 +9,6 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import "@fontsource/ibm-plex-sans-thai/400.css";
-import "@fontsource/ibm-plex-sans-thai/500.css";
-import "@fontsource/ibm-plex-sans-thai/600.css";
-import "@fontsource/ibm-plex-sans-thai/700.css";
 import { ReactGrabDev } from "~/lib/dev/react-grab";
 
 export const links: Route.LinksFunction = () => [
@@ -44,9 +40,41 @@ if ("serviceWorker" in navigator) {
 }
 `;
 
+const themeInitializationScript = `
+(() => {
+  const storageKey = "pordee-theme";
+  const lightColor = "#EAF7FF";
+  const darkColor = "#10181D";
+
+  function resolveTheme(preference) {
+    if (preference === "light" || preference === "dark") return preference;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  try {
+    const storedPreference = window.localStorage.getItem(storageKey);
+    const preference =
+      storedPreference === "light" || storedPreference === "dark" || storedPreference === "system"
+        ? storedPreference
+        : "system";
+    const theme = resolveTheme(preference);
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.themePreference = preference;
+    document.documentElement.style.colorScheme = theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? darkColor : lightColor);
+  } catch {
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.dataset.themePreference = "system";
+    document.documentElement.style.colorScheme = "light";
+  }
+})();
+`;
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th">
+    <html lang="th" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta
@@ -58,6 +86,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="พอดี" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: themeInitializationScript,
+          }}
+        />
         <Meta />
         <Links />
       </head>

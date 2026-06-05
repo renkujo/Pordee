@@ -130,9 +130,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       spentLabel: "ใช้ไปกับการเดินทางเดือนนี้",
       cta: { to: "/history", label: "ดูรายการเดินทาง" },
       mascot: "/brand/mascots/normal.png",
-      surfaceClass: "bg-[#FFF1D3]",
-      amountClass: "text-[#8A5A0A]",
-      barClass: "bg-[#F4B640]",
+      surfaceClass: "bg-lime/25",
+      amountClass: "text-ink",
+      barClass: "bg-lime-strong",
     },
     {
       id: "bills",
@@ -158,9 +158,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       spentLabel: "เก็บเข้าเป้าหมายแล้ว",
       cta: { to: "/goals", label: "เติมเงินสำรอง" },
       mascot: "/brand/mascots/saving.png",
-      surfaceClass: "bg-[#EAF2F3]",
-      amountClass: "text-[#235C72]",
-      barClass: "bg-[#8CBFD0]",
+      surfaceClass: "bg-line/35",
+      amountClass: "text-teal",
+      barClass: "bg-teal/70",
     },
   ];
 

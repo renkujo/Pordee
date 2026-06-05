@@ -15,7 +15,7 @@ Desktop is still a first-class responsive experience, but it should adapt into a
 - TypeScript
 - Tailwind CSS v4
 - shadcn/ui as the component base
-- IBM Plex Sans Thai as the primary UI font
+- LINE Seed Sans TH/EN as the primary UI font
 - PWA support
 
 Use shadcn/ui as owned component source, not as an untouched default theme. Components should be adapted to Pordee tokens, spacing, radius, typography, and interaction patterns.

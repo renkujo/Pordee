@@ -5,12 +5,12 @@ describe("fmtBaht", () => {
   it("formats integers with the Thai baht symbol", () => {
     expect(fmtBaht(65)).toContain("65");
     expect(fmtBaht(65)).toContain("฿");
+    expect(fmtBaht(65)).not.toMatch(/\.00/);
   });
 
-  it("rounds to 0 decimal places by default", () => {
-    const out = fmtBaht(65.4);
-    expect(out).toMatch(/65/);
-    expect(out).not.toMatch(/\.4/);
+  it("keeps decimal places by default", () => {
+    expect(fmtBaht(65.4)).toMatch(/65\.4/);
+    expect(fmtBaht(65.75)).toMatch(/65\.75/);
   });
 
   it("keeps decimals when precise:true", () => {
@@ -38,5 +38,15 @@ describe("fmtSignedBaht", () => {
     const out = fmtSignedBaht(-50, "expense");
     expect(out.startsWith("-")).toBe(true);
     expect(out).toMatch(/50/);
+  });
+
+  it("keeps decimal places when precise:true", () => {
+    expect(fmtSignedBaht(65.75, "expense", { precise: true })).toMatch(
+      /65\.75/
+    );
+  });
+
+  it("keeps decimal places by default", () => {
+    expect(fmtSignedBaht(65.75, "expense")).toMatch(/65\.75/);
   });
 });

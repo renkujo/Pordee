@@ -110,7 +110,6 @@ Side effect imports are reserved for global CSS and font setup.
 
 ```ts
 import "./app.css";
-import "@fontsource/ibm-plex-sans-thai/400.css";
 ```
 
 ## Unused Imports

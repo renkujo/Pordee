@@ -39,7 +39,7 @@ After tracing:
 Phase 0 + Phase 1 progress:
 
 - React Router v7 + Vite + Tailwind v4 in `app/`
-- IBM Plex Sans Thai wired via `@fontsource/ibm-plex-sans-thai`
+- LINE Seed Sans TH/EN wired via self-hosted WOFF2 files
 - App shell uses Pordee tokens (sky background, coral primary, teal accent)
 - Header renders `PordeeLogo` (sized raster placeholder + Thai wordmark)
 - Mascots not yet integrated; reserved for supportive moments only

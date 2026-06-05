@@ -248,7 +248,7 @@ export default function History() {
           </div>
           {transactions.length > 0 ? (
             <div className="flex flex-col gap-3">
-              <div className="border-line focus-within:ring-coral/35 flex h-11 items-center gap-2 rounded-sm border bg-white px-3 focus-within:ring-2">
+              <div className="border-line bg-surface focus-within:ring-coral/35 flex h-11 items-center gap-2 rounded-sm border px-3 focus-within:ring-2">
                 <Search className="text-muted h-4 w-4 shrink-0" />
                 <Input
                   id="history-search"

@@ -2,6 +2,7 @@ import { NavLink } from "react-router";
 import { AccountAvatar } from "~/components/brand/account-avatar";
 import { PordeeLogo } from "~/components/brand/logo";
 import type { AuthUser } from "~/lib/auth.server";
+import { ThemeToggle } from "./theme-toggle";
 
 export function MobileHeader({ user }: { user: AuthUser }) {
   return (
@@ -13,7 +14,10 @@ export function MobileHeader({ user }: { user: AuthUser }) {
         >
           <PordeeLogo size={34} wordmarkClassName="text-xl" />
         </NavLink>
-        <AccountAvatar user={user} size="sm" />
+        <div className="flex items-center gap-2">
+          <ThemeToggle variant="compact" />
+          <AccountAvatar user={user} size="sm" />
+        </div>
       </div>
     </header>
   );

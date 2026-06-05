@@ -4,7 +4,11 @@
 
 - Tailwind CSS v4 is imported in `app/app/app.css`.
 - Theme tokens live in `@theme` inside `app/app/app.css`.
-- The app uses IBM Plex Sans Thai via `@fontsource`.
+- The app uses self-hosted LINE Seed Sans TH/EN font files from
+  `app/public/fonts/line-seed-sans/`.
+- Light/dark/system mode is implemented with `data-theme` on `<html>`,
+  semantic token overrides in `app/app/app.css`, and
+  `app/app/components/shell/theme-toggle.tsx`.
 - UI primitives live in `app/app/components/ui/` and use Tailwind classes.
 - Components often accept `className` and merge with `cn()` from `~/lib/cn`.
 - Radix primitives are used under local UI wrappers.
@@ -12,7 +16,7 @@
 
 ## Tokens
 
-Current color tokens:
+Default light color tokens:
 
 - `sky`: `#EAF7FF`
 - `surface`: `#FFFFFF`
@@ -35,7 +39,7 @@ Current radius tokens:
 
 ## Preferred Direction
 
-- Keep the app light-first and calm, matching `docs/ui-direction.md`.
+- Keep both light and dark mode calm, matching the Pordee product tone.
 - Use semantic tokens before raw arbitrary color values.
 - Keep lime as a small accent, not a primary UI color.
 - Use solid coral for primary actions.
@@ -48,8 +52,8 @@ Current radius tokens:
 
 - No separate Tailwind config file is established; tokens are in CSS.
 - No full variant system is established beyond local primitives and CVA usage.
-- No dark app theme is established. Dark tokens only exist for logo-on-dark
-  surfaces.
+- No server-backed theme preference is established. Theme choice is remembered
+  per device in `localStorage`.
 
 ## Working Rules
 

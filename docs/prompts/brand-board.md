@@ -17,7 +17,7 @@ Visual style: premium fintech-but-friendly identity board, semi-flat logo render
 
 Colors: coral red #FF5C4D, teal #18A999, lime #B7F34A, charcoal #172026, pale sky #EAF7FF, white #FFFFFF.
 
-Typography: Thai wordmark should read exactly "พอดี". English support text should read exactly "PORDEE". Use a rounded modern Thai sans-serif style similar to IBM Plex Sans Thai. Keep the wordmark bold, clean, and friendly.
+Typography: Thai wordmark should read exactly "พอดี". English support text should read exactly "PORDEE". Use a rounded modern Thai sans-serif style similar to LINE Seed Sans. Keep the wordmark bold, clean, and friendly.
 
 Avoid: 3D, glossy gel, plastic shine, inflated clay rendering, sharp geometry, generic bank logo, wallet icon, coin stack, piggy bank, chart icon, mascot, excessive gradients, dark background, cream/brown palette, random symbols, messy typography, unreadable Thai text, extra slogans, extra brand names, watermark.
 ```

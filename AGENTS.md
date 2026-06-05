@@ -19,6 +19,8 @@ notes.
 - Framework: React Router v7 framework mode with Vite
 - Language: TypeScript, strict mode
 - Styling: Tailwind CSS v4 tokens in `app/app/app.css`
+- Theme mode: light/dark/system preference via `data-theme` token overrides
+  and `app/app/components/shell/theme-toggle.tsx`
 - UI primitives: local shadcn-style primitives in `app/app/components/ui/`
 - Auth: Better Auth with email/password and SQLite via `node:sqlite`
 - Data access: React Router loaders/actions calling `~/lib/db` repository
@@ -105,6 +107,8 @@ No global store pattern is established.
 
 Use Tailwind v4 tokens and local UI primitives. Product-specific layout and
 copy should stay with its route/component owner until real reuse appears.
+Light/dark mode is implemented by overriding semantic CSS tokens under
+`data-theme`; prefer token classes over hard-coded light-only colors.
 
 ## Working Rules
 
@@ -116,6 +120,8 @@ copy should stay with its route/component owner until real reuse appears.
 - Use `~/` imports for app-internal modules.
 - Keep reusable primitives in `components/ui`; keep route-specific UI local
   until reuse is proven.
+- Preserve light/dark/system behavior by using semantic tokens such as
+  `bg-sky`, `bg-surface`, `text-ink`, `text-muted`, and `border-line`.
 
 ### Preferred Direction
 

@@ -23,7 +23,7 @@ Current strategy and exploration:
 
 - The main logo is the compact Option B semi-flat `P + D` loop mark in `app/public/logo/pordee-pd-logo.png`.
 - `Pordee` is English support text for URLs, app stores, and bilingual contexts.
-- The product UI font is `IBM Plex Sans Thai`.
+- The product UI font is `LINE Seed Sans`.
 - The coral loop is the key action detail.
 - The teal balance path is the positive-progress detail.
 - The lime dot is a tiny milestone highlight only.

@@ -288,7 +288,7 @@ export default function Dashboard() {
             <CardHeader
               className={cn(
                 "justify-between gap-5 p-4 sm:p-5 lg:min-h-48",
-                isCurrentMonth ? "bg-teal/10" : "bg-[#EAF2F3]"
+                isCurrentMonth ? "bg-teal/10" : "bg-line/35"
               )}
             >
               <div className="flex flex-wrap items-center gap-2">

@@ -1,9 +1,119 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSansTH_W_Th.woff2") format("woff2");
+  unicode-range:
+    U+0E00-0E7F, U+200B-200D, U+2010-2015, U+2018-201D, U+2022, U+2026, U+2030,
+    U+20A0-20CF, U+25CC;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSansTH_W_Rg.woff2") format("woff2");
+  unicode-range:
+    U+0E00-0E7F, U+200B-200D, U+2010-2015, U+2018-201D, U+2022, U+2026, U+2030,
+    U+20A0-20CF, U+25CC;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSansTH_W_Bd.woff2") format("woff2");
+  unicode-range:
+    U+0E00-0E7F, U+200B-200D, U+2010-2015, U+2018-201D, U+2022, U+2026, U+2030,
+    U+20A0-20CF, U+25CC;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSansTH_W_XBd.woff2") format("woff2");
+  unicode-range:
+    U+0E00-0E7F, U+200B-200D, U+2010-2015, U+2018-201D, U+2022, U+2026, U+2030,
+    U+20A0-20CF, U+25CC;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSansTH_W_He.woff2") format("woff2");
+  unicode-range:
+    U+0E00-0E7F, U+200B-200D, U+2010-2015, U+2018-201D, U+2022, U+2026, U+2030,
+    U+20A0-20CF, U+25CC;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSans_W_Th.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2122,
+    U+2190-21FF, U+25A0-25FF;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSans_W_Rg.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2122,
+    U+2190-21FF, U+25A0-25FF;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSans_W_Bd.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2122,
+    U+2190-21FF, U+25A0-25FF;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSans_W_XBd.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2122,
+    U+2190-21FF, U+25A0-25FF;
+}
+
+@font-face {
+  font-family: "LINE Seed Sans";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/fonts/line-seed-sans/LINESeedSans_W_He.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2122,
+    U+2190-21FF, U+25A0-25FF;
+}
+
 @theme {
   --font-sans:
-    "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    "LINE Seed Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
   --color-sky: #eaf7ff;
   --color-surface: #ffffff;
@@ -29,6 +139,29 @@
 }
 
 @layer base {
+  :root,
+  [data-theme="light"] {
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+
+    --color-sky: #10181d;
+    --color-surface: #172229;
+    --color-ink: #f4f7f9;
+    --color-muted: #9bb0ba;
+    --color-coral: #ff7d70;
+    --color-coral-strong: #ff9a8f;
+    --color-teal: #2fc4b8;
+    --color-teal-strong: #69d8cf;
+    --color-lime: #cde96a;
+    --color-lime-strong: #dcfa7a;
+    --color-line: #2b3d47;
+    --color-ink-dark: #172026;
+    --color-surface-dark: #f4f7f9;
+  }
+
   html,
   body {
     background-color: var(--color-sky);

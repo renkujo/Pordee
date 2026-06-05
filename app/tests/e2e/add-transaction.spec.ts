@@ -91,3 +91,22 @@ test("discount field records the net expense amount", async ({ page }) => {
   await expect(row).toBeVisible();
   await expect(row.getByText("-฿85")).toBeVisible();
 });
+
+test("history list keeps decimal transaction amounts", async ({ page }) => {
+  const unique = `ทศนิยมทดสอบ-${Date.now()}`;
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/add");
+  await page.waitForLoadState("networkidle");
+
+  await page.locator("#quick-entry").fill(`${unique} 65.75`);
+
+  await expect(page.locator("#amount")).toHaveValue("65.75");
+
+  await page.getByRole("button", { name: "บันทึกรายการ" }).click();
+
+  await expect(page).toHaveURL(/\/history$/);
+  const list = page.getByTestId("history-list");
+  const row = list.locator("li").filter({ hasText: unique });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("-฿65.75")).toBeVisible();
+});

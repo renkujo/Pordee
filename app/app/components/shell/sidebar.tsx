@@ -6,6 +6,7 @@ import { PordeeLogo } from "~/components/brand/logo";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/cn";
 import type { AuthUser } from "~/lib/auth.server";
+import { ThemeToggle } from "./theme-toggle";
 
 const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter(({ to }) => to !== "/add");
 
@@ -96,6 +97,7 @@ export function Sidebar({ user }: { user: AuthUser }) {
       </nav>
 
       <div className="mt-auto px-4 pb-4">
+        <ThemeToggle variant="icon-segmented" className="mb-3" />
         <div className="border-line bg-sky/55 rounded-md border p-3">
           <div className="flex items-start gap-3">
             <AccountAvatar user={user} size="md" />

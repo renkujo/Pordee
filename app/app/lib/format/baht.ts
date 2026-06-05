@@ -1,12 +1,14 @@
 const baseFormatter = new Intl.NumberFormat("th-TH", {
   style: "currency",
   currency: "THB",
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
 });
 
 const preciseFormatter = new Intl.NumberFormat("th-TH", {
   style: "currency",
   currency: "THB",
+  minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
 

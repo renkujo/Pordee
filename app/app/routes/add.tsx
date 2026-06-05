@@ -522,7 +522,7 @@ function StepRail({ currentStep }: { currentStep: number }) {
             <span
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold sm:h-6 sm:w-6",
-                isActive ? "bg-ink text-white" : "bg-sky text-muted"
+                isActive ? "bg-ink text-surface" : "bg-sky text-muted"
               )}
             >
               {stepNumber}
@@ -537,7 +537,7 @@ function StepRail({ currentStep }: { currentStep: number }) {
 
 function StepNumber({ children }: { children: React.ReactNode }) {
   return (
-    <span className="bg-ink flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white">
+    <span className="bg-ink text-surface flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
       {children}
     </span>
   );

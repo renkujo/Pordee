@@ -49,6 +49,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { AccountAvatar } from "~/components/brand/account-avatar";
 import { MascotTip } from "~/components/brand/mascot-state";
+import { ThemeToggle } from "~/components/shell/theme-toggle";
 import { repo } from "~/lib/db";
 import { auth, requireUser } from "~/lib/auth.server";
 import type { AuthUser } from "~/lib/auth.server";
@@ -376,6 +377,40 @@ function AccountSection({
         รายการเงิน หมวดหมู่ และเป้าหมายผูกกับบัญชีที่เข้าสู่ระบบอยู่
         แต่ยังไม่ได้เชื่อมธนาคารหรือซิงก์กับคลาวด์ภายนอก
       </MascotTip>
+      <Card>
+        <CardHeader className="gap-2">
+          <CardTitle>หน้าตาแอป</CardTitle>
+          <p className="text-muted text-sm leading-6">
+            เลือกโหมดสีที่สบายตา ค่าเลือกนี้จะจำไว้เฉพาะเครื่องนี้
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]">
+          <ThemeToggle />
+          <div
+            aria-hidden="true"
+            className="border-line bg-sky/45 relative hidden min-h-36 overflow-hidden rounded-[16px] border p-3 lg:block"
+          >
+            <div className="border-line bg-surface h-full rounded-[12px] border p-3">
+              <div className="flex items-center gap-1.5">
+                <span className="bg-coral h-2.5 w-2.5 rounded-full" />
+                <span className="bg-teal h-2.5 w-2.5 rounded-full" />
+                <span className="bg-lime h-2.5 w-2.5 rounded-full" />
+              </div>
+              <div className="mt-4 space-y-2">
+                <div className="bg-ink/85 h-3 w-20 rounded-xs" />
+                <div className="bg-muted/45 h-2 w-28 rounded-xs" />
+              </div>
+              <div className="mt-5 grid grid-cols-[1fr_2.5rem] gap-2">
+                <div className="bg-sky rounded-[10px] p-2">
+                  <div className="bg-teal/70 h-2 w-12 rounded-xs" />
+                  <div className="bg-line mt-2 h-2 w-full rounded-xs" />
+                </div>
+                <div className="bg-coral/15 rounded-[10px]" />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <Card className="overflow-hidden rounded-[18px]">
         <CardHeader className="border-line border-b p-0">
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_19rem]">

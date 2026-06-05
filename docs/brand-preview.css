@@ -18,7 +18,7 @@
   --shadow: 0 12px 34px rgba(23, 32, 38, 0.08);
   --soft-shadow: 0 2px 8px rgba(23, 32, 38, 0.06);
   --font:
-    "IBM Plex Sans Thai", "Noto Sans Thai", "Prompt", system-ui, sans-serif;
+    "LINE Seed Sans", "Noto Sans Thai", "Prompt", system-ui, sans-serif;
 }
 
 * {
