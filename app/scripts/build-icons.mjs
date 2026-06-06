@@ -2,18 +2,18 @@
 /**
  * Pordee icon pipeline (Phase 1).
  *
- * Reads the selected Option B PWA icon concept and emits the sized rasters that
+ * Reads the shipped production logo mark and emits the sized rasters that
  * `manifest.webmanifest`, apple-touch-icon, and the favicon need.
  *
- * Source:  ../../assets/logo/pordee-option-b-pwa-icon-concept.png
+ * Source:  ../public/logo/direct/pordee-logo-mark-direct-01.png
  * Output:  ../public/logo/pordee-pd-logo.png
  *          ../public/brand/icon-{32,180,192,512}.png
  *          ../public/brand/icon-maskable-512.png
  *          ../public/favicon.ico
  *
- * The source image is the approved imagegen PWA icon tile. All runtime icon
- * sizes are derived from this same image so app chrome, PWA, and favicon use
- * the same selected logo treatment.
+ * The source image is the approved direct production logo mark. PWA and apple
+ * touch icons are emitted as sky-background tiles, while the favicon stays a
+ * transparent multi-size browser icon.
  */
 import sharp from "sharp";
 import pngToIco from "png-to-ico";
@@ -22,18 +22,20 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..", "..");
 const SOURCE = resolve(
-  repoRoot,
-  "assets",
+  here,
+  "..",
+  "public",
   "logo",
-  "pordee-option-b-pwa-icon-concept.png"
+  "direct",
+  "pordee-logo-mark-direct-01.png"
 );
 const SOURCE_PNG = resolve(here, "..", "public", "logo", "pordee-pd-logo.png");
 const OUT_BRAND = resolve(here, "..", "public", "brand");
 const OUT_FAVICON = resolve(here, "..", "public", "favicon.ico");
 
-const sizes = [32, 180, 192, 512];
+const appIconSizes = [32, 180, 192, 512];
+const appIconBackground = "#EAF7FF";
 const sourceSize = 1254;
 
 async function emitSourcePng() {
@@ -44,11 +46,10 @@ async function emitSourcePng() {
   console.log(`  • ${SOURCE_PNG}`);
 }
 
-async function emitFlatSizes() {
-  for (const size of sizes) {
+async function emitAppIconSizes() {
+  for (const size of appIconSizes) {
     const out = resolve(OUT_BRAND, `icon-${size}.png`);
-    await sharp(SOURCE_PNG)
-      .resize(size, size, { fit: "cover" })
+    await (await createIconTile(size, 0.76))
       .png({ compressionLevel: 9 })
       .toFile(out);
     console.log(`  • ${out}`);
@@ -57,11 +58,27 @@ async function emitFlatSizes() {
 
 async function emitMaskable() {
   const out = resolve(OUT_BRAND, "icon-maskable-512.png");
-  await sharp(SOURCE_PNG)
-    .resize(512, 512, { fit: "cover" })
+  await (await createIconTile(512, 0.62))
     .png({ compressionLevel: 9 })
     .toFile(out);
   console.log(`  • ${out}`);
+}
+
+async function createIconTile(size, markScale) {
+  const markSize = Math.round(size * markScale);
+  const mark = await sharp(SOURCE_PNG)
+    .resize(markSize, markSize, { fit: "inside" })
+    .png()
+    .toBuffer();
+
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: appIconBackground,
+    },
+  }).composite([{ input: mark, gravity: "center" }]);
 }
 
 async function emitFavicon() {
@@ -80,7 +97,7 @@ async function main() {
   await mkdir(OUT_BRAND, { recursive: true });
   console.log("Generating Pordee icons from", SOURCE);
   await emitSourcePng();
-  await emitFlatSizes();
+  await emitAppIconSizes();
   await emitMaskable();
   await emitFavicon();
   console.log("Done.");

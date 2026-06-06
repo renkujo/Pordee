@@ -3,6 +3,7 @@ node_modules
 .react-router
 public/brand
 coverage
+locales/**/*.ts
 playwright-report
 test-results
 pnpm-lock.yaml

@@ -1,4 +1,5 @@
 import { reactRouter } from "@react-router/dev/vite";
+import { lingui } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -7,6 +8,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     reactRouter(),
+    lingui(),
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
@@ -17,6 +19,7 @@ export default defineConfig({
         "brand/icon-192.png",
         "brand/icon-512.png",
         "brand/icon-maskable-512.png",
+        "logo/direct/pordee-logo-mark-direct-01.png",
       ],
       manifest: {
         name: "พอดี",

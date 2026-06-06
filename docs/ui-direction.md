@@ -57,14 +57,16 @@ Lime should stay tiny. Do not let it become a primary UI color.
 
 ## Logo Usage
 
-Use `app/public/logo/pordee-pd-logo.png` as the current final logo direction across preview/mockup work.
+Use `app/public/logo/direct/pordee-logo-mark-direct-01.png` as the current shipped app UI logo mark.
 
 In implementation:
 
 - keep the logo small and practical in app chrome
 - pair the mark with HTML text `พอดี` when needed
 - do not use generated wordmark text as UI text
-- trace/vectorize the mark before production app-store or favicon use
+- keep favicon and install-icon rasters generated from the shipped logo mark
+  with `pnpm icons:build`
+- trace/vectorize the mark before trademark- or app-store-grade vector export
 
 ## Mascot Usage
 

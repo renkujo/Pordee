@@ -2,14 +2,17 @@
 
 ## 1. Final Logo Direction
 
-Use `app/public/logo/pordee-pd-logo.png` as the final logo visual direction in brand preview/mockup work:
+Use `app/public/logo/direct/pordee-logo-mark-direct-01.png` as the shipped app UI logo mark:
 
 - app header
 - mobile home screen
 - login/onboarding screen
 - favicon/app-icon test
 
-Decision: use this semi-flat PD mark as the current logo direction.
+Decision: use this direct-generated semi-flat PD mark as the current app UI logo asset.
+The favicon and install-icon rasters are generated from the same direct logo
+asset by `pnpm icons:build`; PWA and apple-touch outputs use a sky-background
+tile, while the maskable icon keeps extra safe area.
 
 ## 2. Prepare Production Logo Asset
 
@@ -21,7 +24,6 @@ Done in Phase 1 for raster output:
 
 Still to do (hand work):
 
-- transparent cutout of the selected mark for use over arbitrary surfaces
 - production SVG trace that preserves the semi-flat proportions
 - simplified curves for sub-32px rendering
 
@@ -41,19 +43,18 @@ Phase 0 + Phase 1 progress:
 - React Router v7 + Vite + Tailwind v4 in `app/`
 - LINE Seed Sans TH/EN wired via self-hosted WOFF2 files
 - App shell uses Pordee tokens (sky background, coral primary, teal accent)
-- Header renders `PordeeLogo` (sized raster placeholder + Thai wordmark)
-- Mascots not yet integrated; reserved for supportive moments only
+- Header renders `PordeeLogo` (direct transparent PNG mark + Thai wordmark)
+- Mascots are integrated into supportive dashboard, wallet, goal, and auth moments.
 
 Still to do:
 
-- Replace `PordeeLogo`'s `<img>` with the inline `PordeeLogoMark` SVG once it
-  ships from the codex prompt (`app/scripts/codex-prompt-logo-svg.md`).
-- Wire mascot PNGs into empty/success/warning states only.
+- Keep app-store and PWA install PNGs regenerated with `pnpm icons:build`
+  whenever the approved logo source changes.
 
 ## 5. Update Docs After Implementation
 
-- `logo-direction.md` — updated to reflect Phase 1 raster pipeline and
-  remaining vector work.
+- `logo-direction.md` — updated to reflect the shipped direct PNG logo rollout and
+  remaining install-icon raster pipeline.
 - `design-system.md` — does not exist yet; introduce once UI features
   ship in Phase 2 so it documents real components, not aspirations.
 - `AGENTS.md` — does not exist in this repo yet; introduce when a contributor

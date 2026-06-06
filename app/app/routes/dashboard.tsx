@@ -24,6 +24,7 @@ import { MonthPicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
 import { requireUser } from "~/lib/auth.server";
 import { fmtBaht, fmtSignedBaht } from "~/lib/format/baht";
+import { getSharePercent } from "~/lib/format/progress";
 import {
   dayValueToEndIso,
   dayValueToStartIso,
@@ -833,19 +834,24 @@ function CategorySpending({
         ) : (
           <ul className="flex flex-col gap-3">
             {rows.map((row) => {
-              const pct =
-                totalExpense > 0
-                  ? Math.min(100, Math.round((row.amount / totalExpense) * 100))
-                  : 0;
+              const pct = getSharePercent(row.amount, totalExpense);
               return (
                 <li key={row.categoryId}>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-ink font-medium">{row.name}</span>
-                    <span className="text-muted shrink-0 text-xs">
+                    <span className="text-muted shrink-0 text-right text-xs tabular-nums">
                       {fmtBaht(row.amount)}
+                      <span className="block text-[11px]">สัดส่วน {pct}%</span>
                     </span>
                   </div>
-                  <div className="bg-line mt-2 h-2 w-full overflow-hidden rounded-full">
+                  <div
+                    aria-label={`สัดส่วน${row.name} ${pct}% ของรายจ่ายเดือนนี้`}
+                    aria-valuemax={100}
+                    aria-valuemin={0}
+                    aria-valuenow={pct}
+                    className="bg-line mt-2 h-2 w-full overflow-hidden rounded-full"
+                    role="progressbar"
+                  >
                     <div
                       className="bg-coral h-full"
                       style={{ width: `${pct}%` }}

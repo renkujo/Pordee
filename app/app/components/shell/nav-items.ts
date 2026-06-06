@@ -10,8 +10,8 @@ import {
 
 export interface NavItem {
   to: string;
-  label: string;
-  description: string;
+  labelId: string;
+  descriptionId: string;
   icon: LucideIcon;
   end?: boolean;
 }
@@ -19,39 +19,39 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   {
     to: "/",
-    label: "หน้าหลัก",
-    description: "ดูภาพรวมเดือนนี้",
+    labelId: "nav.dashboard.label",
+    descriptionId: "nav.dashboard.description",
     icon: CircleGauge,
     end: true,
   },
   {
     to: "/add",
-    label: "บันทึก",
-    description: "เพิ่มรายรับรายจ่าย",
+    labelId: "nav.add.label",
+    descriptionId: "nav.add.description",
     icon: PlusCircle,
   },
   {
     to: "/wallet",
-    label: "กระเป๋า",
-    description: "ดูเงินพร้อมใช้และเงินกันไว้",
+    labelId: "nav.wallet.label",
+    descriptionId: "nav.wallet.description",
     icon: Layers3,
   },
   {
     to: "/history",
-    label: "ประวัติ",
-    description: "ค้นหาและแก้ไขรายการ",
+    labelId: "nav.history.label",
+    descriptionId: "nav.history.description",
     icon: ListChecks,
   },
   {
     to: "/goals",
-    label: "เป้าหมาย",
-    description: "ตามเงินเก็บทีละก้าว",
+    labelId: "nav.goals.label",
+    descriptionId: "nav.goals.description",
     icon: Target,
   },
   {
     to: "/settings",
-    label: "ตั้งค่า",
-    description: "บัญชีและหมวดหมู่",
+    labelId: "nav.settings.label",
+    descriptionId: "nav.settings.description",
     icon: Settings,
   },
 ];

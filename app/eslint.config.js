@@ -15,6 +15,7 @@ export default tseslint.config(
       "public/**",
       "scripts/**",
       "coverage/**",
+      "locales/**/*.ts",
       "playwright-report/**",
       "test-results/**",
     ],

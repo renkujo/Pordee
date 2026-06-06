@@ -10,7 +10,9 @@
 - **Finance persistence**: Phase 0 in-memory repository
 - **Auth**: Better Auth email/password with SQLite
 - **State**: local React state only
-- **i18n**: no i18n library; Thai-first copy and Thai locale formatting
+- **i18n**: Lingui with Thai (`th`) as the source locale and English (`en`) as
+  the first secondary locale; finance route copy remains Thai-first until each
+  slice is migrated
 - **Tooling**: Vite, ESLint, Prettier, Vitest, Playwright, PWA plugin
 
 ## Runtime
@@ -30,7 +32,7 @@
 - **Auth**: `better-auth`
 - **Date controls**: `react-day-picker`
 - **Build plugins**: `@react-router/dev`, `@tailwindcss/vite`,
-  `vite-plugin-pwa`
+  `@lingui/vite-plugin`, `vite-plugin-pwa`
 - **Database direction**: `kysely` is installed, but finance persistence is
   still the mock repo and the docs currently name Postgres/Drizzle as Phase 1
   direction.
@@ -58,6 +60,10 @@ Pordee/
 - `app/app/routes.ts` is the route registry.
 - `app/app/root.tsx` owns document shell, fonts, icons, and global app layout
   wiring.
+- `app/app/lib/i18n/` owns the Lingui provider, locale persistence, and the
+  current explicit message catalog.
+- `app/locales/` holds Lingui extracted and compiled catalog files for future
+  macro-extracted route copy.
 - `app/app/lib/db/index.ts` exports the current repo implementation. Routes
   import this boundary instead of `mockRepo`.
 - `app/app/lib/auth.server.ts` owns Better Auth setup, auth DB migrations,
@@ -80,4 +86,4 @@ Pordee/
 - Finance data scoped by authenticated user.
 - Dedicated API/service layer beyond the repo contract.
 - Global client-state or server-state query library.
-- i18n extraction or locale switching.
+- Full-route i18n coverage beyond shell/navigation/settings language controls.

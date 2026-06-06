@@ -24,7 +24,12 @@ export function PordeeLogo({
         className
       )}
     >
-      <PordeeLogoMark size={size} variant={variant} withTile />
+      <PordeeLogoMark
+        size={size}
+        variant={variant}
+        withTile
+        title={withWordmark ? null : "ตราสัญลักษณ์พอดี"}
+      />
       {withWordmark && (
         <span
           className={cn(

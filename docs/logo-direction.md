@@ -11,7 +11,7 @@ direction. This direction keeps the selected PD concept: coral loop monogram,
 teal balance smile, and tiny lime milestone dot, but tightens the negative
 space and app-icon silhouette.
 
-![Pordee final semi-flat PD logo mark](../app/public/logo/pordee-pd-logo.png)
+![Pordee final semi-flat PD logo mark](../app/public/logo/direct/pordee-logo-mark-direct-01.png)
 
 Current strategy and exploration:
 
@@ -21,7 +21,7 @@ Current strategy and exploration:
 
 ## Logo Principles
 
-- The main logo is the compact Option B semi-flat `P + D` loop mark in `app/public/logo/pordee-pd-logo.png`.
+- The main app UI logo is the compact Option B semi-flat `P + D` loop mark in `app/public/logo/direct/pordee-logo-mark-direct-01.png`.
 - `Pordee` is English support text for URLs, app stores, and bilingual contexts.
 - The product UI font is `LINE Seed Sans`.
 - The coral loop is the key action detail.
@@ -47,11 +47,14 @@ Coral is the primary accent. Lime must remain a small highlight, not the main lo
 
 Current final visual direction:
 
-- `assets/logo/pordee-option-b-pwa-icon-concept.png`
+- `app/public/logo/direct/pordee-logo-mark-direct-01.png`
+- `app/public/logo/direct/pordee-logo-mark-direct-01-source.png`
 - `app/public/logo/pordee-pd-logo.png`
 
-The imagegen PWA icon in `assets/logo/` is the approved source. The runtime PNG
-is generated from it by the icon pipeline.
+The direct PNG is the shipped app UI logo mark. It was generated as a
+per-asset chroma-key source and extracted into a transparent PNG. The
+install-icon and favicon pipeline now derives its outputs from this same direct
+production logo asset.
 
 Historical SVG candidates remain under `source/rebrand-source/production/`, but they are no longer the active logo direction.
 
@@ -63,14 +66,16 @@ Mascot production candidate SVG files:
 - `source/rebrand-source/production/mascots/pordee-mascot-warning.svg`
 - `source/rebrand-source/production/mascots/pordee-mascot-thinking.svg`
 
-When the app needs stable public asset paths, copy the final logo asset or its traced production SVG into `public/`.
+When the app needs stable public asset paths, use versioned files under
+`app/public/logo/` and keep the source asset beside the shipped output when the
+asset is generated or extracted.
 
 Legacy TangMod files still exist in `docs/images/logo-source/` for historical comparison, but they should not be used for new Pordee implementation.
 
 ## Do Not Use
 
 - Do not use the old glossy logo or raw generated board PNG as the final logo.
-- Do not use previous PD SVG candidates as the active logo unless they are retraced from the selected semi-flat PNG.
+- Do not use previous PD SVG candidates as the active app UI logo.
 - Do not use old TangMod traced logo files for new Pordee implementation.
 - Do not make the mascot the primary logo.
 - Do not use wallet, piggy bank, chart, or generic bank symbols.
@@ -80,16 +85,17 @@ Legacy TangMod files still exist in `docs/images/logo-source/` for historical co
 
 Phase 1 progress (in `app/`):
 
-- Sized rasters generated from the approved source image via `app/scripts/build-icons.mjs`:
+- Sized rasters generated from the direct production logo asset via `app/scripts/build-icons.mjs`:
   - `app/public/brand/icon-32.png` (browser favicon companion)
   - `app/public/brand/icon-180.png` (apple-touch-icon)
   - `app/public/brand/icon-192.png`, `icon-512.png` (PWA manifest)
-  - `app/public/brand/icon-maskable-512.png` (PWA maskable, sky-padded safe zone)
+  - `app/public/brand/icon-maskable-512.png` (PWA maskable with extra safe area)
   - `app/public/favicon.ico` (16/32/48 multi-size)
-- `vite.config.ts` PWA manifest and `root.tsx` link tags reference these sized
-  icons directly. Run `pnpm icons:build` after replacing the approved source image.
-- `app/components/brand/logo.tsx` renders the sized raster as a placeholder
-  with a `variant: 'light' | 'dark'` prop for future on-dark placements.
+- `vite.config.ts` PWA manifest references the sized PNG install icons.
+  `root.tsx` exposes `favicon.ico`, `icon-32.png`, and the apple touch icon.
+  Run `pnpm icons:build` after replacing the approved source image.
+- `app/app/components/brand/logo.tsx` renders the direct transparent PNG
+  through `PordeeLogoMark` with the Thai wordmark for app chrome.
 
 Still on hold (requires hand work, not auto-generation):
 
@@ -97,8 +103,9 @@ Still on hold (requires hand work, not auto-generation):
 
 Phase 2 progress:
 
-- Production SVG trace of the selected semi-flat mark has been hand-authored at
-  `source/rebrand-source/production/logo/pordee-logo-mark.svg`.
-- Inline-SVG React component `PordeeLogoMark` lives at
-  `app/app/components/brand/logo-mark.tsx` and is used by `PordeeLogo` for
-  crisp UI chrome.
+- Direct production PNG source is shipped at
+  `app/public/logo/direct/pordee-logo-mark-direct-01-source.png`.
+- Transparent extracted PNG is shipped at
+  `app/public/logo/direct/pordee-logo-mark-direct-01.png`.
+- `PordeeLogoMark` lives at `app/app/components/brand/logo-mark.tsx` and uses
+  the direct PNG asset, not the placeholder install icon.

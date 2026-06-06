@@ -3,10 +3,12 @@ import { NavLink, useLocation } from "react-router";
 import { Menu, X } from "lucide-react";
 import { MOBILE_MORE_NAV_ITEMS, MOBILE_PRIMARY_NAV_ITEMS } from "./nav-items";
 import { cn } from "~/lib/cn";
+import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 export function BottomNav() {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const location = useLocation();
+  const t = usePordeeTranslation();
   const isMoreActive = MOBILE_MORE_NAV_ITEMS.some(({ to }) =>
     location.pathname.startsWith(to)
   );
@@ -15,11 +17,11 @@ export function BottomNav() {
     <>
       {isMoreOpen && <MobileMoreDrawer onClose={() => setIsMoreOpen(false)} />}
       <nav
-        aria-label="เมนูหลักบนมือถือ"
+        aria-label={t("mobile.navLabel")}
         className="border-line bg-surface fixed inset-x-0 bottom-0 z-30 border-t lg:hidden"
       >
         <ul className="mx-auto grid max-w-xl grid-cols-5">
-          {MOBILE_PRIMARY_NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+          {MOBILE_PRIMARY_NAV_ITEMS.map(({ to, labelId, icon: Icon, end }) => (
             <li key={to}>
               <NavLink
                 to={to}
@@ -33,7 +35,7 @@ export function BottomNav() {
                 }
               >
                 <Icon className="h-5 w-5" />
-                <span>{label}</span>
+                <span>{t(labelId)}</span>
               </NavLink>
             </li>
           ))}
@@ -49,7 +51,7 @@ export function BottomNav() {
               )}
             >
               <Menu className="h-5 w-5" />
-              <span>เพิ่มเติม</span>
+              <span>{t("mobile.more")}</span>
             </button>
           </li>
         </ul>
@@ -59,6 +61,8 @@ export function BottomNav() {
 }
 
 function MobileMoreDrawer({ onClose }: { onClose: () => void }) {
+  const t = usePordeeTranslation();
+
   return (
     <div
       aria-modal="true"
@@ -68,26 +72,26 @@ function MobileMoreDrawer({ onClose }: { onClose: () => void }) {
     >
       <button
         type="button"
-        aria-label="ปิดเมนูเพิ่มเติม"
+        aria-label={t("mobile.more.closeLabel")}
         className="absolute inset-0 bg-black/25"
         onClick={onClose}
       />
       <div className="border-line bg-surface absolute right-3 bottom-20 left-3 mx-auto max-w-xl rounded-md border shadow-sm">
         <div className="border-line flex items-center justify-between border-b px-4 py-3">
-          <p className="text-ink text-sm font-semibold">เพิ่มเติม</p>
+          <p className="text-ink text-sm font-semibold">{t("mobile.more")}</p>
           <button
             type="button"
-            aria-label="ปิด"
+            aria-label={t("mobile.more.close")}
             className="text-muted hover:text-ink focus-visible:ring-coral/40 flex h-9 w-9 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
             onClick={onClose}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <nav aria-label="เมนูเพิ่มเติม">
+        <nav aria-label={t("mobile.more.navLabel")}>
           <ul className="p-2">
             {MOBILE_MORE_NAV_ITEMS.map(
-              ({ to, label, description, icon: Icon, end }) => (
+              ({ to, labelId, descriptionId, icon: Icon, end }) => (
                 <li key={to}>
                   <NavLink
                     to={to}
@@ -106,9 +110,9 @@ function MobileMoreDrawer({ onClose }: { onClose: () => void }) {
                       <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block font-medium">{label}</span>
+                      <span className="block font-medium">{t(labelId)}</span>
                       <span className="mt-0.5 block text-xs leading-5">
-                        {description}
+                        {t(descriptionId)}
                       </span>
                     </span>
                   </NavLink>

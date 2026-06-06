@@ -1,12 +1,12 @@
 import { Link, useLoaderData } from "react-router";
 import type { Route } from "./+types/wallet";
-import { ArrowRight, ListChecks, Plus, Target } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { MascotTip } from "~/components/brand/mascot-state";
 import { repo } from "~/lib/db";
 import { requireUser } from "~/lib/auth.server";
 import { getMonthRange } from "~/lib/date/month-range";
 import { fmtBaht } from "~/lib/format/baht";
+import { getSharePercent } from "~/lib/format/progress";
 import { cn } from "~/lib/cn";
 
 export function meta(_: Route.MetaArgs) {
@@ -328,14 +328,11 @@ export default function Wallet() {
       </section>
 
       {hasAnyData ? (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-          <SpendBreakdown
-            rows={spendBreakdown}
-            totalExpense={monthExpense}
-            hasMonthData={hasMonthData}
-          />
-          <AdvicePanel summary={summary} />
-        </div>
+        <SpendBreakdown
+          rows={spendBreakdown}
+          totalExpense={monthExpense}
+          hasMonthData={hasMonthData}
+        />
       ) : (
         <section className="border-line bg-surface rounded-lg border p-4 sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -529,19 +526,26 @@ function SpendBreakdown({
         ) : (
           <ul className="flex flex-col gap-3">
             {rows.map((row) => {
-              const pct =
-                totalExpense > 0
-                  ? Math.min(100, Math.round((row.amount / totalExpense) * 100))
-                  : 0;
+              const pct = getSharePercent(row.amount, totalExpense);
               return (
                 <li key={row.categoryId}>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-ink font-medium">{row.name}</span>
                     <span className="text-muted shrink-0 text-xs tabular-nums">
-                      {fmtBaht(row.amount)} · {pct}%
+                      {fmtBaht(row.amount)}
+                      <span className="block text-right text-[11px]">
+                        สัดส่วน {pct}%
+                      </span>
                     </span>
                   </div>
-                  <div className="bg-line mt-2 h-2 w-full overflow-hidden rounded-full">
+                  <div
+                    aria-label={`สัดส่วน${row.name} ${pct}% ของรายจ่ายเดือนนี้`}
+                    aria-valuemax={100}
+                    aria-valuemin={0}
+                    aria-valuenow={pct}
+                    className="bg-line mt-2 h-2 w-full overflow-hidden rounded-full"
+                    role="progressbar"
+                  >
                     <div
                       className="bg-coral h-full"
                       style={{ width: `${pct}%` }}
@@ -554,80 +558,6 @@ function SpendBreakdown({
         )}
       </div>
     </section>
-  );
-}
-
-function AdvicePanel({
-  summary,
-}: {
-  summary: Awaited<ReturnType<typeof loader>>["summary"];
-}) {
-  const advice = getAdvice(summary);
-
-  return (
-    <aside
-      aria-label="คำแนะนำจากพอดี"
-      className="border-line bg-surface rounded-lg border lg:sticky lg:top-5"
-    >
-      <div className="border-line border-b px-4 py-3 sm:px-5">
-        <h2 className="text-ink text-base font-semibold">คำแนะนำจากพอดี</h2>
-      </div>
-      <div className="flex flex-col gap-4 p-4 sm:p-5">
-        <MascotTip mood={advice.mood} title={advice.title}>
-          {advice.body}
-        </MascotTip>
-        <div className="border-line flex flex-col gap-2 border-t pt-4">
-          <AdviceLink
-            to="/add"
-            icon={Plus}
-            label="บันทึกรายการวันนี้"
-            description="เพิ่มข้อมูลให้ภาพรวมกระเป๋าแม่นขึ้น"
-          />
-          <AdviceLink
-            to="/goals"
-            icon={Target}
-            label="กันเงินเข้าเป้าหมาย"
-            description="ย้ายเงินที่เหลือไปเก็บไว้ให้เรื่องสำคัญ"
-          />
-          <AdviceLink
-            to="/history"
-            icon={ListChecks}
-            label="ตรวจรายการย้อนหลัง"
-            description="ดูว่าหมวดไหนใช้เกินที่ตั้งใจไว้"
-          />
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function AdviceLink({
-  to,
-  icon: Icon,
-  label,
-  description,
-}: {
-  to: string;
-  icon: typeof Plus;
-  label: string;
-  description: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="border-line hover:bg-sky/60 focus-visible:ring-coral/40 flex items-center gap-3 rounded-sm border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
-    >
-      <span className="border-line bg-surface text-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-xs border">
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="min-w-0">
-        <span className="text-ink block text-sm font-medium">{label}</span>
-        <span className="text-muted mt-0.5 block truncate text-xs">
-          {description}
-        </span>
-      </span>
-      <ArrowRight className="text-muted ml-auto h-4 w-4 shrink-0" />
-    </Link>
   );
 }
 
@@ -689,44 +619,4 @@ function getDailySafeCopy(
     return "เงินที่ใช้ได้ติดลบแล้ว ลองชะลอรายจ่าย หรือลดเงินที่กันไว้ในเป้าหมายลงก่อน";
   }
   return `ถ้าไม่อยากเกินเดือนนี้ ใช้เฉลี่ยได้ประมาณ ${fmtBaht(summary.dailySafe)} ต่อวัน`;
-}
-
-function getAdvice(summary: Awaited<ReturnType<typeof loader>>["summary"]): {
-  mood: "normal" | "happy" | "saving" | "warning" | "thinking";
-  title: string;
-  body: string;
-} {
-  if (summary.monthIncome === 0 && summary.monthExpense === 0) {
-    return {
-      mood: "normal",
-      title: "พอดีรอรายการแรกอยู่",
-      body: "เริ่มจากรายรับหรือรายจ่ายที่จำได้ง่ายที่สุดก่อน เดี๋ยวกระเป๋าแต่ละใบจะค่อย ๆ ชัดขึ้นเอง",
-    };
-  }
-  if (summary.monthIncome === 0) {
-    return {
-      mood: "thinking",
-      title: "ยังไม่เห็นรายรับเดือนนี้",
-      body: `ตอนนี้มีรายจ่าย ${fmtBaht(summary.monthExpense)} แล้ว เพิ่มรายรับเดือนนี้เพื่อให้พอดีจัดสรรกระเป๋าได้แม่นขึ้น`,
-    };
-  }
-  if (summary.available < 0) {
-    return {
-      mood: "warning",
-      title: "พอดีชวนชะลอก่อน",
-      body: "เงินที่ใช้ได้ติดลบแล้ว ลองเปิดประวัติดูรายการใหญ่ล่าสุด หรือลดเงินที่กันไว้ในเป้าหมายลงก่อนเพิ่มรายจ่ายใหม่",
-    };
-  }
-  if (summary.monthExpense > summary.monthIncome * 0.9) {
-    return {
-      mood: "thinking",
-      title: "ใกล้เต็มงบเดือนนี้แล้ว",
-      body: `ใช้ไปแล้ว ${fmtBaht(summary.monthExpense)} จากรายรับ ${fmtBaht(summary.monthIncome)} ลองชะลอหมวดที่ใช้บ่อยที่สุดสักหน่อย`,
-    };
-  }
-  return {
-    mood: "happy",
-    title: "กระเป๋ายังพอดีอยู่",
-    body: `ยังใช้ได้อีก ${fmtBaht(summary.available)} เดือนนี้ ถ้ามีเงินที่อยากกันไว้ ลองเติมเข้าเป้าหมายเล็ก ๆ ได้เลย`,
-  };
 }

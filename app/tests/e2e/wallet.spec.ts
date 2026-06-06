@@ -50,7 +50,7 @@ test("wallet reflects computed available money after seeding data", async ({
   await page.getByRole("button", { name: "บันทึกรายการ" }).click();
   await expect(page).toHaveURL(/\/history$/);
 
-  // Wallet should now show non-zero available and the data-driven sections.
+  // Wallet should now show non-zero available and the spend breakdown only.
   await page.goto("/wallet");
   await page.waitForLoadState("networkidle");
 
@@ -60,6 +60,11 @@ test("wallet reflects computed available money after seeding data", async ({
     page.getByRole("heading", { name: "เงินหายไปไหน" })
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "คำแนะนำจากพอดี" })
+    page.getByRole("progressbar", {
+      name: "สัดส่วนไม่ระบุหมวด 100% ของรายจ่ายเดือนนี้",
+    })
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "คำแนะนำจากพอดี" })
+  ).toHaveCount(0);
 });

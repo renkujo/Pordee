@@ -10,6 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import { ReactGrabDev } from "~/lib/dev/react-grab";
+import { PordeeI18nProvider } from "~/lib/i18n/provider";
 
 export const links: Route.LinksFunction = () => [
   ...(import.meta.env.PROD
@@ -95,7 +96,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="bg-sky text-ink min-h-dvh antialiased">
-        {children}
+        <PordeeI18nProvider>{children}</PordeeI18nProvider>
         <ReactGrabDev />
         <ScrollRestoration />
         <Scripts />

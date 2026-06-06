@@ -43,7 +43,8 @@ pnpm start
 - Auth persistence: Better Auth with SQLite at `PORDEE_AUTH_DB_PATH`
 - State: local React state only; no global store
 - Styling: Tailwind v4 tokens in `app/app/app.css`
-- i18n: Thai-first copy, no i18n library
+- i18n: Lingui with Thai as the source locale and English as the first
+  secondary locale; finance route copy is still Thai-first unless migrated
 - UI primitives: `app/app/components/ui/`
 
 ## 3) Where to Work
@@ -56,6 +57,8 @@ pnpm start
 - Data contract and repo implementation: `app/app/lib/db/`
 - Validation: `app/app/lib/validators/`
 - Auth helpers and guards: `app/app/lib/auth.server.ts`
+- Locale provider and messages: `app/app/lib/i18n/`
+- Lingui extracted catalogs: `app/locales/`
 - Unit tests: `app/tests/unit/`
 - E2E tests: `app/tests/e2e/`
 

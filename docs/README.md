@@ -25,9 +25,9 @@ Original app repo:
 
 ## Current Selected Asset
 
-Use this as the final logo visual direction for mockup trials and production tracing:
+Use this as the shipped app UI logo mark:
 
-- `app/public/logo/pordee-pd-logo.png`
+- `app/public/logo/direct/pordee-logo-mark-direct-01.png`
 
 ## Notes
 
@@ -35,7 +35,7 @@ Use this as the final logo visual direction for mockup trials and production tra
 - This folder owns the rebrand exploration and asset package.
 - Brand preview and mockup files should use app-runtime assets from
   `app/public/`, not `source/rebrand-source/`.
-- Use `app/public/logo/pordee-pd-logo.png` as the current final logo direction across preview/mockup work.
+- Use `app/public/logo/direct/pordee-logo-mark-direct-01.png` as the current shipped app UI logo mark.
 - Use mascot PNG files from `app/public/brand/mascots/` for brand
   preview/mockup trials.
 - Do not treat generated PNG assets as final production vectors.

@@ -63,6 +63,8 @@ import { auth, requireUser } from "~/lib/auth.server";
 import type { AuthUser } from "~/lib/auth.server";
 import type { Category, TransactionKind } from "~/lib/db";
 import { cn } from "~/lib/cn";
+import { usePordeeLocale, usePordeeTranslation } from "~/lib/i18n/provider";
+import { localeOptions } from "~/lib/i18n/messages";
 import {
   createCategorySchema,
   deleteCategorySchema,
@@ -283,6 +285,7 @@ export async function action({
 export default function Settings() {
   const { accountMethods, categories, usageByCategoryId, user } =
     useLoaderData<typeof loader>();
+  const t = usePordeeTranslation();
   const actionData = useActionData<ActionResult>();
   const [searchParams] = useSearchParams();
   const selectedTab = getSelectedTab(actionData, searchParams);
@@ -296,10 +299,10 @@ export default function Settings() {
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
           <h1 className="text-ink text-3xl font-semibold tracking-tight">
-            ตั้งค่า
+            {t("settings.title")}
           </h1>
           <p className="text-muted max-w-2xl text-sm leading-6">
-            ปรับ Pordee ให้เข้ากับวิธีใช้ประจำวันของคุณ
+            {t("settings.description")}
           </p>
         </div>
       </header>
@@ -323,11 +326,7 @@ export default function Settings() {
               description="ตั้งค่าการเตือนงบประมาณ เป้าหมาย และสรุปรายเดือนจะมาอยู่ในส่วนนี้"
             />
           ) : selectedTab === "language" ? (
-            <SettingsPlaceholderSection
-              icon={Languages}
-              title="ภาษา"
-              description="Pordee ใช้ภาษาไทยเป็นหลัก และจะรองรับตัวเลือกภาษาเมื่อมี i18n workflow จริง"
-            />
+            <LanguageSection />
           ) : (
             <CategoriesSection
               actionData={categoryActionData}
@@ -351,50 +350,53 @@ function SettingsTabNav({
   categoryCount: number;
   selectedTab: SettingsTab;
 }) {
+  const t = usePordeeTranslation();
+  const accountCount = Math.max(accountMethodCount, 1);
+
   return (
     <nav
-      aria-label="ส่วนตั้งค่า"
+      aria-label={t("settings.navLabel")}
       className="border-line bg-surface grid grid-cols-2 gap-1 rounded-[14px] border p-1 sm:grid-cols-3 lg:sticky lg:top-5 lg:flex lg:flex-col"
     >
       <SettingsTabLink
         active={selectedTab === "account"}
-        countLabel={`${Math.max(accountMethodCount, 1)} วิธีเข้าใช้`}
+        countLabel={`${accountCount} ${t("nav.profile.countSuffix")}`}
         icon={UserRound}
         to="/settings?tab=account"
       >
-        โปรไฟล์
+        {t("settings.tab.account")}
       </SettingsTabLink>
       <SettingsTabLink
         active={selectedTab === "notifications"}
-        countLabel="เตือนความจำ"
+        countLabel={t("nav.notifications.count")}
         icon={Bell}
         to="/settings?tab=notifications"
       >
-        การแจ้งเตือน
+        {t("settings.tab.notifications")}
       </SettingsTabLink>
       <SettingsTabLink
         active={selectedTab === "security"}
-        countLabel="รหัสผ่าน"
+        countLabel={t("nav.security.count")}
         icon={KeyRound}
         to="/settings?tab=security"
       >
-        ความปลอดภัย
+        {t("settings.tab.security")}
       </SettingsTabLink>
       <SettingsTabLink
         active={selectedTab === "language"}
-        countLabel="ไทย"
+        countLabel={t("settings.tab.language")}
         icon={Languages}
         to="/settings?tab=language"
       >
-        ภาษา
+        {t("settings.tab.language")}
       </SettingsTabLink>
       <SettingsTabLink
         active={selectedTab === "categories"}
-        countLabel={`${categoryCount} หมวด`}
+        countLabel={`${categoryCount} ${t("nav.categories.countSuffix")}`}
         icon={Boxes}
         to="/settings?tab=categories"
       >
-        หมวดหมู่
+        {t("settings.tab.categories")}
       </SettingsTabLink>
     </nav>
   );
@@ -431,6 +433,54 @@ function SettingsTabLink({
         <span className="text-muted mt-0.5 block text-xs">{countLabel}</span>
       </span>
     </Link>
+  );
+}
+
+function LanguageSection() {
+  const { locale, setLocale } = usePordeeLocale();
+  const t = usePordeeTranslation();
+
+  return (
+    <Card>
+      <CardHeader className="gap-2">
+        <CardTitle>{t("language.title")}</CardTitle>
+        <p className="text-muted text-sm leading-6">{t("language.helper")}</p>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div
+          aria-label={t("language.title")}
+          className="grid gap-3 sm:grid-cols-2"
+          role="group"
+        >
+          {localeOptions.map((option) => {
+            const active = locale === option.value;
+
+            return (
+              <button
+                type="button"
+                aria-pressed={active}
+                className={cn(
+                  "border-line bg-surface focus-visible:ring-coral/40 flex min-w-0 flex-col items-start gap-2 rounded-[14px] border p-4 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                  active
+                    ? "border-coral bg-coral/10 text-ink shadow-[inset_0_0_0_1px_var(--color-coral)]"
+                    : "text-muted hover:bg-sky/60 hover:text-ink"
+                )}
+                key={option.value}
+                onClick={() => setLocale(option.value)}
+              >
+                <span className="text-base font-semibold">
+                  {t(`language.label.${option.value}`)}
+                </span>
+                <span className="text-muted text-sm leading-6">
+                  {t(`language.description.${option.value}`)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-muted text-sm">{t("language.saveNote")}</p>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -85,6 +85,22 @@ pnpm icons:build
 
 This runs `app/scripts/build-icons.mjs` and regenerates app icon assets.
 
+## Internationalization
+
+```bash
+# Extract Lingui messages
+pnpm i18n:extract
+
+# Compile Lingui catalogs
+pnpm i18n:compile
+```
+
+Lingui uses Thai (`th`) as the source locale and English (`en`) as the first
+secondary locale. The current translated slice is app shell/navigation and the
+settings language control, loaded from `app/app/lib/i18n/messages.ts`. The
+`app/locales/` catalogs are ready for macro-extracted route copy as the rollout
+expands.
+
 ## Dependency Management
 
 ```bash

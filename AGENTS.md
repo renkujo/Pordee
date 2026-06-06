@@ -25,7 +25,9 @@ notes.
 - Auth: Better Auth with email/password and SQLite via `node:sqlite`
 - Data access: React Router loaders/actions calling `~/lib/db` repository
 - State: local React state only; no shared client-state store yet
-- i18n: Thai-first copy, no i18n library yet
+- i18n: Lingui with Thai (`th`) as the source locale and English (`en`) as
+  the first secondary locale; finance route copy is still Thai-first unless it
+  has been explicitly moved into catalogs
 - Tests: Vitest unit tests and Playwright e2e tests
 
 ## Commands At A Glance
@@ -54,8 +56,10 @@ Run commands from `app/`.
 - `app/app/components/ui/` - reusable local UI primitives.
 - `app/app/lib/auth.server.ts` - Better Auth server helpers and route guards.
 - `app/app/lib/db/` - `PordeeRepo` contract and current `mockRepo`.
+- `app/app/lib/i18n/` - Lingui messages and locale provider.
 - `app/app/lib/validators/` - Zod schemas for route action inputs.
 - `app/app/lib/date/`, `format/`, `parse/` - small domain utilities.
+- `app/locales/` - Lingui extracted and compiled catalog files.
 - `app/public/brand/` - runtime logo, icon, and mascot assets.
 - `app/tests/unit/` - Vitest specs.
 - `app/tests/e2e/` - Playwright specs.
@@ -67,7 +71,7 @@ Run commands from `app/`.
 - Drizzle schema and migration scripts.
 - Shared server-state or client-state library.
 - A general service layer outside the existing db repository boundary.
-- i18n extraction/compile workflow.
+- Full-route i18n coverage beyond the current shell/navigation/settings slice.
 
 ### If Introduced Later
 
@@ -117,6 +121,9 @@ Light/dark mode is implemented by overriding semantic CSS tokens under
 - Follow route loaders/actions plus `PordeeRepo` for finance reads/writes.
 - Validate form inputs with Zod before calling the repo.
 - Keep Thai user-facing copy consistent with the current Thai-first product.
+- Use Lingui for shared shell/navigation/settings copy that needs locale
+  switching; keep untouched finance route copy Thai until a specific slice is
+  migrated.
 - Use `~/` imports for app-internal modules.
 - Keep reusable primitives in `components/ui`; keep route-specific UI local
   until reuse is proven.

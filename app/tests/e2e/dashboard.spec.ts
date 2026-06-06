@@ -49,6 +49,11 @@ test("dashboard reflects month income/expense after adding rows", async ({
   await expect(page.getByTestId("recent-list")).toContainText(expenseTitle);
   await expect(page.getByTestId("recent-list")).toContainText(incomeTitle);
   await expect(page.getByTestId("expense-badge")).not.toContainText("฿0");
+  await expect(
+    page.getByRole("progressbar", {
+      name: "สัดส่วนอาหาร 100% ของรายจ่ายเดือนนี้",
+    })
+  ).toBeVisible();
 });
 
 test("dashboard keeps custom day query on the selected month", async ({
