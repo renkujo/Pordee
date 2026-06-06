@@ -23,7 +23,7 @@ test("user can sign up and sign out", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/$/);
 
-  await page.goto("/settings");
+  await page.goto("/settings?tab=account");
   await page
     .getByRole("main")
     .getByRole("button", { name: "ออกจากระบบ" })
@@ -32,4 +32,52 @@ test("user can sign up and sign out", async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?redirectTo=%2F$/);
+});
+
+test("user can change password from security settings", async ({ page }) => {
+  const id = randomUUID();
+  const email = `change-password-${id}@pordee.test`;
+  const oldPassword = "password123";
+  const newPassword = "Password1@";
+
+  await page.goto("/login?mode=signup");
+  await page.locator("#name").fill(`E2E ${id.slice(0, 8)}`);
+  await page.locator("#email").fill(email);
+  await page.locator("#password").fill(oldPassword);
+  await page.getByRole("button", { name: "สมัครและเข้าใช้งาน" }).click();
+
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto("/settings?tab=security");
+  await page.getByLabel("รหัสผ่านปัจจุบัน").fill("wrong-password");
+  await page.getByLabel("รหัสผ่านใหม่", { exact: true }).fill(newPassword);
+  await page
+    .getByLabel("ยืนยันรหัสผ่านใหม่", { exact: true })
+    .fill(newPassword);
+  await page.getByRole("button", { name: "เปลี่ยนรหัสผ่าน" }).click();
+
+  await expect(page.getByText("รหัสผ่านปัจจุบันไม่ถูกต้อง")).toBeVisible();
+
+  await page.getByLabel("รหัสผ่านปัจจุบัน").fill(oldPassword);
+  await page.getByLabel("รหัสผ่านใหม่", { exact: true }).fill(newPassword);
+  await page
+    .getByLabel("ยืนยันรหัสผ่านใหม่", { exact: true })
+    .fill(newPassword);
+  await page.getByRole("button", { name: "เปลี่ยนรหัสผ่าน" }).click();
+
+  await expect(page.getByText("เปลี่ยนรหัสผ่านเรียบร้อยแล้ว")).toBeVisible();
+
+  await page.goto("/settings?tab=account");
+  await page
+    .getByRole("main")
+    .getByRole("button", { name: "ออกจากระบบ" })
+    .click();
+
+  await expect(page).toHaveURL(/\/login$/);
+
+  await page.locator("#email").fill(email);
+  await page.locator("#password").fill(newPassword);
+  await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/$/);
 });

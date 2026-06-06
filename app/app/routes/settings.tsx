@@ -4,15 +4,23 @@ import {
   redirect,
   useActionData,
   useLoaderData,
+  useNavigation,
   useSearchParams,
 } from "react-router";
-import type { ComponentType } from "react";
+import { useState } from "react";
+import type { ComponentType, InputHTMLAttributes } from "react";
 import {
+  Bell,
   Boxes,
+  Check,
   CheckCircle2,
+  Circle,
   CloudOff,
   Database,
+  Eye,
+  EyeOff,
   KeyRound,
+  Languages,
   Link2,
   LogOut,
   Mail,
@@ -60,9 +68,17 @@ import {
   deleteCategorySchema,
   updateCategorySchema,
 } from "~/lib/validators/category";
+import { changePasswordSchema, passwordRules } from "~/lib/validators/auth";
 
-type SettingsIntent = "createCategory" | "updateCategory" | "deleteCategory";
-type SettingsTab = "categories" | "account";
+type CategoryIntent = "createCategory" | "updateCategory" | "deleteCategory";
+type PasswordIntent = "changePassword";
+type SettingsIntent = CategoryIntent | PasswordIntent;
+type SettingsTab =
+  | "account"
+  | "notifications"
+  | "security"
+  | "language"
+  | "categories";
 
 type AccountMethod = {
   description: string;
@@ -72,9 +88,12 @@ type AccountMethod = {
 
 interface ActionErrors {
   categoryId?: string;
+  confirmPassword?: string;
+  currentPassword?: string;
   general?: string;
   kind?: string;
   name?: string;
+  newPassword?: string;
 }
 
 type ActionResult =
@@ -84,6 +103,36 @@ type ActionResult =
       errors: ActionErrors;
       values: Record<string, string>;
     }
+  | {
+      ok: true;
+      intent: PasswordIntent;
+      message: string;
+    }
+  | undefined;
+
+type CategoryActionData =
+  | {
+      ok: false;
+      intent: CategoryIntent;
+      errors: ActionErrors;
+      values: Record<string, string>;
+    }
+  | undefined;
+
+type PasswordActionData =
+  | (
+      | {
+          ok: false;
+          intent: PasswordIntent;
+          errors: ActionErrors;
+          values: Record<string, string>;
+        }
+      | {
+          ok: true;
+          intent: PasswordIntent;
+          message: string;
+        }
+    )
   | undefined;
 
 export function meta(_: Route.MetaArgs) {
@@ -113,12 +162,46 @@ export async function action({
   const form = await request.formData();
   const intent = form.get("intent");
 
-  if (
-    intent !== "createCategory" &&
-    intent !== "updateCategory" &&
-    intent !== "deleteCategory"
-  ) {
+  if (!isSettingsIntent(intent)) {
     return fieldError("createCategory", { general: "คำสั่งไม่ถูกต้อง" }, form);
+  }
+
+  if (intent === "changePassword") {
+    const raw = {
+      currentPassword: form.get("currentPassword"),
+      newPassword: form.get("newPassword"),
+      confirmPassword: form.get("confirmPassword"),
+    };
+    const parsed = changePasswordSchema.safeParse(raw);
+    if (!parsed.success) {
+      return zodFieldError(intent, parsed.error.issues, form);
+    }
+
+    try {
+      await auth.api.changePassword({
+        headers: request.headers,
+        body: {
+          currentPassword: parsed.data.currentPassword,
+          newPassword: parsed.data.newPassword,
+          revokeOtherSessions: false,
+        },
+      });
+    } catch {
+      return fieldError(
+        intent,
+        {
+          currentPassword:
+            "รหัสผ่านปัจจุบันไม่ถูกต้อง หรือบัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน",
+        },
+        form
+      );
+    }
+
+    return {
+      ok: true,
+      intent,
+      message: "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว",
+    };
   }
 
   if (intent === "createCategory") {
@@ -202,40 +285,59 @@ export default function Settings() {
     useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
   const [searchParams] = useSearchParams();
-  const selectedTab = actionData?.intent
-    ? "categories"
-    : getSettingsTab(searchParams);
+  const selectedTab = getSelectedTab(actionData, searchParams);
+  const categoryActionData = getCategoryActionData(actionData);
+  const passwordActionData = getPasswordActionData(actionData);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const incomeCategories = categories.filter((c) => c.kind === "income");
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-24 lg:gap-6 lg:pb-0">
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
           <h1 className="text-ink text-3xl font-semibold tracking-tight">
             ตั้งค่า
           </h1>
           <p className="text-muted max-w-2xl text-sm leading-6">
-            จัดการหมวดหมู่การเงินและข้อมูลบัญชีโดยแยกเป็นสองส่วนชัดเจน
+            ปรับ Pordee ให้เข้ากับวิธีใช้ประจำวันของคุณ
           </p>
         </div>
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
         <SettingsTabNav
           accountMethodCount={accountMethods.length}
           categoryCount={categories.length}
           selectedTab={selectedTab}
         />
-      </header>
 
-      {selectedTab === "account" ? (
-        <AccountSection accountMethods={accountMethods} user={user} />
-      ) : (
-        <CategoriesSection
-          actionData={actionData}
-          expenseCategories={expenseCategories}
-          incomeCategories={incomeCategories}
-          usageByCategoryId={usageByCategoryId}
-        />
-      )}
+        <div className="min-w-0">
+          {selectedTab === "account" ? (
+            <AccountSection accountMethods={accountMethods} user={user} />
+          ) : selectedTab === "security" ? (
+            <SecuritySection actionData={passwordActionData} />
+          ) : selectedTab === "notifications" ? (
+            <SettingsPlaceholderSection
+              icon={Bell}
+              title="การแจ้งเตือน"
+              description="ตั้งค่าการเตือนงบประมาณ เป้าหมาย และสรุปรายเดือนจะมาอยู่ในส่วนนี้"
+            />
+          ) : selectedTab === "language" ? (
+            <SettingsPlaceholderSection
+              icon={Languages}
+              title="ภาษา"
+              description="Pordee ใช้ภาษาไทยเป็นหลัก และจะรองรับตัวเลือกภาษาเมื่อมี i18n workflow จริง"
+            />
+          ) : (
+            <CategoriesSection
+              actionData={categoryActionData}
+              expenseCategories={expenseCategories}
+              incomeCategories={incomeCategories}
+              usageByCategoryId={usageByCategoryId}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -252,8 +354,40 @@ function SettingsTabNav({
   return (
     <nav
       aria-label="ส่วนตั้งค่า"
-      className="border-line bg-surface grid gap-1 rounded-[14px] border p-1 sm:max-w-xl sm:grid-cols-2"
+      className="border-line bg-surface grid grid-cols-2 gap-1 rounded-[14px] border p-1 sm:grid-cols-3 lg:sticky lg:top-5 lg:flex lg:flex-col"
     >
+      <SettingsTabLink
+        active={selectedTab === "account"}
+        countLabel={`${Math.max(accountMethodCount, 1)} วิธีเข้าใช้`}
+        icon={UserRound}
+        to="/settings?tab=account"
+      >
+        โปรไฟล์
+      </SettingsTabLink>
+      <SettingsTabLink
+        active={selectedTab === "notifications"}
+        countLabel="เตือนความจำ"
+        icon={Bell}
+        to="/settings?tab=notifications"
+      >
+        การแจ้งเตือน
+      </SettingsTabLink>
+      <SettingsTabLink
+        active={selectedTab === "security"}
+        countLabel="รหัสผ่าน"
+        icon={KeyRound}
+        to="/settings?tab=security"
+      >
+        ความปลอดภัย
+      </SettingsTabLink>
+      <SettingsTabLink
+        active={selectedTab === "language"}
+        countLabel="ไทย"
+        icon={Languages}
+        to="/settings?tab=language"
+      >
+        ภาษา
+      </SettingsTabLink>
       <SettingsTabLink
         active={selectedTab === "categories"}
         countLabel={`${categoryCount} หมวด`}
@@ -261,14 +395,6 @@ function SettingsTabNav({
         to="/settings?tab=categories"
       >
         หมวดหมู่
-      </SettingsTabLink>
-      <SettingsTabLink
-        active={selectedTab === "account"}
-        countLabel={`${Math.max(accountMethodCount, 1)} วิธีเข้าใช้`}
-        icon={UserRound}
-        to="/settings?tab=account"
-      >
-        บัญชี
       </SettingsTabLink>
     </nav>
   );
@@ -314,7 +440,7 @@ function CategoriesSection({
   incomeCategories,
   usageByCategoryId,
 }: {
-  actionData: ActionResult;
+  actionData: CategoryActionData;
   expenseCategories: Category[];
   incomeCategories: Category[];
   usageByCategoryId: Record<string, number>;
@@ -520,8 +646,254 @@ function AccountSection({
   );
 }
 
+function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
+  const navigation = useNavigation();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const isSubmitting =
+    navigation.state !== "idle" &&
+    navigation.formData?.get("intent") === "changePassword";
+  const passedRules = passwordRules.every((rule) => rule.test(newPassword));
+  const canSubmit =
+    currentPassword.length > 0 &&
+    passedRules &&
+    newPassword === confirmPassword &&
+    !isSubmitting;
+  const isError = actionData?.ok === false;
+  const isSuccess = actionData?.ok === true;
+
+  return (
+    <Card className="rounded-[18px]">
+      <CardHeader className="gap-2">
+        <div className="flex items-start gap-3">
+          <div className="bg-sky text-teal flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]">
+            <KeyRound className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <CardTitle>รหัสผ่าน</CardTitle>
+            <p className="text-muted mt-2 text-sm leading-6">
+              เปลี่ยนรหัสผ่านสำหรับการเข้าสู่ระบบบัญชีนี้
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Form method="post" className="flex flex-col gap-4">
+          <input type="hidden" name="intent" value="changePassword" />
+
+          {isSuccess && (
+            <div className="border-line bg-sky text-ink flex items-center gap-2 rounded-[12px] border px-3 py-2 text-sm">
+              <CheckCircle2 className="text-teal h-4 w-4" />
+              {actionData.message}
+            </div>
+          )}
+
+          {isError && actionData.errors.general && (
+            <p className="text-coral-strong text-sm">
+              {actionData.errors.general}
+            </p>
+          )}
+
+          <PasswordField
+            autoComplete="current-password"
+            error={isError ? actionData.errors.currentPassword : undefined}
+            id="current-password"
+            label="รหัสผ่านปัจจุบัน"
+            name="currentPassword"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.currentTarget.value)}
+          />
+
+          <PasswordField
+            autoComplete="new-password"
+            error={isError ? actionData.errors.newPassword : undefined}
+            id="new-password"
+            label="รหัสผ่านใหม่"
+            name="newPassword"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.currentTarget.value)}
+          />
+
+          <PasswordRequirementList password={newPassword} />
+
+          <PasswordField
+            autoComplete="new-password"
+            error={isError ? actionData.errors.confirmPassword : undefined}
+            id="confirm-password"
+            label="ยืนยันรหัสผ่านใหม่"
+            name="confirmPassword"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.currentTarget.value)}
+          />
+
+          <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center">
+            <Button type="submit" variant="teal" disabled={!canSubmit}>
+              <Save className="h-4 w-4" />
+              {isSubmitting ? "กำลังเปลี่ยนรหัสผ่าน" : "เปลี่ยนรหัสผ่าน"}
+            </Button>
+            {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+              <p className="text-coral-strong text-sm">
+                รหัสผ่านใหม่และช่องยืนยันไม่ตรงกัน
+              </p>
+            )}
+          </div>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PasswordField({
+  error,
+  id,
+  label,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & {
+  error?: string;
+  id: string;
+  label: string;
+  name: string;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          {...props}
+          id={id}
+          type={isVisible ? "text" : "password"}
+          className="pr-10"
+        />
+        <button
+          type="button"
+          aria-label={isVisible ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+          className="text-muted hover:text-ink focus-visible:ring-coral/40 absolute top-1/2 right-3 inline-flex -translate-y-1/2 items-center justify-center rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          onClick={() => setIsVisible((value) => !value)}
+        >
+          {isVisible ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+      {error && <p className="text-coral-strong text-sm">{error}</p>}
+    </div>
+  );
+}
+
+function PasswordRequirementList({ password }: { password: string }) {
+  return (
+    <ul className="flex flex-col gap-2" aria-label="เงื่อนไขรหัสผ่านใหม่">
+      {passwordRules.map((rule) => {
+        const passed = rule.test(password);
+        return (
+          <li
+            key={rule.id}
+            className={cn(
+              "flex items-center gap-2 text-sm",
+              passed ? "text-teal" : "text-muted"
+            )}
+          >
+            {passed ? (
+              <Check className="h-4 w-4 shrink-0" />
+            ) : (
+              <Circle className="h-4 w-4 shrink-0" />
+            )}
+            <span>{rule.label}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function SettingsPlaceholderSection({
+  description,
+  icon: Icon,
+  title,
+}: {
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+}) {
+  return (
+    <Card className="rounded-[18px]">
+      <CardContent className="flex items-start gap-3 p-5">
+        <div className="bg-sky text-teal flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-ink text-base font-semibold">{title}</h2>
+          <p className="text-muted mt-2 text-sm leading-6">{description}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function getSettingsTab(searchParams: URLSearchParams): SettingsTab {
-  return searchParams.get("tab") === "account" ? "account" : "categories";
+  const tab = searchParams.get("tab");
+  if (
+    tab === "account" ||
+    tab === "notifications" ||
+    tab === "security" ||
+    tab === "language" ||
+    tab === "categories"
+  ) {
+    return tab;
+  }
+
+  return "categories";
+}
+
+function getSelectedTab(
+  actionData: ActionResult,
+  searchParams: URLSearchParams
+): SettingsTab {
+  if (actionData?.intent === "changePassword") return "security";
+  if (actionData?.intent && isCategoryIntent(actionData.intent)) {
+    return "categories";
+  }
+
+  return getSettingsTab(searchParams);
+}
+
+function getCategoryActionData(actionData: ActionResult): CategoryActionData {
+  if (actionData?.ok === false && isCategoryIntent(actionData.intent)) {
+    return actionData as CategoryActionData;
+  }
+
+  return undefined;
+}
+
+function getPasswordActionData(actionData: ActionResult): PasswordActionData {
+  if (actionData?.intent === "changePassword") {
+    return actionData as PasswordActionData;
+  }
+  return undefined;
+}
+
+function isSettingsIntent(
+  value: FormDataEntryValue | null
+): value is SettingsIntent {
+  return (
+    value === "createCategory" ||
+    value === "updateCategory" ||
+    value === "deleteCategory" ||
+    value === "changePassword"
+  );
+}
+
+function isCategoryIntent(intent: SettingsIntent): intent is CategoryIntent {
+  return (
+    intent === "createCategory" ||
+    intent === "updateCategory" ||
+    intent === "deleteCategory"
+  );
 }
 
 function AccountMethodRow({ method }: { method: AccountMethod }) {
@@ -622,7 +994,11 @@ function mapAccountMethods(
   });
 }
 
-function CreateCategoryForm({ actionData }: { actionData: ActionResult }) {
+function CreateCategoryForm({
+  actionData,
+}: {
+  actionData: CategoryActionData;
+}) {
   const isCreateError = actionData?.intent === "createCategory";
 
   return (
@@ -678,7 +1054,7 @@ function CategoryGroup({
   title,
   usageByCategoryId,
 }: {
-  actionData: ActionResult;
+  actionData: CategoryActionData;
   categories: Category[];
   kind: TransactionKind;
   title: string;
@@ -715,7 +1091,7 @@ function CategoryRow({
   category,
   usageCount,
 }: {
-  actionData: ActionResult;
+  actionData: CategoryActionData;
   category: Category;
   usageCount: number;
 }) {
@@ -864,9 +1240,12 @@ function zodFieldError(
     if (
       key === "id" ||
       key === "categoryId" ||
+      key === "confirmPassword" ||
+      key === "currentPassword" ||
       key === "general" ||
       key === "kind" ||
-      key === "name"
+      key === "name" ||
+      key === "newPassword"
     ) {
       errors[key === "id" ? "categoryId" : key] = issue.message;
     }

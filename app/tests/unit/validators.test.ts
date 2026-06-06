@@ -5,6 +5,7 @@ import {
   createCategorySchema,
   updateCategorySchema,
 } from "~/lib/validators/category";
+import { changePasswordSchema } from "~/lib/validators/auth";
 
 describe("createTransactionSchema", () => {
   it("accepts a minimal valid expense", () => {
@@ -107,6 +108,36 @@ describe("goal schemas", () => {
     ).toThrow();
     expect(() =>
       addContributionSchema.parse({ goalId: "g1", amount: -1 })
+    ).toThrow();
+  });
+});
+
+describe("changePasswordSchema", () => {
+  it("accepts a strong new password and matching confirmation", () => {
+    const result = changePasswordSchema.parse({
+      currentPassword: "password123",
+      newPassword: "Password1@",
+      confirmPassword: "Password1@",
+    });
+
+    expect(result.newPassword).toBe("Password1@");
+  });
+
+  it("rejects weak, repeated, or mismatched passwords", () => {
+    expect(() =>
+      changePasswordSchema.parse({
+        currentPassword: "password123",
+        newPassword: "password123",
+        confirmPassword: "password123",
+      })
+    ).toThrow();
+
+    expect(() =>
+      changePasswordSchema.parse({
+        currentPassword: "password123",
+        newPassword: "Password1@",
+        confirmPassword: "Password2@",
+      })
     ).toThrow();
   });
 });
