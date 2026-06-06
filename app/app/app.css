@@ -142,6 +142,20 @@
   :root,
   [data-theme="light"] {
     color-scheme: light;
+
+    --color-sky: #eaf7ff;
+    --color-surface: #ffffff;
+    --color-ink: #172026;
+    --color-muted: #6c7d86;
+    --color-coral: #f76a5d;
+    --color-coral-strong: #ff5c4d;
+    --color-teal: #129c91;
+    --color-teal-strong: #18a999;
+    --color-lime: #d6e86f;
+    --color-lime-strong: #b7f34a;
+    --color-line: #dde7ec;
+    --color-ink-dark: #f4f7f9;
+    --color-surface-dark: #0e1418;
   }
 
   [data-theme="dark"] {
