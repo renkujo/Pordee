@@ -18,13 +18,13 @@ const mascotSrc: Record<MascotMood, string> = {
   thinking: "/brand/mascots/thinking.png",
 };
 
-export function MascotState({
+export const MascotState = ({
   mood,
   title,
   description,
   size = "md",
   className,
-}: MascotStateProps) {
+}: MascotStateProps) => {
   return (
     <div
       className={cn(
@@ -49,7 +49,7 @@ export function MascotState({
       </div>
     </div>
   );
-}
+};
 
 interface MascotTipProps {
   mood: MascotMood;
@@ -58,12 +58,12 @@ interface MascotTipProps {
   className?: string;
 }
 
-export function MascotTip({
+export const MascotTip = ({
   mood,
   title,
   children,
   className,
-}: MascotTipProps) {
+}: MascotTipProps) => {
   return (
     <aside
       className={cn(
@@ -83,4 +83,4 @@ export function MascotTip({
       </div>
     </aside>
   );
-}
+};

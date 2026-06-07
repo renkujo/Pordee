@@ -13,7 +13,7 @@ export const test = base.extend<{ signedIn: void }>({
   ],
 });
 
-async function signUpForTest(page: Page) {
+const signUpForTest = async (page: Page) => {
   const id = randomUUID();
 
   await page.goto("/login?mode=signup");
@@ -23,4 +23,4 @@ async function signUpForTest(page: Page) {
   await page.locator("#password").fill("password123");
   await page.getByRole("button", { name: "สมัครและเข้าใช้งาน" }).click();
   await expect(page).toHaveURL(/\/$/);
-}
+};

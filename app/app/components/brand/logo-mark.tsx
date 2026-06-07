@@ -11,13 +11,13 @@ export interface PordeeLogoMarkProps {
   className?: string;
 }
 
-export function PordeeLogoMark({
+export const PordeeLogoMark = ({
   size = 32,
   variant = "light",
   withTile = false,
   title = "ตราสัญลักษณ์พอดี",
   className,
-}: PordeeLogoMarkProps) {
+}: PordeeLogoMarkProps) => {
   const mark = (
     <img
       src={LOGO_MARK_SRC}
@@ -48,4 +48,4 @@ export function PordeeLogoMark({
       {mark}
     </span>
   );
-}
+};

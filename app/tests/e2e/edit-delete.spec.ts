@@ -30,6 +30,35 @@ test("edit transaction updates the row in history", async ({ page }) => {
   await expect(row).not.toContainText("100\b");
 });
 
+test("edit transaction applies discount to the saved expense amount", async ({
+  page,
+}) => {
+  const unique = `แก้ส่วนลด-${Date.now()}`;
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await page.goto("/add");
+  await page.waitForLoadState("networkidle");
+  await page.locator("#quick-entry").fill(`${unique} 100`);
+  await expect(page.locator("#amount")).toHaveValue("100");
+  await page.getByRole("button", { name: "บันทึกรายการ" }).click();
+  await expect(page).toHaveURL(/\/history$/);
+
+  await page.getByRole("link", { name: new RegExp(unique) }).click();
+  await expect(page).toHaveURL(/\/history\/[^/]+$/);
+  await expect(page.locator("#discountAmount")).toBeVisible();
+
+  await page.locator("#amount").fill("200");
+  await page.locator("#discountAmount").fill("50");
+  await expect(page.getByText("ยอดสุทธิ 150 บาท")).toBeVisible();
+
+  await page.getByRole("button", { name: "บันทึกการแก้ไข" }).click();
+  await expect(page).toHaveURL(/\/history$/);
+
+  const row = page.getByRole("link", { name: new RegExp(unique) });
+  await expect(row).toContainText("150");
+  await expect(row).not.toContainText("200");
+});
+
 test("delete transaction removes the row from history", async ({ page }) => {
   const unique = `ลบทดสอบ-${Date.now()}`;
   await page.setViewportSize({ width: 1280, height: 800 });

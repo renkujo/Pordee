@@ -1,13 +1,13 @@
 import { expect, type Page, test } from "./fixtures";
 
-async function addTransaction(page: Page, text: string) {
+const addTransaction = async (page: Page, text: string) => {
   await page.goto("/add");
   await page.waitForLoadState("networkidle");
   await page.locator("#quick-entry").fill(text);
   await expect(page.locator("#amount")).not.toHaveValue("");
   await page.getByRole("button", { name: "บันทึกรายการ" }).click();
   await expect(page).toHaveURL(/\/history$/);
-}
+};
 
 test("history filters by month, kind, and category", async ({ page }) => {
   const stamp = Date.now();

@@ -5,7 +5,7 @@ import { MOBILE_MORE_NAV_ITEMS, MOBILE_PRIMARY_NAV_ITEMS } from "./nav-items";
 import { cn } from "~/lib/cn";
 import { usePordeeTranslation } from "~/lib/i18n/provider";
 
-export function BottomNav() {
+export const BottomNav = () => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const location = useLocation();
   const t = usePordeeTranslation();
@@ -58,9 +58,9 @@ export function BottomNav() {
       </nav>
     </>
   );
-}
+};
 
-function MobileMoreDrawer({ onClose }: { onClose: () => void }) {
+const MobileMoreDrawer = ({ onClose }: { onClose: () => void }) => {
   const t = usePordeeTranslation();
 
   return (
@@ -124,4 +124,4 @@ function MobileMoreDrawer({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
-}
+};

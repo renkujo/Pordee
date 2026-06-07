@@ -6,7 +6,7 @@ declare global {
   var __pordeePool: Pool | undefined;
 }
 
-function getDatabaseUrl(): string {
+const getDatabaseUrl = (): string => {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
@@ -14,7 +14,7 @@ function getDatabaseUrl(): string {
     );
   }
   return url;
-}
+};
 
 // Reuse one pool across HMR reloads / module re-evaluations.
 const pool: Pool = (globalThis.__pordeePool ??= new Pool({

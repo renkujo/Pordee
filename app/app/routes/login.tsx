@@ -21,6 +21,7 @@ import {
   redirectWithAuthCookies,
 } from "~/lib/auth.server";
 import { cn } from "~/lib/cn";
+import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 type AuthIntent = "signIn" | "signUp";
 type ActionIntent = AuthIntent | "socialSignIn";
@@ -36,11 +37,11 @@ interface ActionResult {
   };
 }
 
-export function meta(_: Route.MetaArgs) {
+export const meta = (_: Route.MetaArgs) => {
   return [{ title: "พอดี — เข้าสู่ระบบ" }];
-}
+};
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await getAuthUser(request);
   if (user) return redirect("/");
 
@@ -53,11 +54,11 @@ export async function loader({ request }: Route.LoaderArgs) {
       google: isGoogleAuthEnabled(),
     },
   };
-}
+};
 
-export async function action({
+export const action = async ({
   request,
-}: Route.ActionArgs): Promise<ActionResult | Response> {
+}: Route.ActionArgs): Promise<ActionResult | Response> => {
   await ensureAuthDatabase();
 
   const form = await request.formData();
@@ -78,7 +79,7 @@ export async function action({
   if (intent === "socialSignIn") {
     const provider = form.get("provider");
     if (provider !== "google") {
-      return formError("socialSignIn", "ผู้ให้บริการเข้าสู่ระบบไม่ถูกต้อง", {
+      return formError("socialSignIn", "auth.error.invalidProvider", {
         email: "",
         name: "",
         redirectTo,
@@ -86,7 +87,7 @@ export async function action({
     }
 
     if (!isGoogleAuthEnabled()) {
-      return formError("socialSignIn", "ยังไม่ได้เปิดใช้งาน Google Login", {
+      return formError("socialSignIn", "auth.error.googleDisabled", {
         email: "",
         name: "",
         redirectTo,
@@ -105,7 +106,7 @@ export async function action({
       });
 
       if (!response.url) {
-        return formError("socialSignIn", "เริ่มเข้าสู่ระบบด้วย Google ไม่ได้", {
+        return formError("socialSignIn", "auth.error.googleStartFailed", {
           email: "",
           name: "",
           redirectTo,
@@ -123,7 +124,7 @@ export async function action({
   }
 
   if (!email || !password || (intent === "signUp" && !name)) {
-    return formError(intent, "กรอกข้อมูลบัญชีให้ครบก่อน", {
+    return formError(intent, "auth.error.accountIncomplete", {
       email,
       name,
       redirectTo,
@@ -131,7 +132,7 @@ export async function action({
   }
 
   if (password.length < 8) {
-    return formError(intent, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร", {
+    return formError(intent, "auth.error.passwordMin", {
       email,
       name,
       redirectTo,
@@ -160,11 +161,12 @@ export async function action({
       redirectTo,
     });
   }
-}
+};
 
-export default function Login() {
+const Login = () => {
   const { mode, redirectTo, socialProviders } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
+  const t = usePordeeTranslation();
   const activeIntent: AuthIntent =
     actionData?.intent === "signIn" || actionData?.intent === "signUp"
       ? actionData.intent
@@ -173,13 +175,13 @@ export default function Login() {
         : "signIn";
   const isSignUp = activeIntent === "signUp";
   const values = actionData?.values;
-  const heading = isSignUp ? "เริ่มใช้พอดี" : "เข้าสู่พอดี";
+  const heading = isSignUp ? t("login.signup.heading") : t("login.heading");
   const supportTitle = isSignUp
-    ? "เริ่มจากบัญชีเดียวก่อน"
-    : "กลับมาจัดการเงินต่อ";
+    ? t("login.signup.supportTitle")
+    : t("login.supportTitle");
   const supportCopy = isSignUp
-    ? "พอดีใช้บัญชีเพื่อแยกพื้นที่ข้อมูลการเงินของคุณไว้ในฐานข้อมูลของแอป"
-    : "เข้าสู่ระบบแล้วไปต่อที่ภาพรวมเดือนนี้ บันทึกรายการ หรือเป้าหมายที่ค้างไว้";
+    ? t("login.signup.supportCopy")
+    : t("login.supportCopy");
 
   return (
     <main className="min-h-dvh px-4 py-5 md:px-6 lg:px-8">
@@ -198,13 +200,13 @@ export default function Login() {
                 {heading}
               </h1>
               <p className="text-muted mt-3 max-w-sm text-sm leading-6">
-                เก็บสมุดเงินส่วนตัวไว้หลังบัญชีของคุณ
+                {t("login.hero.description")}
               </p>
             </div>
 
             <div className="mt-0 flex justify-center md:justify-end lg:mt-10 lg:justify-start">
               <img
-                alt="พอดีมาสคอต"
+                alt={t("brand.mascotAlt")}
                 className="h-36 w-36 object-contain md:h-40 md:w-40 lg:h-44 lg:w-44"
                 src={
                   isSignUp
@@ -218,9 +220,9 @@ export default function Login() {
           <div className="mt-6 grid gap-3 lg:mt-8">
             <SupportNote title={supportTitle}>{supportCopy}</SupportNote>
             <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-              <TrustRow>บันทึกรายการส่วนตัว</TrustRow>
-              <TrustRow>ออกจากระบบได้ทุกเวลา</TrustRow>
-              <TrustRow>ข้อมูลแยกตามบัญชี</TrustRow>
+              <TrustRow>{t("login.trust.privateEntries")}</TrustRow>
+              <TrustRow>{t("login.trust.logoutAnytime")}</TrustRow>
+              <TrustRow>{t("login.trust.accountScoped")}</TrustRow>
             </div>
           </div>
         </aside>
@@ -230,12 +232,12 @@ export default function Login() {
             <div className="mb-5">
               <AuthModeTabs isSignUp={isSignUp} redirectTo={redirectTo} />
               <h2 className="text-ink mt-6 text-xl font-semibold">
-                {isSignUp ? "สร้างบัญชีใหม่" : "ใช้บัญชีเดิม"}
+                {isSignUp ? t("login.signup.formTitle") : t("login.formTitle")}
               </h2>
               <p className="text-muted mt-1 text-sm">
                 {isSignUp
-                  ? "ใช้ชื่อ อีเมล และรหัสผ่านเพื่อเริ่มพื้นที่ของคุณ"
-                  : "กรอกอีเมลกับรหัสผ่านเพื่อกลับเข้าแอป"}
+                  ? t("login.signup.formDescription")
+                  : t("login.formDescription")}
               </p>
             </div>
 
@@ -249,19 +251,19 @@ export default function Login() {
 
               {isSignUp && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="name">ชื่อที่ใช้ในแอป</Label>
+                  <Label htmlFor="name">{t("auth.name.label")}</Label>
                   <Input
                     id="name"
                     name="name"
                     defaultValue={values?.name ?? ""}
                     autoComplete="name"
-                    placeholder="เช่น Pordee"
+                    placeholder={t("auth.name.placeholder")}
                   />
                 </div>
               )}
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="email">อีเมล</Label>
+                <Label htmlFor="email">{t("auth.email.label")}</Label>
                 <Input
                   id="email"
                   name="email"
@@ -274,9 +276,9 @@ export default function Login() {
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="password">รหัสผ่าน</Label>
+                  <Label htmlFor="password">{t("auth.password.label")}</Label>
                   <span className="text-muted text-xs">
-                    อย่างน้อย 8 ตัวอักษร
+                    {t("auth.password.minHint")}
                   </span>
                 </div>
                 <Input
@@ -284,7 +286,7 @@ export default function Login() {
                   name="password"
                   type="password"
                   autoComplete={isSignUp ? "new-password" : "current-password"}
-                  placeholder="ใส่รหัสผ่าน"
+                  placeholder={t("auth.password.placeholder")}
                 />
               </div>
 
@@ -293,7 +295,7 @@ export default function Login() {
                   className="border-coral/25 bg-coral/10 text-coral-strong rounded-sm border px-3 py-2 text-sm"
                   role="alert"
                 >
-                  {actionData.error}
+                  {t(actionData.error)}
                 </p>
               )}
 
@@ -303,7 +305,7 @@ export default function Login() {
                 ) : (
                   <LogIn className="h-4 w-4" />
                 )}
-                {isSignUp ? "สมัครและเข้าใช้งาน" : "เข้าสู่ระบบ"}
+                {isSignUp ? t("login.signup.submit") : t("login.submit")}
               </Button>
             </Form>
 
@@ -315,20 +317,24 @@ export default function Login() {
       </div>
     </main>
   );
-}
+};
 
-function SocialSignIn({
+export default Login;
+
+const SocialSignIn = ({
   isSignUp,
   redirectTo,
 }: {
   isSignUp: boolean;
   redirectTo: string;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <div className="mt-5">
       <div className="flex items-center gap-3">
         <div className="bg-line h-px flex-1" />
-        <span className="text-muted text-xs">หรือ</span>
+        <span className="text-muted text-xs">{t("auth.or")}</span>
         <div className="bg-line h-px flex-1" />
       </div>
       <Form method="post" className="mt-5">
@@ -342,14 +348,14 @@ function SocialSignIn({
           className="h-12 w-full"
         >
           <GoogleMark className="h-4 w-4" />
-          {isSignUp ? "สมัครด้วย Google" : "เข้าสู่ระบบด้วย Google"}
+          {isSignUp ? t("login.signup.google") : t("login.google")}
         </Button>
       </Form>
     </div>
   );
-}
+};
 
-function GoogleMark({ className }: { className?: string }) {
+const GoogleMark = ({ className }: { className?: string }) => {
   return (
     <svg
       aria-hidden="true"
@@ -375,55 +381,57 @@ function GoogleMark({ className }: { className?: string }) {
       />
     </svg>
   );
-}
+};
 
-function AuthModeTabs({
+const AuthModeTabs = ({
   isSignUp,
   redirectTo,
 }: {
   isSignUp: boolean;
   redirectTo: string;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <nav
-      aria-label="เลือกวิธีเข้าใช้งาน"
+      aria-label={t("login.modeNavLabel")}
       className="border-line bg-sky/45 grid grid-cols-2 rounded-md border p-1"
     >
       <ModeLink active={!isSignUp} redirectTo={redirectTo} toMode="login">
-        เข้าสู่ระบบ
+        {t("login.submit")}
       </ModeLink>
       <ModeLink active={isSignUp} redirectTo={redirectTo} toMode="signup">
-        สมัครบัญชี
+        {t("login.signup.tab")}
       </ModeLink>
     </nav>
   );
-}
+};
 
-function SupportNote({
+const SupportNote = ({
   children,
   title,
 }: {
   children: React.ReactNode;
   title: string;
-}) {
+}) => {
   return (
     <div className="border-line bg-surface/75 rounded-md border p-3">
       <p className="text-ink text-sm font-semibold">{title}</p>
       <p className="text-muted mt-1 text-sm leading-6">{children}</p>
     </div>
   );
-}
+};
 
-function TrustRow({ children }: { children: React.ReactNode }) {
+const TrustRow = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="text-muted flex items-center gap-2 text-sm">
       <CheckCircle2 className="text-teal h-4 w-4 shrink-0" />
       <span>{children}</span>
     </div>
   );
-}
+};
 
-function ModeLink({
+const ModeLink = ({
   active,
   children,
   redirectTo,
@@ -433,7 +441,7 @@ function ModeLink({
   children: React.ReactNode;
   redirectTo: string;
   toMode: "login" | "signup";
-}) {
+}) => {
   const search = new URLSearchParams();
   if (toMode === "signup") search.set("mode", "signup");
   if (redirectTo !== "/") search.set("redirectTo", redirectTo);
@@ -452,17 +460,17 @@ function ModeLink({
       {children}
     </Link>
   );
-}
+};
 
-function formError(
+const formError = (
   intent: ActionIntent,
   error: string,
   values: ActionResult["values"]
-): ActionResult {
+): ActionResult => {
   return {
     ok: false,
     error,
     intent,
     values,
   };
-}
+};

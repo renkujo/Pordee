@@ -9,32 +9,19 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import { cn } from "~/lib/cn";
-
-const labelFormatter = new Intl.DateTimeFormat("th-TH", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-
-const monthLabelFormatter = new Intl.DateTimeFormat("th-TH", {
-  month: "long",
-  year: "numeric",
-});
-
-const shortMonthFormatter = new Intl.DateTimeFormat("th-TH", {
-  month: "short",
-});
+import { usePordeeLocale, usePordeeTranslation } from "~/lib/i18n/provider";
+import type { PordeeLocale } from "~/lib/i18n/messages";
 
 type PastDatePreset =
-  | { label: string; daysFromToday: number; monthStart?: never }
-  | { label: string; monthStart: true; daysFromToday?: never };
+  | { labelId: string; daysFromToday: number; monthStart?: never }
+  | { labelId: string; monthStart: true; daysFromToday?: never };
 
 const pastDatePresets: PastDatePreset[] = [
-  { label: "วันนี้", daysFromToday: 0 },
-  { label: "เมื่อวาน", daysFromToday: -1 },
-  { label: "3 วันที่แล้ว", daysFromToday: -3 },
-  { label: "7 วันที่แล้ว", daysFromToday: -7 },
-  { label: "ต้นเดือน", monthStart: true },
+  { labelId: "datePreset.today", daysFromToday: 0 },
+  { labelId: "datePreset.yesterday", daysFromToday: -1 },
+  { labelId: "datePreset.threeDaysAgo", daysFromToday: -3 },
+  { labelId: "datePreset.sevenDaysAgo", daysFromToday: -7 },
+  { labelId: "datePreset.monthStart", monthStart: true },
 ];
 
 interface DatePickerProps {
@@ -82,16 +69,18 @@ interface DateRangePickerProps {
   "aria-describedby"?: string;
 }
 
-export function DatePicker({
+export const DatePicker = ({
   value,
   onChange,
   min,
   max,
   id,
-  placeholder = "เลือกวันที่",
+  placeholder,
   showPresets = false,
   "aria-describedby": ariaDescribedBy,
-}: DatePickerProps) {
+}: DatePickerProps) => {
+  const { locale } = usePordeeLocale();
+  const t = usePordeeTranslation();
   const [open, setOpen] = React.useState(false);
   const selected = parseLocalDate(value);
   const minDate = parseLocalDate(min);
@@ -103,11 +92,11 @@ export function DatePicker({
     maxDate ? { after: maxDate } : null,
   ].filter((rule): rule is NonNullable<typeof rule> => Boolean(rule));
 
-  function selectDate(day: Date) {
+  const selectDate = (day: Date) => {
     onChange(toLocalDateValue(day));
     setMonthOverride(day);
     setOpen(false);
-  }
+  };
 
   return (
     <Popover
@@ -127,7 +116,9 @@ export function DatePicker({
         )}
       >
         <span className="min-w-0 truncate whitespace-nowrap">
-          {selected ? labelFormatter.format(selected) : placeholder}
+          {selected
+            ? formatDateLabel(selected, locale)
+            : (placeholder ?? t("datePicker.date.placeholder"))}
         </span>
         <CalendarDays className="text-muted h-4 w-4 shrink-0" />
       </PopoverTrigger>
@@ -156,7 +147,7 @@ export function DatePicker({
 
                 return (
                   <Button
-                    key={preset.label}
+                    key={preset.labelId}
                     type="button"
                     variant="secondary"
                     size="sm"
@@ -167,7 +158,7 @@ export function DatePicker({
                     )}
                     onClick={() => selectDate(day)}
                   >
-                    {preset.label}
+                    {t(preset.labelId)}
                   </Button>
                 );
               })}
@@ -177,17 +168,19 @@ export function DatePicker({
       </PopoverContent>
     </Popover>
   );
-}
+};
 
-export function MonthPicker({
+export const MonthPicker = ({
   value,
   onChange,
   min,
   max,
   id,
-  placeholder = "เลือกเดือน",
+  placeholder,
   "aria-describedby": ariaDescribedBy,
-}: MonthPickerProps) {
+}: MonthPickerProps) => {
+  const { locale } = usePordeeLocale();
+  const t = usePordeeTranslation();
   const [open, setOpen] = React.useState(false);
   const selected = parseMonthValue(value);
   const minMonth = parseMonthValue(min);
@@ -223,7 +216,9 @@ export function MonthPicker({
         )}
       >
         <span className="min-w-0 truncate whitespace-nowrap">
-          {selected ? monthLabelFormatter.format(selected) : placeholder}
+          {selected
+            ? formatMonthLabel(selected, locale)
+            : (placeholder ?? t("datePicker.month.placeholder"))}
         </span>
         <CalendarDays className="text-muted h-4 w-4 shrink-0" />
       </PopoverTrigger>
@@ -235,19 +230,19 @@ export function MonthPicker({
               className="border-line text-muted hover:bg-sky hover:text-ink inline-flex h-9 w-9 items-center justify-center rounded-sm border transition-colors disabled:opacity-40"
               disabled={!canGoPrevious}
               onClick={() => setVisibleYearOverride(visibleYear - 1)}
-              aria-label="ปีก่อนหน้า"
+              aria-label={t("datePicker.previousYear")}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <p className="text-sm font-semibold">
-              {formatThaiYear(visibleYear)}
+              {formatYear(visibleYear, locale)}
             </p>
             <button
               type="button"
               className="border-line text-muted hover:bg-sky hover:text-ink inline-flex h-9 w-9 items-center justify-center rounded-sm border transition-colors disabled:opacity-40"
               disabled={!canGoNext}
               onClick={() => setVisibleYearOverride(visibleYear + 1)}
-              aria-label="ปีถัดไป"
+              aria-label={t("datePicker.nextYear")}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -277,7 +272,7 @@ export function MonthPicker({
                     setOpen(false);
                   }}
                 >
-                  {shortMonthFormatter.format(monthDate)}
+                  {formatShortMonth(monthDate, locale)}
                 </button>
               );
             })}
@@ -286,19 +281,21 @@ export function MonthPicker({
       </PopoverContent>
     </Popover>
   );
-}
+};
 
-export function DateRangePicker({
+export const DateRangePicker = ({
   from,
   to,
   onChange,
   min,
   max,
   id,
-  placeholder = "เลือกช่วงวันที่",
+  placeholder,
   "aria-describedby": ariaDescribedBy,
-}: DateRangePickerProps) {
+}: DateRangePickerProps) => {
+  const { locale } = usePordeeLocale();
   const [open, setOpen] = React.useState(false);
+  const t = usePordeeTranslation();
   const fromDate = parseLocalDate(from);
   const toDate = parseLocalDate(to);
   const minDate = parseLocalDate(min);
@@ -322,7 +319,13 @@ export function DateRangePicker({
         )}
       >
         <span className="min-w-0 truncate whitespace-nowrap">
-          {selected ? formatRangeLabel(selected) : placeholder}
+          {selected
+            ? formatRangeLabel(
+                selected,
+                locale,
+                t("datePicker.range.placeholder")
+              )
+            : (placeholder ?? t("datePicker.range.placeholder"))}
         </span>
         <CalendarDays className="text-muted h-4 w-4 shrink-0" />
       </PopoverTrigger>
@@ -343,29 +346,33 @@ export function DateRangePicker({
       </PopoverContent>
     </Popover>
   );
-}
+};
 
-function formatRangeLabel(range: DateRange): string {
-  if (!range.from) return "เลือกช่วงวันที่";
+const formatRangeLabel = (
+  range: DateRange,
+  locale: PordeeLocale,
+  fallback: string
+): string => {
+  if (!range.from) return fallback;
   if (
     !range.to ||
     toLocalDateValue(range.from) === toLocalDateValue(range.to)
   ) {
-    return labelFormatter.format(range.from);
+    return formatDateLabel(range.from, locale);
   }
-  return `${labelFormatter.format(range.from)} - ${labelFormatter.format(range.to)}`;
-}
+  return `${formatDateLabel(range.from, locale)} - ${formatDateLabel(range.to, locale)}`;
+};
 
-function parseLocalDate(value?: string): Date | undefined {
+const parseLocalDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   if (!match) return undefined;
   const [, year, month, day] = match;
   const date = new Date(Number(year), Number(month) - 1, Number(day));
   return Number.isNaN(date.getTime()) ? undefined : date;
-}
+};
 
-function parseMonthValue(value?: string): Date | undefined {
+const parseMonthValue = (value?: string): Date | undefined => {
   if (!value) return undefined;
   const match = /^(\d{4})-(\d{2})$/.exec(value.trim());
   if (!match) return undefined;
@@ -374,9 +381,9 @@ function parseMonthValue(value?: string): Date | undefined {
   if (monthNumber < 1 || monthNumber > 12) return undefined;
   const date = new Date(Number(year), monthNumber - 1, 1);
   return Number.isNaN(date.getTime()) ? undefined : date;
-}
+};
 
-function resolvePresetDate(preset: PastDatePreset): Date {
+const resolvePresetDate = (preset: PastDatePreset): Date => {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
 
@@ -387,29 +394,59 @@ function resolvePresetDate(preset: PastDatePreset): Date {
 
   date.setDate(date.getDate() + preset.daysFromToday);
   return date;
-}
+};
 
-function isSelectableDay(day: Date, minDate?: Date, maxDate?: Date): boolean {
+const isSelectableDay = (
+  day: Date,
+  minDate?: Date,
+  maxDate?: Date
+): boolean => {
   if (minDate && day < minDate) return false;
   if (maxDate && day > maxDate) return false;
   return true;
-}
+};
 
-function toLocalDateValue(date: Date): string {
+const toLocalDateValue = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
+};
 
-function toLocalMonthValue(date: Date): string {
+const toLocalMonthValue = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
-}
+};
 
-function formatThaiYear(year: number): string {
-  return new Intl.NumberFormat("th-TH", { useGrouping: false }).format(
-    year + 543
-  );
-}
+const formatDateLabel = (date: Date, locale: PordeeLocale): string => {
+  return new Intl.DateTimeFormat(getIntlLocale(locale), {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
+
+const formatMonthLabel = (date: Date, locale: PordeeLocale): string => {
+  return new Intl.DateTimeFormat(getIntlLocale(locale), {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
+
+const formatShortMonth = (date: Date, locale: PordeeLocale): string => {
+  return new Intl.DateTimeFormat(getIntlLocale(locale), {
+    month: "short",
+  }).format(date);
+};
+
+const formatYear = (year: number, locale: PordeeLocale): string => {
+  const displayYear = locale === "th" ? year + 543 : year;
+  return new Intl.NumberFormat(getIntlLocale(locale), {
+    useGrouping: false,
+  }).format(displayYear);
+};
+
+const getIntlLocale = (locale: PordeeLocale): string => {
+  return locale === "th" ? "th-TH" : "en-US";
+};

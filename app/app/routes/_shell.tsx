@@ -5,12 +5,12 @@ import { BottomNav } from "~/components/shell/bottom-nav";
 import { MobileHeader } from "~/components/shell/mobile-header";
 import { requireUser } from "~/lib/auth.server";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   return { user };
-}
+};
 
-export default function Shell() {
+const Shell = () => {
   const { user } = useLoaderData<typeof loader>();
 
   return (
@@ -27,4 +27,6 @@ export default function Shell() {
       </div>
     </div>
   );
-}
+};
+
+export default Shell;

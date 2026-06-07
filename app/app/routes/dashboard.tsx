@@ -32,15 +32,16 @@ import {
   todayDayValue,
 } from "~/lib/date/day-value";
 import { cn } from "~/lib/cn";
+import { usePordeeLocale, usePordeeTranslation } from "~/lib/i18n/provider";
 
-export function meta(_: Route.MetaArgs) {
+export const meta = (_: Route.MetaArgs) => {
   return [
     { title: "พอดี — หน้าหลัก" },
     { name: "description", content: "เงินพอดี ชีวิตเบาขึ้น" },
   ];
-}
+};
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   const url = new URL(request.url);
   const selectedDay = parseDayValue(url.searchParams.get("date"));
@@ -83,8 +84,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       categoryId,
       name:
         categoryId === "uncategorized"
-          ? "ไม่ระบุหมวด"
-          : (categoryNameById[categoryId] ?? "ไม่ระบุหมวด"),
+          ? null
+          : (categoryNameById[categoryId] ?? null),
       amount,
     }))
     .sort((a, b) => b.amount - a.amount)
@@ -105,6 +106,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       month: "long",
       year: "numeric",
     }),
+    monthDate: now.toISOString(),
     selectedDay: todayDayValue(now),
     range,
     isCurrentMonth,
@@ -121,17 +123,14 @@ export async function loader({ request }: Route.LoaderArgs) {
     categoryNameById,
     categorySpend,
   };
-}
-
-const fmtDate = new Intl.DateTimeFormat("th-TH", {
-  day: "numeric",
-  month: "short",
-});
+};
 
 const rangeLabelFormatter = new Intl.DateTimeFormat("th-TH", {
   day: "numeric",
   month: "short",
 });
+
+type Translate = ReturnType<typeof usePordeeTranslation>;
 
 interface DashboardDateRange {
   fromDay: string;
@@ -143,13 +142,13 @@ interface DashboardDateRange {
   label: string;
 }
 
-function getDashboardDateRange({
+const getDashboardDateRange = ({
   monthDate,
   today = new Date(),
 }: {
   monthDate: Date;
   today?: Date;
-}): DashboardDateRange {
+}): DashboardDateRange => {
   const activeMonth = monthDate > today ? today : monthDate;
   const monthStart = new Date(
     activeMonth.getFullYear(),
@@ -188,17 +187,17 @@ function getDashboardDateRange({
         ? rangeLabelFormatter.format(fromDate)
         : `${rangeLabelFormatter.format(fromDate)} - ${rangeLabelFormatter.format(toDate)}`,
   };
-}
+};
 
-function isSameMonth(a: Date, b: Date) {
+const isSameMonth = (a: Date, b: Date) => {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-}
+};
 
-function minDate(a: Date, b: Date) {
+const minDate = (a: Date, b: Date) => {
   return a < b ? a : b;
-}
+};
 
-function getMonthRangeFromMonthValue(monthValue: string) {
+const getMonthRangeFromMonthValue = (monthValue: string) => {
   const fallbackToday = todayDayValue();
   const fallbackMonth = fallbackToday.slice(0, 7);
   const match = /^(\d{4})-(\d{2})$/.exec(monthValue);
@@ -225,11 +224,11 @@ function getMonthRangeFromMonthValue(monthValue: string) {
     from,
     to: calendarTo > fallbackToday ? fallbackToday : calendarTo,
   };
-}
+};
 
-export default function Dashboard() {
+const Dashboard = () => {
   const {
-    monthLabel,
+    monthDate,
     range,
     isCurrentMonth,
     income,
@@ -243,15 +242,27 @@ export default function Dashboard() {
     categorySpend,
   } = useLoaderData<typeof loader>();
   const [, setSearchParams] = useSearchParams();
+  const { locale } = usePordeeLocale();
+  const t = usePordeeTranslation();
 
   const hasAnyData = income > 0 || expense > 0;
   const topCategory = categorySpend[0] ?? null;
   const selectedMonth = range.monthStartDay.slice(0, 7);
+  const dateLocale = locale === "th" ? "th-TH" : "en-US";
+  const monthLabel = new Intl.DateTimeFormat(dateLocale, {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(monthDate));
+  const localizedRangeLabel = formatRangeLabel(
+    range.fromDay,
+    range.toDay,
+    dateLocale
+  );
   const rangeSummary = isCurrentMonth
-    ? "กำลังดูข้อมูลเดือนนี้ถึงวันนี้"
-    : "กำลังดูข้อมูลทั้งเดือน";
+    ? t("dashboard.range.currentMonth")
+    : t("dashboard.range.fullMonth");
 
-  function resetRange() {
+  const resetRange = () => {
     const currentMonth = getMonthRangeFromMonthValue(
       todayDayValue().slice(0, 7)
     );
@@ -265,9 +276,9 @@ export default function Dashboard() {
       },
       { preventScrollReset: true }
     );
-  }
+  };
 
-  function handleMonthChange(monthValue: string) {
+  const handleMonthChange = (monthValue: string) => {
     const monthRange = getMonthRangeFromMonthValue(monthValue);
     setSearchParams(
       (prev) => {
@@ -279,7 +290,7 @@ export default function Dashboard() {
       },
       { preventScrollReset: true }
     );
-  }
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:gap-6">
@@ -294,14 +305,18 @@ export default function Dashboard() {
             >
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={isCurrentMonth ? "teal" : "muted"}>
-                  {isCurrentMonth ? "เดือนนี้" : "ย้อนหลัง"}
+                  {isCurrentMonth
+                    ? t("dashboard.badge.thisMonth")
+                    : t("dashboard.badge.pastMonth")}
                 </Badge>
                 <Badge tone="neutral" className="rounded-xs">
-                  {range.label}
+                  {localizedRangeLabel}
                 </Badge>
               </div>
               <div>
-                <CardDescription>ภาพรวมรายเดือน</CardDescription>
+                <CardDescription>
+                  {t("dashboard.header.description")}
+                </CardDescription>
                 <CardTitle className="mt-2 text-3xl font-semibold sm:text-4xl">
                   {monthLabel}
                 </CardTitle>
@@ -314,7 +329,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <CalendarRange className="text-coral h-4 w-4" />
                     <p className="text-ink text-sm font-semibold">
-                      เดือนที่ใช้คำนวณ
+                      {t("dashboard.range.label")}
                     </p>
                   </div>
                   <p className="text-muted mt-1 text-xs leading-5">
@@ -328,17 +343,17 @@ export default function Dashboard() {
                   onClick={resetRange}
                   disabled={isCurrentMonth}
                   className="shrink-0"
-                  aria-label="กลับไปดูเดือนนี้"
+                  aria-label={t("dashboard.range.resetAriaLabel")}
                 >
                   <RotateCcw className="h-4 w-4" />
-                  เดือนนี้
+                  {t("filter.thisMonth")}
                 </Button>
               </div>
 
               <div className="border-line bg-sky/45 overflow-hidden rounded-md border">
                 <DashboardDateField
-                  label="เลือกเดือน"
-                  helper="พอดีจะคำนวณภาพรวมจากรายการในเดือนที่เลือก"
+                  label={t("dashboard.monthPicker.label")}
+                  helper={t("dashboard.monthPicker.helper")}
                   className="p-3 sm:p-4"
                 >
                   <MonthPicker
@@ -352,7 +367,7 @@ export default function Dashboard() {
               <Button asChild className="h-11 lg:hidden">
                 <Link to="/add">
                   <Plus className="h-4 w-4" />
-                  บันทึกรายการ
+                  {t("shell.addTransaction")}
                 </Link>
               </Button>
             </CardContent>
@@ -361,7 +376,7 @@ export default function Dashboard() {
       </header>
 
       <section
-        aria-label="ภาพรวมการเงิน"
+        aria-label={t("dashboard.overview.ariaLabel")}
         className="grid gap-4 lg:grid-flow-dense lg:auto-rows-[minmax(150px,auto)] lg:grid-cols-6"
       >
         <Card className="overflow-hidden lg:col-span-4">
@@ -375,12 +390,12 @@ export default function Dashboard() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <Badge tone={getBalanceTone(balance, income)}>
-                    {getBalanceLabel(balance, income)}
+                    {getBalanceLabel(balance, income, t)}
                   </Badge>
                   <p className="text-muted mt-4 text-sm">
                     {isCurrentMonth
-                      ? "คงเหลือเดือนนี้"
-                      : "คงเหลือเดือนที่เลือก"}
+                      ? t("dashboard.balance.currentMonth")
+                      : t("dashboard.balance.selectedMonth")}
                   </p>
                   <p
                     className="text-ink mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
@@ -399,20 +414,20 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <SummaryMetric
-                  label="รายรับ"
+                  label={t("transaction.kind.income")}
                   value={fmtBaht(income)}
                   tone="teal"
                   testId="income-badge"
                 />
                 <SummaryMetric
-                  label="รายจ่าย"
+                  label={t("transaction.kind.expense")}
                   value={fmtBaht(expense)}
                   tone="coral"
                   testId="expense-badge"
                 />
                 <SummaryMetric
-                  label="ใช้ได้ต่อวัน"
-                  value={formatDailySafe(dailySafe)}
+                  label={t("dashboard.metric.dailySafe")}
+                  value={formatDailySafe(dailySafe, t)}
                   tone={
                     dailySafe === null
                       ? "neutral"
@@ -429,20 +444,26 @@ export default function Dashboard() {
                     <p className="text-ink text-sm font-semibold">
                       {isCurrentMonth
                         ? daysLeft > 0
-                          ? `เหลืออีก ${daysLeft} วันในเดือนนี้`
-                          : "สรุปเดือนนี้"
-                        : `สรุปเดือน ${monthLabel}`}
+                          ? t("dashboard.daysLeft", { daysLeft })
+                          : t("dashboard.monthSummary.current")
+                        : t("dashboard.monthSummary.selected", {
+                            month: monthLabel,
+                          })}
                     </p>
                     <p className="text-muted mt-1 text-sm leading-6">
                       {isCurrentMonth && daysLeft > 0
-                        ? getDailySafeCopy(dailySafe)
-                        : `เดือน ${monthLabel} คงเหลือ ${fmtBaht(balance)} จากรายรับ ${fmtBaht(income)}`}
+                        ? getDailySafeCopy(dailySafe, t)
+                        : t("dashboard.monthSummary.copy", {
+                            month: monthLabel,
+                            balance: fmtBaht(balance),
+                            income: fmtBaht(income),
+                          })}
                     </p>
                   </div>
                   <Button asChild className="w-full sm:w-auto">
                     <Link to="/add">
                       <Plus className="h-4 w-4" />
-                      บันทึกรายการ
+                      {t("shell.addTransaction")}
                     </Link>
                   </Button>
                 </div>
@@ -453,7 +474,7 @@ export default function Dashboard() {
 
         <Card className="bg-surface overflow-hidden lg:col-span-2 lg:row-span-2">
           <CardHeader>
-            <CardTitle>ควรทำอะไรต่อ</CardTitle>
+            <CardTitle>{t("dashboard.coach.title")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <DashboardCoach
@@ -465,7 +486,7 @@ export default function Dashboard() {
               <SpendRatio income={income} expense={expense} />
             ) : (
               <p className="text-muted text-sm leading-6">
-                เมื่อมีรายการแรก หน้านี้จะเริ่มแสดงสัดส่วนเงินเข้าออกทันที
+                {t("dashboard.coach.emptyRatio")}
               </p>
             )}
             <NextActions
@@ -495,9 +516,11 @@ export default function Dashboard() {
       </section>
     </div>
   );
-}
+};
 
-function DashboardDateField({
+export default Dashboard;
+
+const DashboardDateField = ({
   children,
   className,
   helper,
@@ -507,7 +530,7 @@ function DashboardDateField({
   className?: string;
   helper?: string;
   label: string;
-}) {
+}) => {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       <Label className="text-muted text-xs">{label}</Label>
@@ -515,9 +538,9 @@ function DashboardDateField({
       {helper ? <p className="text-muted text-xs leading-5">{helper}</p> : null}
     </div>
   );
-}
+};
 
-function SummaryMetric({
+const SummaryMetric = ({
   label,
   value,
   tone,
@@ -527,7 +550,7 @@ function SummaryMetric({
   value: string;
   tone: "neutral" | "teal" | "coral";
   testId?: string;
-}) {
+}) => {
   return (
     <div
       className={cn(
@@ -551,25 +574,32 @@ function SummaryMetric({
       </p>
     </div>
   );
-}
+};
 
-function getBalanceSurfaceClass(balance: number, income: number) {
+const getBalanceSurfaceClass = (balance: number, income: number) => {
   if (income === 0) return "bg-sky/45";
   if (balance < 0) return "bg-coral/10";
   return "bg-teal/10";
-}
+};
 
-function SpendRatio({ income, expense }: { income: number; expense: number }) {
+const SpendRatio = ({
+  income,
+  expense,
+}: {
+  income: number;
+  expense: number;
+}) => {
+  const t = usePordeeTranslation();
   const pct =
     income > 0 ? Math.min(100, Math.round((expense / income) * 100)) : 0;
   return (
     <div>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted">รายจ่ายเทียบรายรับ</span>
+        <span className="text-muted">{t("dashboard.spendRatio.label")}</span>
         <span
           className={cn("font-medium", pct > 90 ? "text-coral" : "text-ink")}
         >
-          {income > 0 ? `${pct}%` : "รอรายรับ"}
+          {income > 0 ? `${pct}%` : t("dashboard.balance.waitIncome")}
         </span>
       </div>
       <div className="bg-line mt-2 h-2 w-full overflow-hidden rounded-full">
@@ -580,9 +610,9 @@ function SpendRatio({ income, expense }: { income: number; expense: number }) {
       </div>
     </div>
   );
-}
+};
 
-function NextActions({
+const NextActions = ({
   topCategory,
   goalsCount,
   recentCount,
@@ -592,14 +622,20 @@ function NextActions({
     | null;
   goalsCount: number;
   recentCount: number;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+  const categoryName = topCategory?.name ?? t("transaction.noCategory.long");
   return (
     <div className="border-line flex flex-col gap-2 border-t pt-4">
       <ActionLink
         to="/add"
         icon={Plus}
-        label={recentCount === 0 ? "บันทึกรายการแรก" : "บันทึกรายการวันนี้"}
-        description="เพิ่มข้อมูลให้ภาพรวมแม่นขึ้น"
+        label={
+          recentCount === 0
+            ? t("dashboard.action.firstTransaction")
+            : t("dashboard.action.todayTransaction")
+        }
+        description={t("dashboard.action.addDescription")}
         tone="coral"
       />
       <ActionLink
@@ -608,29 +644,35 @@ function NextActions({
         label={
           topCategory
             ? topCategory.categoryId === "uncategorized"
-              ? "เติมหมวดให้รายการ"
-              : `ตรวจหมวด ${topCategory.name}`
-            : "ตรวจประวัติ"
+              ? t("dashboard.action.fillCategory")
+              : t("dashboard.action.checkCategory", { name: categoryName })
+            : t("dashboard.action.checkHistory")
         }
         description={
           topCategory
-            ? `เดือนนี้อยู่ตรงนี้ ${fmtBaht(topCategory.amount)}`
-            : "ดูและแก้รายการที่บันทึกไว้"
+            ? t("dashboard.action.categoryAmount", {
+                amount: fmtBaht(topCategory.amount),
+              })
+            : t("dashboard.action.historyDescription")
         }
         tone="neutral"
       />
       <ActionLink
         to="/goals"
         icon={Target}
-        label={goalsCount === 0 ? "ตั้งเป้าหมายแรก" : "ดูเป้าหมาย"}
-        description="กันเงินไว้ให้เรื่องที่สำคัญ"
+        label={
+          goalsCount === 0
+            ? t("dashboard.action.firstGoal")
+            : t("dashboard.action.viewGoals")
+        }
+        description={t("dashboard.action.goalsDescription")}
         tone="teal"
       />
     </div>
   );
-}
+};
 
-function ActionLink({
+const ActionLink = ({
   to,
   icon: Icon,
   label,
@@ -642,7 +684,7 @@ function ActionLink({
   label: string;
   description: string;
   tone: "neutral" | "teal" | "coral";
-}) {
+}) => {
   return (
     <Link
       to={to}
@@ -667,9 +709,9 @@ function ActionLink({
       <ArrowRight className="text-muted ml-auto h-4 w-4 shrink-0" />
     </Link>
   );
-}
+};
 
-function RecentTransactions({
+const RecentTransactions = ({
   className,
   recent,
   categoryNameById,
@@ -677,14 +719,24 @@ function RecentTransactions({
   className?: string;
   recent: Awaited<ReturnType<typeof loader>>["recent"];
   categoryNameById: Record<string, string>;
-}) {
+}) => {
+  const { locale } = usePordeeLocale();
+  const t = usePordeeTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(
+    locale === "th" ? "th-TH" : "en-US",
+    {
+      day: "numeric",
+      month: "short",
+    }
+  );
+
   return (
     <Card className={className}>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>รายการล่าสุด</CardTitle>
+        <CardTitle>{t("dashboard.recent.title")}</CardTitle>
         {recent.length > 0 && (
           <Link to="/history" className="text-muted hover:text-ink text-xs">
-            ดูทั้งหมด
+            {t("common.viewAll")}
           </Link>
         )}
       </CardHeader>
@@ -694,13 +746,13 @@ function RecentTransactions({
             <MascotState
               mood="normal"
               size="sm"
-              title="ยังไม่มีรายการในเดือนนี้"
-              description="เริ่มจากรายการแรก แล้วภาพรวมเดือนนี้จะค่อย ๆ ชัดขึ้น"
+              title={t("dashboard.recent.emptyTitle")}
+              description={t("dashboard.recent.emptyDescription")}
             />
             <Button asChild variant="secondary" size="sm">
               <Link to="/add">
                 <Plus className="h-4 w-4" />
-                บันทึกรายการแรก
+                {t("dashboard.action.firstTransaction")}
               </Link>
             </Button>
           </div>
@@ -716,7 +768,7 @@ function RecentTransactions({
                     {t.title}
                   </p>
                   <p className="text-muted mt-0.5 text-xs">
-                    {fmtDate.format(new Date(t.occurredAt))}
+                    {dateFormatter.format(new Date(t.occurredAt))}
                     {t.categoryId && categoryNameById[t.categoryId]
                       ? ` · ${categoryNameById[t.categoryId]}`
                       : null}
@@ -735,22 +787,24 @@ function RecentTransactions({
       </CardContent>
     </Card>
   );
-}
+};
 
-function GoalsPreview({
+const GoalsPreview = ({
   className,
   goals,
 }: {
   className?: string;
   goals: Awaited<ReturnType<typeof loader>>["goals"];
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <Card className={className}>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>เป้าหมาย</CardTitle>
+        <CardTitle>{t("goals.title")}</CardTitle>
         {goals.length > 0 && (
           <Link to="/goals" className="text-muted hover:text-ink text-xs">
-            ดูทั้งหมด
+            {t("common.viewAll")}
           </Link>
         )}
       </CardHeader>
@@ -760,13 +814,13 @@ function GoalsPreview({
             <MascotState
               mood="saving"
               size="sm"
-              title="ยังไม่มีเป้าหมาย"
-              description="ตั้งเป้าหมายเล็ก ๆ เพื่อกันเงินไว้ให้เรื่องที่สำคัญ"
+              title={t("dashboard.goals.emptyTitle")}
+              description={t("dashboard.goals.emptyDescription")}
             />
             <Button asChild variant="secondary" size="sm">
               <Link to="/goals">
                 <Target className="h-4 w-4" />
-                เพิ่มเป้าหมาย
+                {t("goals.create.submit")}
               </Link>
             </Button>
           </div>
@@ -789,7 +843,7 @@ function GoalsPreview({
                   </div>
                   <div
                     className="bg-line h-1.5 w-full overflow-hidden rounded-full"
-                    aria-label={`คืบหน้า ${pct}%`}
+                    aria-label={t("goals.progress.ariaLabel", { pct })}
                   >
                     <div
                       className="bg-teal h-full"
@@ -804,9 +858,9 @@ function GoalsPreview({
       </CardContent>
     </Card>
   );
-}
+};
 
-function CategorySpending({
+const CategorySpending = ({
   className,
   rows,
   totalExpense,
@@ -814,13 +868,15 @@ function CategorySpending({
   className?: string;
   rows: Awaited<ReturnType<typeof loader>>["categorySpend"];
   totalExpense: number;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <Card className={className}>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>หมวดที่ใช้ไปมาก</CardTitle>
+        <CardTitle>{t("dashboard.category.title")}</CardTitle>
         <Link to="/history" className="text-muted hover:text-ink text-xs">
-          เปิดประวัติ
+          {t("wallet.breakdown.openHistory")}
         </Link>
       </CardHeader>
       <CardContent>
@@ -828,24 +884,30 @@ function CategorySpending({
           <MascotState
             mood="thinking"
             size="sm"
-            title="ยังไม่เห็นหมวดรายจ่าย"
-            description="เมื่อมีรายจ่าย พอดีจะเรียงหมวดที่ใช้เยอะสุดไว้ให้ดูตรงนี้"
+            title={t("dashboard.category.emptyTitle")}
+            description={t("wallet.breakdown.emptyDescription")}
           />
         ) : (
           <ul className="flex flex-col gap-3">
             {rows.map((row) => {
               const pct = getSharePercent(row.amount, totalExpense);
+              const rowName = row.name ?? t("transaction.noCategory.long");
               return (
                 <li key={row.categoryId}>
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-ink font-medium">{row.name}</span>
+                    <span className="text-ink font-medium">{rowName}</span>
                     <span className="text-muted shrink-0 text-right text-xs tabular-nums">
                       {fmtBaht(row.amount)}
-                      <span className="block text-[11px]">สัดส่วน {pct}%</span>
+                      <span className="block text-[11px]">
+                        {t("wallet.breakdown.share", { pct })}
+                      </span>
                     </span>
                   </div>
                   <div
-                    aria-label={`สัดส่วน${row.name} ${pct}% ของรายจ่ายเดือนนี้`}
+                    aria-label={t("wallet.breakdown.shareAriaLabel", {
+                      name: rowName,
+                      pct,
+                    })}
                     aria-valuemax={100}
                     aria-valuemin={0}
                     aria-valuenow={pct}
@@ -865,9 +927,9 @@ function CategorySpending({
       </CardContent>
     </Card>
   );
-}
+};
 
-function SignalCard({
+const SignalCard = ({
   className,
   income,
   expense,
@@ -875,20 +937,22 @@ function SignalCard({
   className?: string;
   income: number;
   expense: number;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>สัญญาณที่ควรดู</CardTitle>
+        <CardTitle>{t("dashboard.signal.title")}</CardTitle>
       </CardHeader>
       <CardContent>
         <DashboardSignal income={income} expense={expense} />
       </CardContent>
     </Card>
   );
-}
+};
 
-function DashboardCoach({
+const DashboardCoach = ({
   income,
   expense,
   balance,
@@ -896,53 +960,53 @@ function DashboardCoach({
   income: number;
   expense: number;
   balance: number;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   if (income === 0 && expense === 0) {
     return (
-      <MascotTip mood="normal" title="พอดีรอรายการแรกอยู่">
-        เริ่มจากรายรับหรือรายจ่ายที่จำได้ง่ายที่สุดก่อน
-        เดี๋ยวภาพรวมเดือนนี้จะตามมาเอง
+      <MascotTip mood="normal" title={t("dashboard.coach.emptyTitle")}>
+        {t("dashboard.coach.emptyDescription")}
       </MascotTip>
     );
   }
   if (income === 0) {
     return (
-      <MascotTip mood="thinking" title="พอดีอยากเห็นรายรับด้วย">
-        ตอนนี้เห็นรายจ่ายแล้ว แต่ยังไม่มีรายรับให้เทียบ
-        เพิ่มรายรับเดือนนี้เพื่อให้คำแนะนำแม่นขึ้น
+      <MascotTip mood="thinking" title={t("dashboard.coach.noIncomeTitle")}>
+        {t("dashboard.coach.noIncomeDescription")}
       </MascotTip>
     );
   }
   if (balance < 0) {
     return (
-      <MascotTip mood="warning" title="พอดีชวนชะลอก่อน">
-        คงเหลือติดลบแล้ว
-        ลองเปิดประวัติแล้วดูรายการใหญ่ล่าสุดก่อนเพิ่มรายจ่ายใหม่
+      <MascotTip mood="warning" title={t("dashboard.coach.overTitle")}>
+        {t("dashboard.coach.overDescription")}
       </MascotTip>
     );
   }
   return (
-    <MascotTip mood="happy" title="พอดีเห็นจังหวะที่ยังไหว">
-      เหลือ {fmtBaht(balance)} จากรายรับเดือนนี้ ถ้ามีเงินที่อยากกันไว้
-      ลองเพิ่มเป็นเป้าหมายเล็ก ๆ ได้เลย
+    <MascotTip mood="happy" title={t("dashboard.coach.okTitle")}>
+      {t("dashboard.coach.okDescription", { balance: fmtBaht(balance) })}
     </MascotTip>
   );
-}
+};
 
-function DashboardSignal({
+const DashboardSignal = ({
   income,
   expense,
 }: {
   income: number;
   expense: number;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   if (income === 0 && expense === 0) {
     return (
       <MascotState
         mood="warning"
         size="sm"
-        title="ยังไม่มีข้อมูลพอให้เตือน"
-        description="เมื่อมีรายการใช้จ่ายมากขึ้น พอดีจะช่วยชี้จุดที่ควรชะลอแบบไม่กดดัน"
+        title={t("dashboard.signal.emptyTitle")}
+        description={t("dashboard.signal.emptyDescription")}
       />
     );
   }
@@ -951,8 +1015,10 @@ function DashboardSignal({
       <MascotState
         mood="thinking"
         size="sm"
-        title="ยังไม่มีรายรับเดือนนี้"
-        description={`ตอนนี้มีรายจ่าย ${fmtBaht(expense)} แล้ว เพิ่มรายรับเพื่อให้พอดีคำนวณภาพรวมได้แม่นขึ้น`}
+        title={t("dashboard.signal.noIncomeTitle")}
+        description={t("dashboard.signal.noIncomeDescription", {
+          expense: fmtBaht(expense),
+        })}
       />
     );
   }
@@ -961,8 +1027,11 @@ function DashboardSignal({
       <MascotState
         mood="warning"
         size="sm"
-        title="รายจ่ายเกินรายรับเดือนนี้"
-        description={`ใช้ไปแล้ว ${fmtBaht(expense)} จากรายรับ ${fmtBaht(income)} ลองชะลอหมวดที่ใช้บ่อยที่สุดก่อน`}
+        title={t("dashboard.signal.overTitle")}
+        description={t("dashboard.signal.overDescription", {
+          expense: fmtBaht(expense),
+          income: fmtBaht(income),
+        })}
       />
     );
   }
@@ -970,44 +1039,60 @@ function DashboardSignal({
     <MascotState
       mood="happy"
       size="sm"
-      title="กำลังไปดี"
-      description={`เดือนนี้ใช้ไป ${fmtBaht(expense)} จากรายรับ ${fmtBaht(income)} ยังพอดีอยู่`}
+      title={t("dashboard.signal.okTitle")}
+      description={t("dashboard.signal.okDescription", {
+        expense: fmtBaht(expense),
+        income: fmtBaht(income),
+      })}
     />
   );
-}
+};
 
-function getBalanceMascot(balance: number, expense: number) {
+const getBalanceMascot = (balance: number, expense: number) => {
   if (balance < 0) return "/brand/mascots/warning.png";
   if (expense === 0) return "/brand/mascots/thinking.png";
   return "/brand/mascots/happy.png";
-}
+};
 
-function getBalanceTone(
+const getBalanceTone = (
   balance: number,
   income: number
-): "neutral" | "teal" | "coral" {
+): "neutral" | "teal" | "coral" => {
   if (income === 0) return "neutral";
   if (balance < 0) return "coral";
   return "teal";
-}
+};
 
-function getBalanceLabel(balance: number, income: number) {
-  if (income === 0) return "รอรายรับ";
-  if (balance < 0) return "เกินรายรับแล้ว";
-  return "ยังพอดีอยู่";
-}
+const getBalanceLabel = (balance: number, income: number, t: Translate) => {
+  if (income === 0) return t("dashboard.balance.waitIncome");
+  if (balance < 0) return t("dashboard.balance.overIncome");
+  return t("dashboard.balance.ok");
+};
 
-function formatDailySafe(dailySafe: number | null) {
-  if (dailySafe === null) return "รอรายรับ";
+const formatDailySafe = (dailySafe: number | null, t: Translate) => {
+  if (dailySafe === null) return t("dashboard.balance.waitIncome");
   return fmtBaht(dailySafe);
-}
+};
 
-function getDailySafeCopy(dailySafe: number | null) {
+const getDailySafeCopy = (dailySafe: number | null, t: Translate) => {
   if (dailySafe === null) {
-    return "เพิ่มรายรับเดือนนี้ก่อน แล้วพอดีจะช่วยเฉลี่ยเงินที่ใช้ได้ต่อวัน";
+    return t("dashboard.dailySafe.noIncomeCopy");
   }
   if (dailySafe < 0) {
-    return "คงเหลือติดลบแล้ว ลองตรวจรายการใหญ่หรือชะลอรายจ่ายก่อนเพิ่มรายการใหม่";
+    return t("dashboard.dailySafe.overCopy");
   }
-  return `ถ้าไม่อยากเกินเดือนนี้ ใช้เฉลี่ยได้ประมาณ ${fmtBaht(dailySafe)} ต่อวัน`;
-}
+  return t("dashboard.dailySafe.normalCopy", { amount: fmtBaht(dailySafe) });
+};
+
+const formatRangeLabel = (fromDay: string, toDay: string, locale: string) => {
+  const formatter = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+  });
+  const fromDate = parseDayValue(fromDay);
+  const toDate = parseDayValue(toDay);
+  if (!fromDate || !toDate) return "";
+  return fromDay === toDay
+    ? formatter.format(fromDate)
+    : `${formatter.format(fromDate)} - ${formatter.format(toDate)}`;
+};

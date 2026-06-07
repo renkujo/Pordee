@@ -48,12 +48,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { usePordeeTranslation } from "~/lib/i18n/provider";
 
-export function meta(_: Route.MetaArgs) {
+type Translate = ReturnType<typeof usePordeeTranslation>;
+
+export const meta = (_: Route.MetaArgs) => {
   return [{ title: "พอดี — ประวัติรายการ" }];
-}
+};
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   const [transactions, categories] = await Promise.all([
     repo.listTransactions(user.id),
@@ -65,9 +68,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     transactions,
     categoryNameById: Object.fromEntries(categoryNameById),
   };
-}
+};
 
-export async function action({ request }: Route.ActionArgs) {
+export const action = async ({ request }: Route.ActionArgs) => {
   const form = await request.formData();
   const intent = form.get("intent");
   const id = form.get("id");
@@ -83,7 +86,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   return redirect("/history");
-}
+};
 
 const fmtDate = new Intl.DateTimeFormat("th-TH", {
   day: "numeric",
@@ -96,9 +99,10 @@ const ALL_CATEGORIES_VALUE = "__all_categories__";
 type KindFilter = typeof ALL_KINDS_VALUE | TransactionKind;
 type MonthPreset = "all" | "this-month" | "last-month" | "custom";
 
-export default function History() {
+const History = () => {
   const { categories, transactions, categoryNameById } =
     useLoaderData<typeof loader>();
+  const t = usePordeeTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<KindFilter>(ALL_KINDS_VALUE);
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES_VALUE);
@@ -122,7 +126,7 @@ export default function History() {
     }
     if (
       normalizedSearchQuery &&
-      !getTransactionSearchText(transaction, categoryNameById).includes(
+      !getTransactionSearchText(transaction, categoryNameById, t).includes(
         normalizedSearchQuery
       )
     ) {
@@ -152,24 +156,24 @@ export default function History() {
   const hasFilter =
     hasSearch || hasDateRange || hasKindFilter || hasCategoryFilter;
 
-  function clearFilters() {
+  const clearFilters = () => {
     setSearchQuery("");
     setKindFilter(ALL_KINDS_VALUE);
     setCategoryFilter(ALL_CATEGORIES_VALUE);
     setMonthPreset("all");
     setFromDate("");
     setToDate("");
-  }
+  };
 
-  function applyMonthPreset(value: MonthPreset) {
+  const applyMonthPreset = (value: MonthPreset) => {
     setMonthPreset(value);
     if (value === "custom") return;
     const range = getMonthPresetRange(value);
     setFromDate(range.from);
     setToDate(range.to);
-  }
+  };
 
-  function updateKindFilter(value: KindFilter) {
+  const updateKindFilter = (value: KindFilter) => {
     setKindFilter(value);
     if (
       categoryFilter !== ALL_CATEGORIES_VALUE &&
@@ -179,58 +183,65 @@ export default function History() {
     ) {
       setCategoryFilter(ALL_CATEGORIES_VALUE);
     }
-  }
+  };
 
-  function updateFromDate(value: string) {
+  const updateFromDate = (value: string) => {
     setFromDate(value);
     setMonthPreset("custom");
-  }
+  };
 
-  function updateToDate(value: string) {
+  const updateToDate = (value: string) => {
     setToDate(value);
     setMonthPreset("custom");
-  }
+  };
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-ink text-2xl font-semibold">ประวัติรายการ</h1>
-          <p className="text-muted text-sm">
-            ย้อนดูรายการทั้งหมด และจัดการแต่ละแถวจากเมนูเดียว
-          </p>
+          <h1 className="text-ink text-2xl font-semibold">
+            {t("history.title")}
+          </h1>
+          <p className="text-muted text-sm">{t("history.description")}</p>
         </div>
         <Button asChild className="w-full sm:w-auto">
           <Link to="/add">
             <PlusCircle className="h-4 w-4" />
-            บันทึกรายการ
+            {t("add.submit.button")}
           </Link>
         </Button>
       </div>
 
       {latest && (
-        <MascotTip mood="thinking" title="พอดีช่วยดูย้อนหลัง">
-          รายการล่าสุดคือ “{latest.title}” ถ้าจำนวนหรือหมวดไม่ตรง
-          เปิดเมนูท้ายแถวเพื่อแก้ไขหรือลบได้ทันที
+        <MascotTip mood="thinking" title={t("history.latestTip.title")}>
+          {t("history.latestTip.description", { title: latest.title })}
         </MascotTip>
       )}
 
       <section
-        aria-label="สรุปประวัติ"
+        aria-label={t("history.summary.ariaLabel")}
         className="border-line bg-surface grid gap-3 rounded-md border p-4 sm:grid-cols-3"
       >
         <SummaryCell
-          label={hasFilter ? "รายรับตามตัวกรอง" : "รายรับทั้งหมด"}
+          label={t(
+            hasFilter
+              ? "history.summary.filteredIncome"
+              : "history.summary.income"
+          )}
           tone="teal"
           value={totals.income}
         />
         <SummaryCell
-          label={hasFilter ? "รายจ่ายตามตัวกรอง" : "รายจ่ายทั้งหมด"}
+          label={t(
+            hasFilter
+              ? "history.summary.filteredExpense"
+              : "history.summary.expense"
+          )}
           tone="coral"
           value={totals.expense}
         />
         <SummaryCell
-          label="สุทธิ"
+          label={t("history.summary.net")}
           tone={net >= 0 ? "teal" : "coral"}
           value={Math.abs(net)}
         />
@@ -239,11 +250,15 @@ export default function History() {
       <Card>
         <CardHeader className="border-line gap-3 border-b">
           <div className="flex items-center justify-between gap-3">
-            <CardTitle>รายการทั้งหมด</CardTitle>
+            <CardTitle>{t("history.list.title")}</CardTitle>
             <span className="text-muted shrink-0 text-sm">
-              {hasFilter
-                ? `${filteredTransactions.length} / ${transactions.length} รายการ`
-                : `${transactions.length} รายการ`}
+              {t(
+                hasFilter ? "history.list.filteredCount" : "history.list.count",
+                {
+                  count: transactions.length,
+                  filteredCount: filteredTransactions.length,
+                }
+              )}
             </span>
           </div>
           {transactions.length > 0 ? (
@@ -253,20 +268,20 @@ export default function History() {
                 <Input
                   id="history-search"
                   name="historySearch"
-                  aria-label="ค้นหารายการ"
+                  aria-label={t("history.search.ariaLabel")}
                   className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
                   inputMode="search"
                   onChange={(event) =>
                     setSearchQuery(event.currentTarget.value)
                   }
-                  placeholder="ค้นหาชื่อรายการ หมวด ประเภท หรือยอดเงิน"
+                  placeholder={t("history.search.placeholder")}
                   role="searchbox"
                   type="text"
                   value={searchQuery}
                 />
                 {hasSearch ? (
                   <Button
-                    aria-label="ล้างคำค้นหา"
+                    aria-label={t("history.search.clear")}
                     className="h-8 w-8 rounded-xs"
                     onClick={() => setSearchQuery("")}
                     size="icon"
@@ -285,7 +300,7 @@ export default function History() {
                     htmlFor="history-month-preset"
                   >
                     <CalendarRange className="h-3.5 w-3.5" />
-                    ช่วงเวลา
+                    {t("history.filter.period")}
                   </Label>
                   <Select
                     name="historyMonthPreset"
@@ -296,15 +311,21 @@ export default function History() {
                   >
                     <SelectTrigger
                       id="history-month-preset"
-                      aria-label="ช่วงเวลา"
+                      aria-label={t("history.filter.period")}
                     >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">ทั้งหมด</SelectItem>
-                      <SelectItem value="this-month">เดือนนี้</SelectItem>
-                      <SelectItem value="last-month">เดือนก่อน</SelectItem>
-                      <SelectItem value="custom">กำหนดเอง</SelectItem>
+                      <SelectItem value="all">{t("filter.all")}</SelectItem>
+                      <SelectItem value="this-month">
+                        {t("filter.thisMonth")}
+                      </SelectItem>
+                      <SelectItem value="last-month">
+                        {t("filter.lastMonth")}
+                      </SelectItem>
+                      <SelectItem value="custom">
+                        {t("filter.custom")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -315,7 +336,7 @@ export default function History() {
                     htmlFor="history-kind-filter"
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5" />
-                    ประเภท
+                    {t("transaction.kind.label")}
                   </Label>
                   <Select
                     name="historyKindFilter"
@@ -324,13 +345,22 @@ export default function History() {
                       updateKindFilter(value as KindFilter)
                     }
                   >
-                    <SelectTrigger id="history-kind-filter" aria-label="ประเภท">
+                    <SelectTrigger
+                      id="history-kind-filter"
+                      aria-label={t("transaction.kind.label")}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={ALL_KINDS_VALUE}>ทั้งหมด</SelectItem>
-                      <SelectItem value="expense">รายจ่าย</SelectItem>
-                      <SelectItem value="income">รายรับ</SelectItem>
+                      <SelectItem value={ALL_KINDS_VALUE}>
+                        {t("filter.all")}
+                      </SelectItem>
+                      <SelectItem value="expense">
+                        {t("transaction.kind.expense")}
+                      </SelectItem>
+                      <SelectItem value="income">
+                        {t("transaction.kind.income")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -340,7 +370,7 @@ export default function History() {
                     className="text-muted text-xs"
                     htmlFor="history-category-filter"
                   >
-                    หมวด
+                    {t("transaction.category.label")}
                   </Label>
                   <Select
                     name="historyCategoryFilter"
@@ -349,13 +379,13 @@ export default function History() {
                   >
                     <SelectTrigger
                       id="history-category-filter"
-                      aria-label="หมวด"
+                      aria-label={t("transaction.category.label")}
                     >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL_CATEGORIES_VALUE}>
-                        ทุกหมวด
+                        {t("filter.allCategories")}
                       </SelectItem>
                       {availableCategories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
@@ -371,14 +401,14 @@ export default function History() {
                     className="text-muted text-xs"
                     htmlFor="history-from-date"
                   >
-                    ตั้งแต่วันที่
+                    {t("history.filter.fromDate")}
                   </Label>
                   <DatePicker
                     id="history-from-date"
                     value={fromDate}
                     max={toDate || todayDayValue()}
                     onChange={updateFromDate}
-                    placeholder="ไม่จำกัด"
+                    placeholder={t("filter.unlimited")}
                   />
                 </div>
 
@@ -387,14 +417,14 @@ export default function History() {
                     className="text-muted text-xs"
                     htmlFor="history-to-date"
                   >
-                    ถึงวันที่
+                    {t("history.filter.toDate")}
                   </Label>
                   <DatePicker
                     id="history-to-date"
                     value={toDate}
                     max={todayDayValue()}
                     onChange={updateToDate}
-                    placeholder="ไม่จำกัด"
+                    placeholder={t("filter.unlimited")}
                   />
                 </div>
 
@@ -407,15 +437,17 @@ export default function History() {
                     variant="secondary"
                   >
                     <X className="h-4 w-4" />
-                    ล้างตัวกรอง
+                    {t("filter.clear")}
                   </Button>
                 </div>
               </div>
 
               {hasFilter ? (
                 <p className="text-muted text-xs">
-                  กำลังแสดง {filteredTransactions.length} จาก{" "}
-                  {transactions.length} รายการ และสรุปยอดตามตัวกรองนี้
+                  {t("history.filter.resultSummary", {
+                    count: transactions.length,
+                    filteredCount: filteredTransactions.length,
+                  })}
                 </p>
               ) : null}
             </div>
@@ -426,26 +458,28 @@ export default function History() {
             <div className="p-5">
               <MascotState
                 mood="thinking"
-                title="ยังไม่มีรายการบันทึกไว้"
-                description="เมื่อเริ่มบันทึก คุณจะค้นหา กรอง และกลับมาแก้รายการได้จากหน้านี้"
+                title={t("history.empty.title")}
+                description={t("history.empty.description")}
               />
             </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="p-5">
               <MascotState
                 mood="thinking"
-                title="ไม่พบรายการที่ตรงกับตัวกรอง"
-                description="ลองปรับคำค้นหา หรือขยายช่วงวันที่ให้กว้างขึ้น"
+                title={t("history.emptyFilter.title")}
+                description={t("history.emptyFilter.description")}
               />
             </div>
           ) : (
             <ul className="divide-line divide-y" data-testid="history-list">
               <li className="text-muted hidden grid-cols-[minmax(0,1fr)_8rem_6rem_8rem_3rem] gap-3 px-4 py-3 text-xs font-medium md:grid">
-                <span>รายการ</span>
-                <span>หมวด</span>
-                <span>ประเภท</span>
-                <span className="text-right">จำนวน</span>
-                <span className="sr-only">เมนู</span>
+                <span>{t("transaction.title.label")}</span>
+                <span>{t("transaction.category.label")}</span>
+                <span>{t("transaction.kind.label")}</span>
+                <span className="text-right">
+                  {t("transaction.amount.label")}
+                </span>
+                <span className="sr-only">{t("history.row.menu")}</span>
               </li>
               {filteredTransactions.map((t) => (
                 <TransactionRow
@@ -460,13 +494,15 @@ export default function History() {
       </Card>
     </div>
   );
-}
+};
 
-function normalizeSearch(value: string) {
+export default History;
+
+const normalizeSearch = (value: string) => {
   return value.toLocaleLowerCase("th-TH").replace(/\s+/g, " ").trim();
-}
+};
 
-function getMonthPresetRange(value: MonthPreset) {
+const getMonthPresetRange = (value: MonthPreset) => {
   if (value === "all" || value === "custom") {
     return { from: "", to: "" };
   }
@@ -480,17 +516,21 @@ function getMonthPresetRange(value: MonthPreset) {
     from: todayDayValue(start),
     to: todayDayValue(end),
   };
-}
+};
 
-function getTransactionSearchText(
+const getTransactionSearchText = (
   transaction: Transaction,
-  categoryNameById: Record<string, string>
-) {
+  categoryNameById: Record<string, string>,
+  t: Translate
+) => {
   const categoryName =
     transaction.categoryId && categoryNameById[transaction.categoryId]
       ? categoryNameById[transaction.categoryId]
-      : "ไม่ระบุหมวด";
-  const kindLabel = transaction.kind === "income" ? "รายรับ" : "รายจ่าย";
+      : t("transaction.noCategory.long");
+  const kindLabel =
+    transaction.kind === "income"
+      ? t("transaction.kind.income")
+      : t("transaction.kind.expense");
 
   return normalizeSearch(
     [
@@ -502,9 +542,9 @@ function getTransactionSearchText(
       fmtDate.format(new Date(transaction.occurredAt)),
     ].join(" ")
   );
-}
+};
 
-function SummaryCell({
+const SummaryCell = ({
   label,
   tone,
   value,
@@ -512,7 +552,7 @@ function SummaryCell({
   label: string;
   tone: "coral" | "teal";
   value: number;
-}) {
+}) => {
   return (
     <div className="border-line rounded-sm border px-3 py-2">
       <p className="text-muted text-xs">{label}</p>
@@ -525,21 +565,26 @@ function SummaryCell({
       </p>
     </div>
   );
-}
+};
 
-function TransactionRow({
+const TransactionRow = ({
   categoryNameById,
   transaction,
 }: {
   categoryNameById: Record<string, string>;
   transaction: Transaction;
-}) {
+}) => {
+  const t = usePordeeTranslation();
   const categoryName =
     transaction.categoryId && categoryNameById[transaction.categoryId]
       ? categoryNameById[transaction.categoryId]
-      : "ไม่ระบุหมวด";
+      : t("transaction.noCategory.long");
   const date = fmtDate.format(new Date(transaction.occurredAt));
-  const kindLabel = transaction.kind === "income" ? "รายรับ" : "รายจ่าย";
+  const kindLabel = t(
+    transaction.kind === "income"
+      ? "transaction.kind.income"
+      : "transaction.kind.expense"
+  );
   const amountTone = transaction.kind === "income" ? "teal" : "coral";
 
   return (
@@ -574,9 +619,10 @@ function TransactionRow({
       </div>
     </li>
   );
-}
+};
 
-function RowActions({ transaction }: { transaction: Transaction }) {
+const RowActions = ({ transaction }: { transaction: Transaction }) => {
+  const t = usePordeeTranslation();
   const deleteFormId = `delete-transaction-${transaction.id}`;
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
@@ -592,17 +638,17 @@ function RowActions({ transaction }: { transaction: Transaction }) {
             variant="ghost"
             size="icon"
             className="h-9 w-9 rounded-sm"
-            aria-label={`เปิดเมนู ${transaction.title}`}
+            aria-label={t("history.row.openMenu", { title: transaction.title })}
           >
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>จัดการรายการ</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("history.row.actionsLabel")}</DropdownMenuLabel>
           <DropdownMenuItem asChild>
             <Link to={`/history/${transaction.id}`}>
               <Pencil className="h-4 w-4" />
-              ดู / แก้ไข
+              {t("history.row.edit")}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -611,24 +657,29 @@ function RowActions({ transaction }: { transaction: Transaction }) {
             role="menuitem"
             onClick={() => setIsDeleteOpen(true)}
             className="focus:bg-sky text-coral-strong relative flex w-full cursor-default items-center gap-2 rounded-xs px-2 py-2 text-sm transition-colors outline-none select-none"
-            aria-label={`ลบ ${transaction.title}`}
+            aria-label={t("history.row.deleteLabel", {
+              title: transaction.title,
+            })}
           >
             <Trash2 className="h-4 w-4" />
-            ลบรายการ
+            {t("history.row.delete")}
           </button>
         </DropdownMenuContent>
       </DropdownMenu>
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>ลบรายการนี้?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("history.deleteDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              รายการ “{transaction.title}” จะถูกลบออกจากประวัติ
-              การลบนี้ย้อนกลับไม่ได้
+              {t("history.deleteDialog.description", {
+                title: transaction.title,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction asChild>
               <button
                 type="button"
@@ -641,7 +692,7 @@ function RowActions({ transaction }: { transaction: Transaction }) {
                 }
                 className="focus-visible:ring-coral/40 bg-coral hover:bg-coral-strong inline-flex h-10 items-center justify-center rounded-[12px] px-4 text-sm font-medium whitespace-nowrap text-white transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
               >
-                ลบรายการ
+                {t("history.row.delete")}
               </button>
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -649,4 +700,4 @@ function RowActions({ transaction }: { transaction: Transaction }) {
       </AlertDialog>
     </>
   );
-}
+};

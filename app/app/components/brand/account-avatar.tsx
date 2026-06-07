@@ -1,60 +1,61 @@
 import type { AuthUser } from "~/lib/auth.server";
 import { cn } from "~/lib/cn";
+import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 type AccountAvatarSize = "sm" | "md" | "lg";
 
 type AccountAvatarVariant = {
-  alt: string;
+  index: number;
   src: string;
 };
 
 const accountAvatarVariants: AccountAvatarVariant[] = [
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 1",
+    index: 1,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-01.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 2",
+    index: 2,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-02.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 3",
+    index: 3,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-03.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 4",
+    index: 4,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-04.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 5",
+    index: 5,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-05.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 6",
+    index: 6,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-06.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 7",
+    index: 7,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-07.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 8",
+    index: 8,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-08.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 9",
+    index: 9,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-09.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 10",
+    index: 10,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-10.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 11",
+    index: 11,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-11.png",
   },
   {
-    alt: "อวาตาร์ผู้ใช้พอดี 12",
+    index: 12,
     src: "/brand/avatars/human-line-art-direct/pordee-human-avatar-direct-12.png",
   },
 ];
@@ -71,12 +72,13 @@ interface AccountAvatarProps {
   className?: string;
 }
 
-export function AccountAvatar({
+export const AccountAvatar = ({
   user,
   size = "md",
   className,
-}: AccountAvatarProps) {
+}: AccountAvatarProps) => {
   const avatar = getAccountAvatarVariant(user);
+  const t = usePordeeTranslation();
 
   return (
     <div
@@ -87,7 +89,7 @@ export function AccountAvatar({
       )}
     >
       <img
-        alt={avatar.alt}
+        alt={t("brand.accountAvatarAlt", { index: avatar.index })}
         className="h-full w-full scale-[1.12] rounded-full object-cover"
         draggable={false}
         loading="lazy"
@@ -95,16 +97,16 @@ export function AccountAvatar({
       />
     </div>
   );
-}
+};
 
-export function getAccountAvatarVariant(
+export const getAccountAvatarVariant = (
   user: Pick<AuthUser, "email" | "id" | "name">
-) {
+) => {
   const seed = user.id || user.email || user.name || "pordee";
   return accountAvatarVariants[stableHash(seed) % accountAvatarVariants.length];
-}
+};
 
-function stableHash(value: string) {
+const stableHash = (value: string) => {
   let hash = 0;
 
   for (const char of value) {
@@ -112,4 +114,4 @@ function stableHash(value: string) {
   }
 
   return hash;
-}
+};

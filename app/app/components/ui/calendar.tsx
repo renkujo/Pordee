@@ -3,31 +3,33 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker, getDefaultClassNames } from "react-day-picker";
 import { th } from "react-day-picker/locale";
 import { cn } from "~/lib/cn";
+import { usePordeeLocale } from "~/lib/i18n/provider";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-function CalendarChevron({
+const CalendarChevron = ({
   orientation,
   className,
 }: {
   orientation?: "up" | "down" | "left" | "right";
   className?: string;
-}) {
+}) => {
   const Icon = orientation === "left" ? ChevronLeft : ChevronRight;
   return <Icon className={cn("h-4 w-4", className)} />;
-}
+};
 
-export function Calendar({
+export const Calendar = ({
   className,
   classNames,
   showOutsideDays = true,
   ...props
-}: CalendarProps) {
+}: CalendarProps) => {
+  const { locale } = usePordeeLocale();
   const defaults = getDefaultClassNames();
 
   return (
     <DayPicker
-      locale={th}
+      locale={locale === "th" ? th : undefined}
       navLayout="around"
       showOutsideDays={showOutsideDays}
       className={cn("text-ink", className)}
@@ -97,4 +99,4 @@ export function Calendar({
       {...props}
     />
   );
-}
+};

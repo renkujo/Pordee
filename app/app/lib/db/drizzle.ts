@@ -19,11 +19,13 @@ const DEFAULT_CATEGORIES: Array<Pick<Category, "name" | "kind">> = [
   { name: "งานเสริม", kind: "income" },
 ];
 
-function toMoney(value: string): number {
+const toMoney = (value: string): number => {
   return Number(value);
-}
+};
 
-function rowToTransaction(row: typeof transactions.$inferSelect): Transaction {
+const rowToTransaction = (
+  row: typeof transactions.$inferSelect
+): Transaction => {
   return {
     id: row.id,
     userId: row.userId,
@@ -35,19 +37,19 @@ function rowToTransaction(row: typeof transactions.$inferSelect): Transaction {
     occurredAt: row.occurredAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
   };
-}
+};
 
-function rowToCategory(row: typeof categories.$inferSelect): Category {
+const rowToCategory = (row: typeof categories.$inferSelect): Category => {
   return {
     id: row.id,
     userId: row.userId,
     name: row.name,
     kind: row.kind as Category["kind"],
   };
-}
+};
 
 // Seed default categories the first time a user has none.
-async function ensureSeeded(userId: string): Promise<void> {
+const ensureSeeded = async (userId: string): Promise<void> => {
   const existing = await db
     .select({ id: categories.id })
     .from(categories)
@@ -62,12 +64,12 @@ async function ensureSeeded(userId: string): Promise<void> {
       kind: c.kind,
     }))
   );
-}
+};
 
-async function ensureOwnedCategory(
+const ensureOwnedCategory = async (
   userId: string,
   categoryId: string | null
-): Promise<void> {
+): Promise<void> => {
   if (!categoryId) return;
   const owned = await db
     .select({ id: categories.id })
@@ -77,7 +79,7 @@ async function ensureOwnedCategory(
   if (owned.length === 0) {
     throw new Error("category not found for user");
   }
-}
+};
 
 export const drizzleRepo: PordeeRepo = {
   async listCategories(userId) {

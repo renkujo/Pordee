@@ -4,6 +4,18 @@ import { APIError, isAPIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
 import { pool } from "~/lib/db/client";
 
+const getGoogleSocialProvider = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) return null;
+
+  return {
+    clientId,
+    clientSecret,
+  };
+};
+
 const googleSocialProvider = getGoogleSocialProvider();
 
 export const auth = betterAuth({
@@ -35,12 +47,12 @@ export const auth = betterAuth({
 
 let migrationPromise: Promise<void> | null = null;
 
-export function ensureAuthDatabase() {
+export const ensureAuthDatabase = () => {
   migrationPromise ??= getMigrations(auth.options).then(({ runMigrations }) =>
     runMigrations()
   );
   return migrationPromise;
-}
+};
 
 export interface AuthUser {
   id: string;
@@ -48,7 +60,9 @@ export interface AuthUser {
   email: string;
 }
 
-export async function getAuthUser(request: Request): Promise<AuthUser | null> {
+export const getAuthUser = async (
+  request: Request
+): Promise<AuthUser | null> => {
   await ensureAuthDatabase();
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) return null;
@@ -58,35 +72,37 @@ export async function getAuthUser(request: Request): Promise<AuthUser | null> {
     name: session.user.name,
     email: session.user.email,
   };
-}
+};
 
-export async function requireUser(request: Request) {
+export const requireUser = async (request: Request) => {
   const user = await getAuthUser(request);
   if (user) return user;
 
   const url = new URL(request.url);
   const redirectTo = `${url.pathname}${url.search}`;
   throw redirect(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
-}
+};
 
-export function getSafeRedirectTo(value: FormDataEntryValue | string | null) {
+export const getSafeRedirectTo = (
+  value: FormDataEntryValue | string | null
+) => {
   if (typeof value !== "string") return "/";
   if (!value.startsWith("/") || value.startsWith("//")) return "/";
   if (value.startsWith("/login")) return "/";
   return value;
-}
+};
 
-export function redirectWithAuthCookies(
+export const redirectWithAuthCookies = (
   to: string,
   authHeaders: Headers
-): Response {
+): Response => {
   const headers = new Headers();
   headers.set("Location", to);
   appendAuthCookies(headers, authHeaders);
   return new Response(null, { status: 302, headers });
-}
+};
 
-export function appendAuthCookies(target: Headers, source: Headers) {
+export const appendAuthCookies = (target: Headers, source: Headers) => {
   const getSetCookie = (source as Headers & { getSetCookie?: () => string[] })
     .getSetCookie;
   const cookies = getSetCookie ? getSetCookie.call(source) : [];
@@ -100,33 +116,21 @@ export function appendAuthCookies(target: Headers, source: Headers) {
 
   const cookie = source.get("set-cookie");
   if (cookie) target.append("Set-Cookie", cookie);
-}
+};
 
-export function authErrorMessage(error: unknown) {
+export const authErrorMessage = (error: unknown) => {
   if (isAPIError(error)) {
     return mapApiError(error);
   }
 
   return "เกิดข้อผิดพลาดในการเข้าสู่ระบบ";
-}
+};
 
-export function isGoogleAuthEnabled() {
+export const isGoogleAuthEnabled = () => {
   return Boolean(googleSocialProvider);
-}
+};
 
-function getGoogleSocialProvider() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) return null;
-
-  return {
-    clientId,
-    clientSecret,
-  };
-}
-
-function mapApiError(error: APIError) {
+const mapApiError = (error: APIError) => {
   if (error.status === "UNAUTHORIZED") {
     return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
   }
@@ -140,4 +144,4 @@ function mapApiError(error: APIError) {
   }
 
   return error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ";
-}
+};

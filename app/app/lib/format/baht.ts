@@ -16,18 +16,21 @@ export interface BahtFormatOptions {
   precise?: boolean;
 }
 
-export function fmtBaht(amount: number, opts: BahtFormatOptions = {}): string {
+export const fmtBaht = (
+  amount: number,
+  opts: BahtFormatOptions = {}
+): string => {
   if (!Number.isFinite(amount)) return "—";
   return opts.precise
     ? preciseFormatter.format(amount)
     : baseFormatter.format(amount);
-}
+};
 
-export function fmtSignedBaht(
+export const fmtSignedBaht = (
   amount: number,
   kind: "income" | "expense",
   opts: BahtFormatOptions = {}
-): string {
+): string => {
   const sign = kind === "income" ? "+" : "-";
   return `${sign}${fmtBaht(Math.abs(amount), opts)}`;
-}
+};

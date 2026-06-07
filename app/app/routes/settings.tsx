@@ -72,6 +72,8 @@ import {
 } from "~/lib/validators/category";
 import { changePasswordSchema, passwordRules } from "~/lib/validators/auth";
 
+type Translate = ReturnType<typeof usePordeeTranslation>;
+
 type CategoryIntent = "createCategory" | "updateCategory" | "deleteCategory";
 type PasswordIntent = "changePassword";
 type SettingsIntent = CategoryIntent | PasswordIntent;
@@ -137,11 +139,11 @@ type PasswordActionData =
     )
   | undefined;
 
-export function meta(_: Route.MetaArgs) {
+export const meta = (_: Route.MetaArgs) => {
   return [{ title: "พอดี — ตั้งค่า" }];
-}
+};
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   const categories = await repo.listCategories(user.id);
   const accountMethods = await listAccountMethods(request, user.email);
@@ -155,17 +157,21 @@ export async function loader({ request }: Route.LoaderArgs) {
   );
 
   return { accountMethods, categories, usageByCategoryId, user };
-}
+};
 
-export async function action({
+export const action = async ({
   request,
-}: Route.ActionArgs): Promise<ActionResult | Response> {
+}: Route.ActionArgs): Promise<ActionResult | Response> => {
   const user = await requireUser(request);
   const form = await request.formData();
   const intent = form.get("intent");
 
   if (!isSettingsIntent(intent)) {
-    return fieldError("createCategory", { general: "คำสั่งไม่ถูกต้อง" }, form);
+    return fieldError(
+      "createCategory",
+      { general: "settings.error.invalidIntent" },
+      form
+    );
   }
 
   if (intent === "changePassword") {
@@ -192,8 +198,7 @@ export async function action({
       return fieldError(
         intent,
         {
-          currentPassword:
-            "รหัสผ่านปัจจุบันไม่ถูกต้อง หรือบัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน",
+          currentPassword: "settings.error.currentPasswordInvalid",
         },
         form
       );
@@ -202,7 +207,7 @@ export async function action({
     return {
       ok: true,
       intent,
-      message: "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว",
+      message: "settings.security.success",
     };
   }
 
@@ -222,7 +227,11 @@ export async function action({
       parsed.data.kind
     );
     if (duplicate) {
-      return fieldError(intent, { name: "มีหมวดชื่อนี้แล้ว" }, form);
+      return fieldError(
+        intent,
+        { name: "settings.category.error.duplicate" },
+        form
+      );
     }
 
     await repo.createCategory(user.id, parsed.data);
@@ -242,7 +251,11 @@ export async function action({
     const categories = await repo.listCategories(user.id);
     const category = categories.find((c) => c.id === parsed.data.id);
     if (!category) {
-      return fieldError(intent, { general: "ไม่พบหมวดนี้" }, form);
+      return fieldError(
+        intent,
+        { general: "settings.category.error.notFound" },
+        form
+      );
     }
 
     const duplicate = await findDuplicateCategory(
@@ -252,7 +265,11 @@ export async function action({
       category.id
     );
     if (duplicate) {
-      return fieldError(intent, { name: "มีหมวดชื่อนี้แล้ว" }, form);
+      return fieldError(
+        intent,
+        { name: "settings.category.error.duplicate" },
+        form
+      );
     }
 
     await repo.updateCategory(user.id, category.id, { name: parsed.data.name });
@@ -269,20 +286,24 @@ export async function action({
   if (usage > 0) {
     return fieldError(
       intent,
-      { general: "หมวดนี้มีรายการใช้งานอยู่ ลบไม่ได้ แต่แก้ชื่อได้" },
+      { general: "settings.category.error.inUse" },
       form
     );
   }
 
   const ok = await repo.deleteCategory(user.id, parsed.data.id);
   if (!ok) {
-    return fieldError(intent, { general: "ไม่พบหมวดนี้" }, form);
+    return fieldError(
+      intent,
+      { general: "settings.category.error.notFound" },
+      form
+    );
   }
 
   return redirect("/settings?tab=categories");
-}
+};
 
-export default function Settings() {
+const Settings = () => {
   const { accountMethods, categories, usageByCategoryId, user } =
     useLoaderData<typeof loader>();
   const t = usePordeeTranslation();
@@ -322,8 +343,8 @@ export default function Settings() {
           ) : selectedTab === "notifications" ? (
             <SettingsPlaceholderSection
               icon={Bell}
-              title="การแจ้งเตือน"
-              description="ตั้งค่าการเตือนงบประมาณ เป้าหมาย และสรุปรายเดือนจะมาอยู่ในส่วนนี้"
+              title={t("settings.notifications.title")}
+              description={t("settings.notifications.description")}
             />
           ) : selectedTab === "language" ? (
             <LanguageSection />
@@ -339,9 +360,11 @@ export default function Settings() {
       </div>
     </div>
   );
-}
+};
 
-function SettingsTabNav({
+export default Settings;
+
+const SettingsTabNav = ({
   accountMethodCount,
   categoryCount,
   selectedTab,
@@ -349,7 +372,7 @@ function SettingsTabNav({
   accountMethodCount: number;
   categoryCount: number;
   selectedTab: SettingsTab;
-}) {
+}) => {
   const t = usePordeeTranslation();
   const accountCount = Math.max(accountMethodCount, 1);
 
@@ -400,9 +423,9 @@ function SettingsTabNav({
       </SettingsTabLink>
     </nav>
   );
-}
+};
 
-function SettingsTabLink({
+const SettingsTabLink = ({
   active,
   children,
   countLabel,
@@ -414,7 +437,7 @@ function SettingsTabLink({
   countLabel: string;
   icon: ComponentType<{ className?: string }>;
   to: string;
-}) {
+}) => {
   return (
     <Link
       aria-label={`${children} ${countLabel}`}
@@ -434,9 +457,9 @@ function SettingsTabLink({
       </span>
     </Link>
   );
-}
+};
 
-function LanguageSection() {
+const LanguageSection = () => {
   const { locale, setLocale } = usePordeeLocale();
   const t = usePordeeTranslation();
 
@@ -482,9 +505,9 @@ function LanguageSection() {
       </CardContent>
     </Card>
   );
-}
+};
 
-function CategoriesSection({
+const CategoriesSection = ({
   actionData,
   expenseCategories,
   incomeCategories,
@@ -494,13 +517,15 @@ function CategoriesSection({
   expenseCategories: Category[];
   incomeCategories: Category[];
   usageByCategoryId: Record<string, number>;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <Card>
       <CardHeader className="gap-2">
-        <CardTitle>หมวดหมู่</CardTitle>
+        <CardTitle>{t("settings.categories.title")}</CardTitle>
         <p className="text-muted text-sm leading-6">
-          เพิ่ม แก้ชื่อ หรือลบหมวดที่ยังไม่มีรายการใช้งานได้จากส่วนนี้
+          {t("settings.categories.description")}
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
@@ -509,7 +534,7 @@ function CategoriesSection({
         {actionData?.intent === "deleteCategory" &&
           actionData.errors.general && (
             <p className="text-coral-strong text-sm">
-              {actionData.errors.general}
+              {t(actionData.errors.general)}
             </p>
           )}
 
@@ -518,46 +543,46 @@ function CategoriesSection({
             actionData={actionData}
             categories={expenseCategories}
             kind="expense"
-            title="หมวดรายจ่าย"
+            title={t("settings.categories.expenseTitle")}
             usageByCategoryId={usageByCategoryId}
           />
           <CategoryGroup
             actionData={actionData}
             categories={incomeCategories}
             kind="income"
-            title="หมวดรายรับ"
+            title={t("settings.categories.incomeTitle")}
             usageByCategoryId={usageByCategoryId}
           />
         </div>
       </CardContent>
     </Card>
   );
-}
+};
 
-function AccountSection({
+const AccountSection = ({
   accountMethods,
   user,
 }: {
   accountMethods: AccountMethod[];
   user: AuthUser;
-}) {
-  const displayName = user.name || "ผู้ใช้พอดี";
+}) => {
+  const t = usePordeeTranslation();
+  const displayName = user.name || t("settings.account.defaultName");
   const providerSummary =
     accountMethods.length > 1
-      ? `${accountMethods.length} วิธีเข้าสู่ระบบ`
-      : accountMethods[0]?.label || "อีเมลและรหัสผ่าน";
+      ? t("settings.account.methodCount", { count: accountMethods.length })
+      : getAccountMethodLabel(accountMethods[0], t);
 
   return (
     <div className="flex flex-col gap-5">
-      <MascotTip mood="normal" title="พอดีเก็บข้อมูลไว้ในฐานข้อมูลของแอป">
-        รายการเงิน หมวดหมู่ และเป้าหมายผูกกับบัญชีที่เข้าสู่ระบบอยู่
-        แต่ยังไม่ได้เชื่อมธนาคารหรือซิงก์กับคลาวด์ภายนอก
+      <MascotTip mood="normal" title={t("settings.account.mascotTitle")}>
+        {t("settings.account.mascotDescription")}
       </MascotTip>
       <Card>
         <CardHeader className="gap-2">
-          <CardTitle>หน้าตาแอป</CardTitle>
+          <CardTitle>{t("settings.appearance.title")}</CardTitle>
           <p className="text-muted text-sm leading-6">
-            เลือกโหมดสีที่สบายตา ค่าเลือกนี้จะจำไว้เฉพาะเครื่องนี้
+            {t("settings.appearance.description")}
           </p>
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]">
@@ -595,9 +620,11 @@ function AccountSection({
                 <AccountAvatar user={user} size="lg" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <CardTitle className="text-lg">บัญชี</CardTitle>
+                    <CardTitle className="text-lg">
+                      {t("settings.account.title")}
+                    </CardTitle>
                     <Badge tone="teal" className="rounded-md">
-                      พร้อมใช้งาน
+                      {t("settings.account.ready")}
                     </Badge>
                   </div>
                   <p className="text-ink mt-3 truncate text-base font-semibold">
@@ -613,7 +640,7 @@ function AccountSection({
                 aria-hidden="true"
                 className="border-line bg-sky/50 hidden min-w-[11rem] rounded-[14px] border px-4 py-3 text-sm sm:block"
               >
-                <p className="text-muted">เข้าสู่ระบบด้วย</p>
+                <p className="text-muted">{t("settings.account.signInWith")}</p>
                 <p className="text-ink mt-1 font-semibold">{providerSummary}</p>
               </div>
             </div>
@@ -621,12 +648,11 @@ function AccountSection({
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="text-teal h-4 w-4" />
                 <p className="text-ink text-sm font-semibold">
-                  ข้อมูลผูกกับบัญชีนี้
+                  {t("settings.account.scopedDataTitle")}
                 </p>
               </div>
               <p className="text-muted text-sm leading-6">
-                รายการเงิน หมวดหมู่ และเป้าหมายถูกอ่าน/เขียนผ่านฐานข้อมูลของแอป
-                โดยแยกตามผู้ใช้ที่เข้าสู่ระบบ
+                {t("settings.account.scopedDataDescription")}
               </p>
             </div>
           </div>
@@ -636,7 +662,7 @@ function AccountSection({
             <div className="mb-4 flex items-center gap-2">
               <ShieldCheck className="text-teal h-5 w-5" />
               <h2 className="text-ink text-sm font-semibold">
-                วิธีเข้าสู่ระบบที่ผูกไว้
+                {t("settings.account.methodsTitle")}
               </h2>
             </div>
             <div className="flex flex-col gap-3">
@@ -650,33 +676,35 @@ function AccountSection({
             <div className="mb-4 flex items-center gap-2">
               <Database className="text-teal h-5 w-5" />
               <h2 className="text-ink text-sm font-semibold">
-                ข้อมูลและการเชื่อมต่อ
+                {t("settings.account.dataTitle")}
               </h2>
             </div>
             <div className="grid gap-3">
               <AccountStatusItem
                 icon={Database}
-                title="ฐานข้อมูลของแอป"
-                description="ข้อมูลการเงินบันทึกแยกตามบัญชีผู้ใช้ในระบบพอดี"
+                title={t("settings.account.appDatabaseTitle")}
+                description={t("settings.account.appDatabaseDescription")}
               />
               <AccountStatusItem
                 icon={CloudOff}
-                title="ยังไม่ซิงก์ภายนอก"
-                description="ยังไม่ได้เชื่อมธนาคาร คลาวด์ หรืออุปกรณ์อื่น"
+                title={t("settings.account.noSyncTitle")}
+                description={t("settings.account.noSyncDescription")}
               />
               <AccountStatusItem
                 icon={WifiOff}
-                title="ใช้งานจาก session นี้"
-                description="เมื่อออกจากระบบ เครื่องนี้จะต้องเข้าสู่ระบบใหม่"
+                title={t("settings.account.sessionTitle")}
+                description={t("settings.account.sessionDescription")}
               />
             </div>
           </div>
 
           <div className="border-line flex flex-col gap-3 border-t p-5 md:flex-row md:items-center md:justify-between lg:col-span-2">
             <div className="min-w-0">
-              <p className="text-ink text-sm font-semibold">ออกจากบัญชีนี้</p>
+              <p className="text-ink text-sm font-semibold">
+                {t("settings.account.logoutTitle")}
+              </p>
               <p className="text-muted mt-1 text-sm leading-6">
-                ใช้เมื่อจบงานบนเครื่องร่วมกัน ครั้งถัดไปต้องเข้าสู่ระบบใหม่
+                {t("settings.account.logoutDescription")}
               </p>
             </div>
             <Form method="post" action="/logout" className="shrink-0">
@@ -686,7 +714,7 @@ function AccountSection({
                 className="w-full md:w-auto"
               >
                 <LogOut className="h-4 w-4" />
-                ออกจากระบบ
+                {t("shell.logout")}
               </Button>
             </Form>
           </div>
@@ -694,9 +722,14 @@ function AccountSection({
       </Card>
     </div>
   );
-}
+};
 
-function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
+const SecuritySection = ({
+  actionData,
+}: {
+  actionData: PasswordActionData;
+}) => {
+  const t = usePordeeTranslation();
   const navigation = useNavigation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -721,9 +754,9 @@ function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
             <KeyRound className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <CardTitle>รหัสผ่าน</CardTitle>
+            <CardTitle>{t("settings.security.title")}</CardTitle>
             <p className="text-muted mt-2 text-sm leading-6">
-              เปลี่ยนรหัสผ่านสำหรับการเข้าสู่ระบบบัญชีนี้
+              {t("settings.security.description")}
             </p>
           </div>
         </div>
@@ -735,13 +768,13 @@ function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
           {isSuccess && (
             <div className="border-line bg-sky text-ink flex items-center gap-2 rounded-[12px] border px-3 py-2 text-sm">
               <CheckCircle2 className="text-teal h-4 w-4" />
-              {actionData.message}
+              {t(actionData.message)}
             </div>
           )}
 
           {isError && actionData.errors.general && (
             <p className="text-coral-strong text-sm">
-              {actionData.errors.general}
+              {t(actionData.errors.general)}
             </p>
           )}
 
@@ -749,7 +782,7 @@ function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
             autoComplete="current-password"
             error={isError ? actionData.errors.currentPassword : undefined}
             id="current-password"
-            label="รหัสผ่านปัจจุบัน"
+            label={t("settings.security.currentPassword")}
             name="currentPassword"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.currentTarget.value)}
@@ -759,7 +792,7 @@ function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
             autoComplete="new-password"
             error={isError ? actionData.errors.newPassword : undefined}
             id="new-password"
-            label="รหัสผ่านใหม่"
+            label={t("settings.security.newPassword")}
             name="newPassword"
             value={newPassword}
             onChange={(event) => setNewPassword(event.currentTarget.value)}
@@ -771,7 +804,7 @@ function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
             autoComplete="new-password"
             error={isError ? actionData.errors.confirmPassword : undefined}
             id="confirm-password"
-            label="ยืนยันรหัสผ่านใหม่"
+            label={t("settings.security.confirmPassword")}
             name="confirmPassword"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.currentTarget.value)}
@@ -780,11 +813,13 @@ function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
           <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center">
             <Button type="submit" variant="teal" disabled={!canSubmit}>
               <Save className="h-4 w-4" />
-              {isSubmitting ? "กำลังเปลี่ยนรหัสผ่าน" : "เปลี่ยนรหัสผ่าน"}
+              {isSubmitting
+                ? t("settings.security.submitting")
+                : t("settings.security.submit")}
             </Button>
             {confirmPassword.length > 0 && newPassword !== confirmPassword && (
               <p className="text-coral-strong text-sm">
-                รหัสผ่านใหม่และช่องยืนยันไม่ตรงกัน
+                {t("settings.security.confirmMismatch")}
               </p>
             )}
           </div>
@@ -792,9 +827,9 @@ function SecuritySection({ actionData }: { actionData: PasswordActionData }) {
       </CardContent>
     </Card>
   );
-}
+};
 
-function PasswordField({
+const PasswordField = ({
   error,
   id,
   label,
@@ -804,8 +839,9 @@ function PasswordField({
   id: string;
   label: string;
   name: string;
-}) {
+}) => {
   const [isVisible, setIsVisible] = useState(false);
+  const t = usePordeeTranslation();
 
   return (
     <div className="flex flex-col gap-2">
@@ -819,7 +855,11 @@ function PasswordField({
         />
         <button
           type="button"
-          aria-label={isVisible ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+          aria-label={
+            isVisible
+              ? t("settings.security.hidePassword")
+              : t("settings.security.showPassword")
+          }
           className="text-muted hover:text-ink focus-visible:ring-coral/40 absolute top-1/2 right-3 inline-flex -translate-y-1/2 items-center justify-center rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
           onClick={() => setIsVisible((value) => !value)}
         >
@@ -830,14 +870,19 @@ function PasswordField({
           )}
         </button>
       </div>
-      {error && <p className="text-coral-strong text-sm">{error}</p>}
+      {error && <p className="text-coral-strong text-sm">{t(error)}</p>}
     </div>
   );
-}
+};
 
-function PasswordRequirementList({ password }: { password: string }) {
+const PasswordRequirementList = ({ password }: { password: string }) => {
+  const t = usePordeeTranslation();
+
   return (
-    <ul className="flex flex-col gap-2" aria-label="เงื่อนไขรหัสผ่านใหม่">
+    <ul
+      className="flex flex-col gap-2"
+      aria-label={t("settings.security.rulesAriaLabel")}
+    >
       {passwordRules.map((rule) => {
         const passed = rule.test(password);
         return (
@@ -853,15 +898,15 @@ function PasswordRequirementList({ password }: { password: string }) {
             ) : (
               <Circle className="h-4 w-4 shrink-0" />
             )}
-            <span>{rule.label}</span>
+            <span>{t(`settings.security.rule.${rule.id}`)}</span>
           </li>
         );
       })}
     </ul>
   );
-}
+};
 
-function SettingsPlaceholderSection({
+const SettingsPlaceholderSection = ({
   description,
   icon: Icon,
   title,
@@ -869,7 +914,7 @@ function SettingsPlaceholderSection({
   description: string;
   icon: ComponentType<{ className?: string }>;
   title: string;
-}) {
+}) => {
   return (
     <Card className="rounded-[18px]">
       <CardContent className="flex items-start gap-3 p-5">
@@ -883,9 +928,9 @@ function SettingsPlaceholderSection({
       </CardContent>
     </Card>
   );
-}
+};
 
-function getSettingsTab(searchParams: URLSearchParams): SettingsTab {
+const getSettingsTab = (searchParams: URLSearchParams): SettingsTab => {
   const tab = searchParams.get("tab");
   if (
     tab === "account" ||
@@ -898,55 +943,61 @@ function getSettingsTab(searchParams: URLSearchParams): SettingsTab {
   }
 
   return "categories";
-}
+};
 
-function getSelectedTab(
+const getSelectedTab = (
   actionData: ActionResult,
   searchParams: URLSearchParams
-): SettingsTab {
+): SettingsTab => {
   if (actionData?.intent === "changePassword") return "security";
   if (actionData?.intent && isCategoryIntent(actionData.intent)) {
     return "categories";
   }
 
   return getSettingsTab(searchParams);
-}
+};
 
-function getCategoryActionData(actionData: ActionResult): CategoryActionData {
+const getCategoryActionData = (
+  actionData: ActionResult
+): CategoryActionData => {
   if (actionData?.ok === false && isCategoryIntent(actionData.intent)) {
     return actionData as CategoryActionData;
   }
 
   return undefined;
-}
+};
 
-function getPasswordActionData(actionData: ActionResult): PasswordActionData {
+const getPasswordActionData = (
+  actionData: ActionResult
+): PasswordActionData => {
   if (actionData?.intent === "changePassword") {
     return actionData as PasswordActionData;
   }
   return undefined;
-}
+};
 
-function isSettingsIntent(
+const isSettingsIntent = (
   value: FormDataEntryValue | null
-): value is SettingsIntent {
+): value is SettingsIntent => {
   return (
     value === "createCategory" ||
     value === "updateCategory" ||
     value === "deleteCategory" ||
     value === "changePassword"
   );
-}
+};
 
-function isCategoryIntent(intent: SettingsIntent): intent is CategoryIntent {
+const isCategoryIntent = (intent: SettingsIntent): intent is CategoryIntent => {
   return (
     intent === "createCategory" ||
     intent === "updateCategory" ||
     intent === "deleteCategory"
   );
-}
+};
 
-function AccountMethodRow({ method }: { method: AccountMethod }) {
+const AccountMethodRow = ({ method }: { method: AccountMethod }) => {
+  const t = usePordeeTranslation();
+
   return (
     <div className="border-line bg-surface flex min-w-0 items-start gap-3 rounded-[12px] border p-3">
       <div className="bg-sky text-teal flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]">
@@ -954,26 +1005,28 @@ function AccountMethodRow({ method }: { method: AccountMethod }) {
       </div>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-ink text-sm font-semibold">{method.label}</p>
+          <p className="text-ink text-sm font-semibold">
+            {getAccountMethodLabel(method, t)}
+          </p>
           <Badge tone="muted" className="rounded-md">
-            ผูกแล้ว
+            {t("settings.account.linked")}
           </Badge>
         </div>
         <p className="text-muted mt-1 text-sm leading-6 break-words">
-          {method.description}
+          {getAccountMethodDescription(method, t)}
         </p>
       </div>
     </div>
   );
-}
+};
 
-function AccountMethodIcon({ providerId }: { providerId: string }) {
+const AccountMethodIcon = ({ providerId }: { providerId: string }) => {
   if (providerId === "google") return <Link2 className="h-5 w-5" />;
   if (providerId === "credential") return <KeyRound className="h-5 w-5" />;
   return <ShieldCheck className="h-5 w-5" />;
-}
+};
 
-function AccountStatusItem({
+const AccountStatusItem = ({
   description,
   icon: Icon,
   title,
@@ -981,7 +1034,7 @@ function AccountStatusItem({
   description: string;
   icon: ComponentType<{ className?: string }>;
   title: string;
-}) {
+}) => {
   return (
     <div className="flex min-w-0 gap-3">
       <div className="border-line flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border">
@@ -993,12 +1046,12 @@ function AccountStatusItem({
       </div>
     </div>
   );
-}
+};
 
-async function listAccountMethods(
+const listAccountMethods = async (
   request: Request,
   email: string
-): Promise<AccountMethod[]> {
+): Promise<AccountMethod[]> => {
   try {
     const accounts = await auth.api.listUserAccounts({
       headers: request.headers,
@@ -1007,12 +1060,12 @@ async function listAccountMethods(
   } catch {
     return mapAccountMethods([], email);
   }
-}
+};
 
-function mapAccountMethods(
+const mapAccountMethods = (
   accounts: Array<{ providerId: string }>,
   email: string
-): AccountMethod[] {
+): AccountMethod[] => {
   const providerIds = [
     ...new Set(accounts.map((account) => account.providerId)),
   ];
@@ -1024,14 +1077,14 @@ function mapAccountMethods(
       return {
         providerId,
         label: "Google",
-        description: "ใช้บัญชี Google เพื่อเข้าสู่ระบบพอดี",
+        description: "settings.account.googleDescription",
       };
     }
 
     if (providerId === "credential") {
       return {
         providerId,
-        label: "อีเมลและรหัสผ่าน",
+        label: "settings.account.emailPassword",
         description: email,
       };
     }
@@ -1039,17 +1092,35 @@ function mapAccountMethods(
     return {
       providerId,
       label: providerId,
-      description: "provider นี้ผูกอยู่กับบัญชีพอดี",
+      description: "settings.account.genericProviderDescription",
     };
   });
-}
+};
 
-function CreateCategoryForm({
+const getAccountMethodLabel = (
+  method: AccountMethod | undefined,
+  t: Translate
+) => {
+  if (!method) return t("settings.account.emailPassword");
+  if (method.providerId === "google") return "Google";
+  if (method.providerId === "credential")
+    return t("settings.account.emailPassword");
+  return method.label;
+};
+
+const getAccountMethodDescription = (method: AccountMethod, t: Translate) => {
+  if (method.providerId === "google") return t(method.description);
+  if (method.providerId === "credential") return method.description;
+  return t(method.description);
+};
+
+const CreateCategoryForm = ({
   actionData,
 }: {
   actionData: CategoryActionData;
-}) {
+}) => {
   const isCreateError = actionData?.intent === "createCategory";
+  const t = usePordeeTranslation();
 
   return (
     <Form
@@ -1058,46 +1129,56 @@ function CreateCategoryForm({
     >
       <input type="hidden" name="intent" value="createCategory" />
       <div className="flex flex-col gap-2">
-        <Label htmlFor="new-category-name">ชื่อหมวดใหม่</Label>
+        <Label htmlFor="new-category-name">
+          {t("settings.categoryForm.nameLabel")}
+        </Label>
         <Input
           id="new-category-name"
           name="name"
           defaultValue={isCreateError ? actionData.values.name : ""}
-          placeholder="เช่น ของใช้บ้าน"
+          placeholder={t("settings.categoryForm.namePlaceholder")}
         />
         {isCreateError && actionData.errors.name && (
-          <p className="text-coral-strong text-sm">{actionData.errors.name}</p>
+          <p className="text-coral-strong text-sm">
+            {t(actionData.errors.name)}
+          </p>
         )}
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="new-category-kind">ประเภท</Label>
+        <Label htmlFor="new-category-kind">{t("transaction.kind.label")}</Label>
         <Select
           name="kind"
           defaultValue={isCreateError ? actionData.values.kind : "expense"}
         >
           <SelectTrigger id="new-category-kind">
-            <SelectValue placeholder="รายจ่าย" />
+            <SelectValue placeholder={t("transaction.kind.expense")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="expense">รายจ่าย</SelectItem>
-            <SelectItem value="income">รายรับ</SelectItem>
+            <SelectItem value="expense">
+              {t("transaction.kind.expense")}
+            </SelectItem>
+            <SelectItem value="income">
+              {t("transaction.kind.income")}
+            </SelectItem>
           </SelectContent>
         </Select>
         {isCreateError && actionData.errors.kind && (
-          <p className="text-coral-strong text-sm">{actionData.errors.kind}</p>
+          <p className="text-coral-strong text-sm">
+            {t(actionData.errors.kind)}
+          </p>
         )}
       </div>
       <div className="flex items-end">
         <Button type="submit" className="w-full md:w-auto">
           <Plus className="h-4 w-4" />
-          เพิ่มหมวด
+          {t("settings.categoryForm.submit")}
         </Button>
       </div>
     </Form>
   );
-}
+};
 
-function CategoryGroup({
+const CategoryGroup = ({
   actionData,
   categories,
   kind,
@@ -1109,17 +1190,23 @@ function CategoryGroup({
   kind: TransactionKind;
   title: string;
   usageByCategoryId: Record<string, number>;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <section className="border-line bg-surface rounded-md border">
       <div className="border-line flex items-center justify-between border-b px-4 py-3">
         <h2 className="text-ink text-base font-semibold">{title}</h2>
-        <span className="text-muted text-sm">{categories.length} หมวด</span>
+        <span className="text-muted text-sm">
+          {t("settings.categories.count", { count: categories.length })}
+        </span>
       </div>
       <div className="divide-line divide-y">
         {categories.length === 0 ? (
           <p className="text-muted px-4 py-4 text-sm">
-            ยังไม่มีหมวด{labelKind(kind)}
+            {t("settings.categories.emptyKind", {
+              kind: labelKind(kind, t),
+            })}
           </p>
         ) : (
           categories.map((category) => (
@@ -1134,9 +1221,9 @@ function CategoryGroup({
       </div>
     </section>
   );
-}
+};
 
-function CategoryRow({
+const CategoryRow = ({
   actionData,
   category,
   usageCount,
@@ -1144,12 +1231,13 @@ function CategoryRow({
   actionData: CategoryActionData;
   category: Category;
   usageCount: number;
-}) {
+}) => {
   const isRowError =
     actionData?.values.categoryId === category.id &&
     actionData.intent !== "createCategory";
   const canDelete = usageCount === 0;
   const deleteFormId = `delete-category-${category.id}`;
+  const t = usePordeeTranslation();
 
   return (
     <div className="flex flex-col gap-2 px-4 py-3" data-testid="category-row">
@@ -1158,7 +1246,9 @@ function CategoryRow({
           <input type="hidden" name="intent" value="updateCategory" />
           <input type="hidden" name="categoryId" value={category.id} />
           <Input
-            aria-label={`ชื่อหมวด ${category.name}`}
+            aria-label={t("settings.categoryRow.nameAriaLabel", {
+              name: category.name,
+            })}
             name="name"
             defaultValue={
               isRowError && actionData?.values.name
@@ -1168,7 +1258,7 @@ function CategoryRow({
           />
           <Button type="submit" variant="secondary">
             <Save className="h-4 w-4" />
-            บันทึก
+            {t("common.save")}
           </Button>
         </Form>
         <Form id={deleteFormId} method="post" className="hidden">
@@ -1184,19 +1274,22 @@ function CategoryRow({
               className="text-coral-strong border-coral/40 hover:bg-coral/10 w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
-              ลบ
+              {t("common.delete")}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>ลบหมวดนี้?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {t("settings.categoryDelete.title")}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                หมวด “{category.name}” จะถูกลบออกจากรายการหมวดหมู่
-                การลบนี้ย้อนกลับไม่ได้
+                {t("settings.categoryDelete.description", {
+                  name: category.name,
+                })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction asChild>
                 <button
                   type="button"
@@ -1209,7 +1302,7 @@ function CategoryRow({
                   }
                   className="focus-visible:ring-coral/40 bg-coral hover:bg-coral-strong inline-flex h-10 items-center justify-center rounded-[12px] px-4 text-sm font-medium whitespace-nowrap text-white transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                 >
-                  ลบหมวด
+                  {t("settings.categoryDelete.confirm")}
                 </button>
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -1218,28 +1311,34 @@ function CategoryRow({
       </div>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted text-sm">
-          {usageCount > 0 ? `ใช้กับ ${usageCount} รายการ` : "ยังไม่มีรายการใช้"}
+          {usageCount > 0
+            ? t("settings.categoryRow.usage", { count: usageCount })
+            : t("settings.categoryRow.noUsage")}
         </p>
         {!canDelete && (
-          <p className="text-muted text-sm">ลบไม่ได้ แต่แก้ชื่อได้</p>
+          <p className="text-muted text-sm">
+            {t("settings.categoryRow.cannotDelete")}
+          </p>
         )}
       </div>
       {isRowError && actionData?.errors.name && (
-        <p className="text-coral-strong text-sm">{actionData.errors.name}</p>
+        <p className="text-coral-strong text-sm">{t(actionData.errors.name)}</p>
       )}
       {isRowError && actionData?.errors.general && (
-        <p className="text-coral-strong text-sm">{actionData.errors.general}</p>
+        <p className="text-coral-strong text-sm">
+          {t(actionData.errors.general)}
+        </p>
       )}
     </div>
   );
-}
+};
 
-async function findDuplicateCategory(
+const findDuplicateCategory = async (
   userId: string,
   name: string,
   kind: TransactionKind,
   exceptId?: string
-) {
+) => {
   const normalizedName = normalizeCategoryName(name);
   const categories = await repo.listCategories(userId);
   return categories.find(
@@ -1248,42 +1347,44 @@ async function findDuplicateCategory(
       category.kind === kind &&
       normalizeCategoryName(category.name) === normalizedName
   );
-}
+};
 
-function fieldError(
+const fieldError = (
   intent: SettingsIntent,
   errors: ActionErrors,
   form: FormData
-): Exclude<ActionResult, undefined> {
+): Exclude<ActionResult, undefined> => {
   return {
     ok: false,
     intent,
     errors,
     values: formValues(form),
   };
-}
+};
 
-function formValues(form: FormData) {
+const formValues = (form: FormData) => {
   return {
     categoryId: String(form.get("categoryId") ?? ""),
     kind: String(form.get("kind") ?? "expense"),
     name: String(form.get("name") ?? ""),
   };
-}
+};
 
-function labelKind(kind: TransactionKind) {
-  return kind === "income" ? "รายรับ" : "รายจ่าย";
-}
+const labelKind = (kind: TransactionKind, t: Translate) => {
+  return kind === "income"
+    ? t("transaction.kind.income")
+    : t("transaction.kind.expense");
+};
 
-function normalizeCategoryName(name: string) {
+const normalizeCategoryName = (name: string) => {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("th-TH");
-}
+};
 
-function zodFieldError(
+const zodFieldError = (
   intent: SettingsIntent,
   issues: Array<{ path: PropertyKey[]; message: string }>,
   form: FormData
-): Exclude<ActionResult, undefined> {
+): Exclude<ActionResult, undefined> => {
   const errors: ActionErrors = {};
   for (const issue of issues) {
     const key = issue.path[0];
@@ -1301,4 +1402,4 @@ function zodFieldError(
     }
   }
   return fieldError(intent, errors, form);
-}
+};

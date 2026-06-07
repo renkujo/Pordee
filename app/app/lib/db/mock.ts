@@ -27,7 +27,7 @@ const DEFAULT_CATEGORIES: Array<Pick<Category, "name" | "kind">> = [
   { name: "งานเสริม", kind: "income" },
 ];
 
-function emptyStore(): Store {
+const emptyStore = (): Store => {
   return {
     seededUsers: new Set<string>(),
     categories: [],
@@ -35,28 +35,28 @@ function emptyStore(): Store {
     goals: [],
     contributions: [],
   };
-}
+};
 
 const store: Store = (globalThis.__pordeeStore ??= emptyStore());
 
-function nowIso() {
+const nowIso = () => {
   return new Date().toISOString();
-}
+};
 
-function inRange(occurredAt: string, from?: string, to?: string) {
+const inRange = (occurredAt: string, from?: string, to?: string) => {
   if (from && occurredAt < from) return false;
   if (to && occurredAt > to) return false;
   return true;
-}
+};
 
 // Seed the default category set the first time we see a user.
-function ensureSeeded(userId: string) {
+const ensureSeeded = (userId: string) => {
   if (store.seededUsers.has(userId)) return;
   store.seededUsers.add(userId);
   for (const def of DEFAULT_CATEGORIES) {
     store.categories.push({ id: randomUUID(), userId, ...def });
   }
-}
+};
 
 export const mockRepo: PordeeRepo = {
   async listCategories(userId) {

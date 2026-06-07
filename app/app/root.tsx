@@ -47,10 +47,10 @@ const themeInitializationScript = `
   const lightColor = "#EAF7FF";
   const darkColor = "#10181D";
 
-  function resolveTheme(preference) {
+  const resolveTheme = (preference) => {
     if (preference === "light" || preference === "dark") return preference;
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
+  };
 
   try {
     const storedPreference = window.localStorage.getItem(storageKey);
@@ -73,7 +73,7 @@ const themeInitializationScript = `
 })();
 `;
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="th" suppressHydrationWarning>
       <head>
@@ -110,13 +110,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   );
-}
+};
 
-export default function App() {
+const App = () => {
   return <Outlet />;
-}
+};
 
-export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+export default App;
+
+export const ErrorBoundary = ({ error }: Route.ErrorBoundaryProps) => {
   let message = "ไม่พบหน้านี้";
   let details = "เกิดข้อผิดพลาดที่เราไม่ได้คาดไว้";
   let stack: string | undefined;
@@ -143,4 +145,4 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       )}
     </main>
   );
-}
+};

@@ -8,8 +8,9 @@ import { getMonthRange } from "~/lib/date/month-range";
 import { fmtBaht } from "~/lib/format/baht";
 import { getSharePercent } from "~/lib/format/progress";
 import { cn } from "~/lib/cn";
+import { usePordeeLocale, usePordeeTranslation } from "~/lib/i18n/provider";
 
-export function meta(_: Route.MetaArgs) {
+export const meta = (_: Route.MetaArgs) => {
   return [
     { title: "พอดี — กระเป๋า" },
     {
@@ -17,16 +18,16 @@ export function meta(_: Route.MetaArgs) {
       content: "แยกเงินเป็นกระเป๋าย่อย เพื่อดูเงินที่ยังใช้ได้ง่ายขึ้น",
     },
   ];
-}
+};
 
 type PocketStatus = "empty" | "low" | "normal" | "over";
 
 interface PocketCta {
   to: string;
-  label: string;
+  labelKey: string;
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   const now = new Date();
   const { from, to } = getMonthRange(now);
@@ -108,13 +109,13 @@ export async function loader({ request }: Route.LoaderArgs) {
   const pockets = [
     {
       id: "daily",
-      title: "ใช้จ่ายประจำวัน",
-      description: "เงินสำหรับใช้จ่ายเล็ก ๆ ระหว่างวัน",
+      titleKey: "wallet.pocket.daily.title",
+      descriptionKey: "wallet.pocket.daily.description",
       amount: dailyRemaining,
       target: dailyTarget,
       spent: foodSpent,
-      spentLabel: "ใช้ไปกับอาหารเดือนนี้",
-      cta: { to: "/add", label: "บันทึกรายจ่าย" },
+      spentLabelKey: "wallet.pocket.daily.spentLabel",
+      cta: { to: "/add", labelKey: "wallet.pocket.daily.cta" },
       mascot: "/brand/mascots/happy.png",
       surfaceClass: "bg-teal/10",
       amountClass: "text-teal",
@@ -122,13 +123,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     },
     {
       id: "travel",
-      title: "เดินทาง",
-      description: "ค่าเดินทางที่อยากกันไว้ก่อนออกจากบ้าน",
+      titleKey: "wallet.pocket.travel.title",
+      descriptionKey: "wallet.pocket.travel.description",
       amount: travelRemaining,
       target: travelTarget,
       spent: travelSpent,
-      spentLabel: "ใช้ไปกับการเดินทางเดือนนี้",
-      cta: { to: "/history", label: "ดูรายการเดินทาง" },
+      spentLabelKey: "wallet.pocket.travel.spentLabel",
+      cta: { to: "/history", labelKey: "wallet.pocket.travel.cta" },
       mascot: "/brand/mascots/normal.png",
       surfaceClass: "bg-lime/25",
       amountClass: "text-ink",
@@ -136,13 +137,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     },
     {
       id: "bills",
-      title: "เตรียมจ่ายบิล",
-      description: "แยกเงินไว้ก่อนถึงวันจ่ายจริง",
+      titleKey: "wallet.pocket.bills.title",
+      descriptionKey: "wallet.pocket.bills.description",
       amount: billsRemaining,
       target: billsTarget,
       spent: billsSpent,
-      spentLabel: "จ่ายบิลไปแล้วเดือนนี้",
-      cta: { to: "/history", label: "ดูบิลที่จ่ายแล้ว" },
+      spentLabelKey: "wallet.pocket.bills.spentLabel",
+      cta: { to: "/history", labelKey: "wallet.pocket.bills.cta" },
       mascot: "/brand/mascots/thinking.png",
       surfaceClass: "bg-coral/10",
       amountClass: "text-coral",
@@ -150,13 +151,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     },
     {
       id: "reserve",
-      title: "เงินสำรอง",
-      description: "เงินกันไว้ เผื่อเดือนนี้มีเรื่องไม่คาดคิด",
+      titleKey: "wallet.pocket.reserve.title",
+      descriptionKey: "wallet.pocket.reserve.description",
       amount: reserved,
       target: finalReserveTarget,
       spent: 0,
-      spentLabel: "เก็บเข้าเป้าหมายแล้ว",
-      cta: { to: "/goals", label: "เติมเงินสำรอง" },
+      spentLabelKey: "wallet.pocket.reserve.spentLabel",
+      cta: { to: "/goals", labelKey: "wallet.pocket.reserve.cta" },
       mascot: "/brand/mascots/saving.png",
       surfaceClass: "bg-line/35",
       amountClass: "text-teal",
@@ -172,8 +173,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       categoryId,
       name:
         categoryId === "uncategorized"
-          ? "ไม่ระบุหมวด"
-          : (categoryNameById[categoryId] ?? "ไม่ระบุหมวด"),
+          ? null
+          : (categoryNameById[categoryId] ?? null),
       amount,
     }))
     .sort((a, b) => b.amount - a.amount)
@@ -184,6 +185,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       month: "long",
       year: "numeric",
     }),
+    monthDate: now.toISOString(),
     summary: {
       monthIncome,
       monthExpense,
@@ -209,16 +211,16 @@ export async function loader({ request }: Route.LoaderArgs) {
     hasAnyData: allTx.length > 0 || goals.length > 0,
     hasMonthData: monthTx.length > 0,
   };
-}
+};
 
 interface PocketView {
   id: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   amount: number;
   target: number;
   spent: number;
-  spentLabel: string;
+  spentLabelKey: string;
   cta: PocketCta;
   percent: number;
   status: PocketStatus;
@@ -228,9 +230,9 @@ interface PocketView {
   barClass: string;
 }
 
-export default function Wallet() {
+const Wallet = () => {
   const {
-    monthLabel,
+    monthDate,
     summary,
     separatedTotal,
     pockets,
@@ -239,22 +241,32 @@ export default function Wallet() {
     hasAnyData,
     hasMonthData,
   } = useLoaderData<typeof loader>();
+  const { locale } = usePordeeLocale();
+  const t = usePordeeTranslation();
+  const monthLabel = new Intl.DateTimeFormat(
+    locale === "th" ? "th-TH" : "en-US",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  ).format(new Date(monthDate));
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:gap-6">
       <header className="flex flex-col gap-2">
-        <p className="text-muted text-sm">จัดสรรเงินเดือนนี้ · {monthLabel}</p>
+        <p className="text-muted text-sm">
+          {t("wallet.header.kicker", { month: monthLabel })}
+        </p>
         <h1 className="text-ink text-3xl font-semibold tracking-tight">
-          กระเป๋าของฉัน
+          {t("wallet.title")}
         </h1>
         <p className="text-muted max-w-2xl text-sm leading-6">
-          แยกเงินเป็นกระเป๋าเล็ก ๆ ให้เห็นง่ายขึ้นว่าเงินส่วนไหนยังใช้ได้
-          และส่วนไหนควรกันไว้
+          {t("wallet.description")}
         </p>
       </header>
 
       <section
-        aria-label="ภาพรวมเงินที่ใช้ได้"
+        aria-label={t("wallet.summary.ariaLabel")}
         className="border-line bg-surface overflow-hidden rounded-lg border"
       >
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -262,7 +274,7 @@ export default function Wallet() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-ink text-sm font-semibold">
-                  เงินที่ยังใช้ได้
+                  {t("wallet.summary.available")}
                 </p>
                 <p
                   className={cn(
@@ -274,44 +286,44 @@ export default function Wallet() {
                   {fmtBaht(summary.available)}
                 </p>
                 <p className="text-muted mt-2 text-sm">
-                  หลังหักรายจ่ายและเงินที่กันไว้ในเป้าหมายแล้ว
+                  {t("wallet.summary.availableDescription")}
                 </p>
               </div>
               <Button asChild className="w-full sm:w-auto" variant="teal">
                 <Link to="/add">
                   <Plus className="h-4 w-4" />
-                  บันทึกรายการ
+                  {t("shell.addTransaction")}
                 </Link>
               </Button>
             </div>
 
             <div className="border-line bg-surface rounded-md border p-3 sm:p-4">
               <p className="text-ink text-sm font-semibold">
-                {getDailySafeTitle(summary.available, summary.daysLeft)}
+                {getDailySafeTitle(summary.available, summary.daysLeft, t)}
               </p>
               <p className="text-muted mt-1 text-sm leading-6">
-                {getDailySafeCopy(summary)}
+                {getDailySafeCopy(summary, t)}
               </p>
             </div>
           </div>
 
           <div className="border-line grid grid-cols-2 gap-0 border-t lg:border-t-0 lg:border-l">
             <SummaryTile
-              label="รายรับเดือนนี้"
+              label={t("wallet.summary.monthIncome")}
               value={fmtBaht(summary.monthIncome)}
               tone="teal"
             />
             <SummaryTile
-              label="รายจ่ายเดือนนี้"
+              label={t("wallet.summary.monthExpense")}
               value={fmtBaht(summary.monthExpense)}
               tone="coral"
             />
             <SummaryTile
-              label="กันไว้ในเป้าหมาย"
+              label={t("wallet.summary.reserved")}
               value={fmtBaht(summary.reserved)}
             />
             <SummaryTile
-              label="แยกไว้ในกระเป๋า"
+              label={t("wallet.summary.separated")}
               value={fmtBaht(separatedTotal)}
             />
           </div>
@@ -319,7 +331,7 @@ export default function Wallet() {
       </section>
 
       <section
-        aria-label="รายการกระเป๋าย่อย"
+        aria-label={t("wallet.pockets.ariaLabel")}
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
       >
         {pockets.map((pocket) => (
@@ -345,17 +357,16 @@ export default function Wallet() {
               />
               <div>
                 <h2 className="text-ink text-base font-semibold">
-                  เริ่มจากรายการแรกก่อน
+                  {t("wallet.empty.title")}
                 </h2>
                 <p className="text-muted mt-1 max-w-2xl text-sm leading-6">
-                  เมื่อมีรายรับ รายจ่าย หรือเป้าหมายเก็บเงิน พอดีจะแยกภาพรวม
-                  ให้เห็นว่าเงินส่วนไหนยังใช้ได้ และส่วนไหนควรกันไว้
+                  {t("wallet.empty.description")}
                 </p>
               </div>
             </div>
             <Button asChild className="w-full sm:w-auto">
               <Link to="/add">
-                บันทึกรายการ
+                {t("shell.addTransaction")}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -364,9 +375,11 @@ export default function Wallet() {
       )}
     </div>
   );
-}
+};
 
-function SummaryTile({
+export default Wallet;
+
+const SummaryTile = ({
   label,
   value,
   tone,
@@ -374,7 +387,7 @@ function SummaryTile({
   label: string;
   value: string;
   tone?: "teal" | "coral";
-}) {
+}) => {
   return (
     <div className="border-line flex min-h-24 flex-col justify-between border-r border-b p-4 even:border-r-0 sm:p-5">
       <p className="text-muted text-xs">{label}</p>
@@ -390,17 +403,18 @@ function SummaryTile({
       </p>
     </div>
   );
-}
-
-const statusMeta: Record<PocketStatus, { label: string; toneClass: string }> = {
-  empty: { label: "ยังไม่ได้กันเงิน", toneClass: "bg-sky text-muted" },
-  low: { label: "ใกล้หมด", toneClass: "bg-coral/10 text-coral" },
-  over: { label: "ใช้เกินที่กันไว้", toneClass: "bg-coral/10 text-coral" },
-  normal: { label: "กำลังพอดี", toneClass: "bg-teal/10 text-teal" },
 };
 
-function PocketCard({ pocket }: { pocket: PocketView }) {
+const statusMeta: Record<PocketStatus, { label: string; toneClass: string }> = {
+  empty: { label: "wallet.status.empty", toneClass: "bg-sky text-muted" },
+  low: { label: "wallet.status.low", toneClass: "bg-coral/10 text-coral" },
+  over: { label: "wallet.status.over", toneClass: "bg-coral/10 text-coral" },
+  normal: { label: "wallet.status.normal", toneClass: "bg-teal/10 text-teal" },
+};
+
+const PocketCard = ({ pocket }: { pocket: PocketView }) => {
   const status = statusMeta[pocket.status];
+  const t = usePordeeTranslation();
 
   return (
     <article className="border-line bg-surface flex flex-col overflow-hidden rounded-lg border">
@@ -420,22 +434,26 @@ function PocketCard({ pocket }: { pocket: PocketView }) {
 
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
-          <h2 className="text-ink text-base font-semibold">{pocket.title}</h2>
+          <h2 className="text-ink text-base font-semibold">
+            {t(pocket.titleKey)}
+          </h2>
           <span
             className={cn(
               "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
               status.toneClass
             )}
           >
-            {status.label}
+            {t(status.label)}
           </span>
         </div>
         <p className="text-muted mt-1 text-sm leading-6">
-          {pocket.description}
+          {t(pocket.descriptionKey)}
         </p>
 
         <div className="mt-auto pt-5">
-          <p className="text-muted text-sm font-semibold">เหลือใช้ได้</p>
+          <p className="text-muted text-sm font-semibold">
+            {t("wallet.pocket.available")}
+          </p>
           <p
             className={cn(
               "mt-1 text-2xl font-semibold tracking-tight",
@@ -451,14 +469,18 @@ function PocketCard({ pocket }: { pocket: PocketView }) {
             />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-xs">
-            <span className="text-muted">จาก {fmtBaht(pocket.target)}</span>
+            <span className="text-muted">
+              {t("wallet.pocket.fromTarget", {
+                amount: fmtBaht(pocket.target),
+              })}
+            </span>
             <span className={cn("font-semibold", pocket.amountClass)}>
               {pocket.percent}%
             </span>
           </div>
           {pocket.spent > 0 ? (
             <p className="text-muted mt-2 text-xs">
-              {pocket.spentLabel} {fmtBaht(pocket.spent)}
+              {t(pocket.spentLabelKey, { amount: fmtBaht(pocket.spent) })}
             </p>
           ) : null}
 
@@ -469,7 +491,7 @@ function PocketCard({ pocket }: { pocket: PocketView }) {
             className="mt-4 w-full justify-between"
           >
             <Link to={pocket.cta.to}>
-              {pocket.cta.label}
+              {t(pocket.cta.labelKey)}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
@@ -477,9 +499,9 @@ function PocketCard({ pocket }: { pocket: PocketView }) {
       </div>
     </article>
   );
-}
+};
 
-function SpendBreakdown({
+const SpendBreakdown = ({
   rows,
   totalExpense,
   hasMonthData,
@@ -487,19 +509,25 @@ function SpendBreakdown({
   rows: Awaited<ReturnType<typeof loader>>["spendBreakdown"];
   totalExpense: number;
   hasMonthData: boolean;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <section
-      aria-label="เงินหายไปไหน"
+      aria-label={t("wallet.breakdown.ariaLabel")}
       className="border-line bg-surface rounded-lg border"
     >
       <div className="border-line flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
         <div>
-          <h2 className="text-ink text-base font-semibold">เงินหายไปไหน</h2>
-          <p className="text-muted text-sm">หมวดที่ใช้เยอะที่สุดเดือนนี้</p>
+          <h2 className="text-ink text-base font-semibold">
+            {t("wallet.breakdown.title")}
+          </h2>
+          <p className="text-muted text-sm">
+            {t("wallet.breakdown.description")}
+          </p>
         </div>
         <Link to="/history" className="text-muted hover:text-ink text-xs">
-          เปิดประวัติ
+          {t("wallet.breakdown.openHistory")}
         </Link>
       </div>
 
@@ -515,11 +543,11 @@ function SpendBreakdown({
             <div>
               <p className="text-ink text-sm font-semibold">
                 {hasMonthData
-                  ? "ยังไม่มีรายจ่ายเดือนนี้"
-                  : "ยังไม่มีรายการเดือนนี้"}
+                  ? t("wallet.breakdown.emptyExpense")
+                  : t("wallet.breakdown.emptyMonth")}
               </p>
               <p className="text-muted mt-1 text-sm leading-6">
-                เมื่อมีรายจ่าย พอดีจะเรียงหมวดที่ใช้เยอะสุดไว้ให้ดูตรงนี้
+                {t("wallet.breakdown.emptyDescription")}
               </p>
             </div>
           </div>
@@ -527,19 +555,23 @@ function SpendBreakdown({
           <ul className="flex flex-col gap-3">
             {rows.map((row) => {
               const pct = getSharePercent(row.amount, totalExpense);
+              const rowName = row.name ?? t("transaction.noCategory.long");
               return (
                 <li key={row.categoryId}>
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-ink font-medium">{row.name}</span>
+                    <span className="text-ink font-medium">{rowName}</span>
                     <span className="text-muted shrink-0 text-xs tabular-nums">
                       {fmtBaht(row.amount)}
                       <span className="block text-right text-[11px]">
-                        สัดส่วน {pct}%
+                        {t("wallet.breakdown.share", { pct })}
                       </span>
                     </span>
                   </div>
                   <div
-                    aria-label={`สัดส่วน${row.name} ${pct}% ของรายจ่ายเดือนนี้`}
+                    aria-label={t("wallet.breakdown.shareAriaLabel", {
+                      name: rowName,
+                      pct,
+                    })}
                     aria-valuemax={100}
                     aria-valuemin={0}
                     aria-valuenow={pct}
@@ -559,9 +591,9 @@ function SpendBreakdown({
       </div>
     </section>
   );
-}
+};
 
-function getCategorySpend({
+const getCategorySpend = ({
   categories,
   expenseByCategory,
   names,
@@ -569,7 +601,7 @@ function getCategorySpend({
   categories: Array<{ id: string; name: string }>;
   expenseByCategory: Map<string, number>;
   names: string[];
-}) {
+}) => {
   const categoryIds = categories
     .filter((category) => names.some((name) => category.name.includes(name)))
     .map((category) => category.id);
@@ -578,45 +610,52 @@ function getCategorySpend({
     (sum, categoryId) => sum + (expenseByCategory.get(categoryId) ?? 0),
     0
   );
-}
+};
 
-function getPocketTarget(
+const getPocketTarget = (
   preferred: number,
   spent: number,
   available = 0
-): number {
+): number => {
   return roundToHundred(Math.max(preferred, spent, available, 0));
-}
+};
 
-function roundToHundred(amount: number): number {
+const roundToHundred = (amount: number): number => {
   if (amount <= 0) return 0;
   return Math.ceil(amount / 100) * 100;
-}
+};
 
-function getPocketStatus(
+const getPocketStatus = (
   amount: number,
   target: number,
   spent: number
-): PocketStatus {
+): PocketStatus => {
   if (target <= 0) return "empty";
   if (spent > target) return "over";
   if (amount / target <= 0.15) return "low";
   return "normal";
-}
+};
 
-function getDailySafeTitle(available: number, daysLeft: number) {
-  if (available < 0) return "เดือนนี้ใช้เกินไปแล้ว";
-  return `เหลืออีก ${daysLeft} วันในเดือนนี้`;
-}
+const getDailySafeTitle = (
+  available: number,
+  daysLeft: number,
+  t: ReturnType<typeof usePordeeTranslation>
+) => {
+  if (available < 0) return t("wallet.dailySafe.overTitle");
+  return t("wallet.dailySafe.daysLeftTitle", { daysLeft });
+};
 
-function getDailySafeCopy(
-  summary: Awaited<ReturnType<typeof loader>>["summary"]
-) {
+const getDailySafeCopy = (
+  summary: Awaited<ReturnType<typeof loader>>["summary"],
+  t: ReturnType<typeof usePordeeTranslation>
+) => {
   if (summary.monthIncome === 0 && summary.monthExpense === 0) {
-    return "เพิ่มรายรับและรายจ่ายเดือนนี้ก่อน แล้วพอดีจะช่วยเฉลี่ยเงินที่ใช้ได้ต่อวัน";
+    return t("wallet.dailySafe.noDataCopy");
   }
   if (summary.available < 0) {
-    return "เงินที่ใช้ได้ติดลบแล้ว ลองชะลอรายจ่าย หรือลดเงินที่กันไว้ในเป้าหมายลงก่อน";
+    return t("wallet.dailySafe.overCopy");
   }
-  return `ถ้าไม่อยากเกินเดือนนี้ ใช้เฉลี่ยได้ประมาณ ${fmtBaht(summary.dailySafe)} ต่อวัน`;
-}
+  return t("wallet.dailySafe.normalCopy", {
+    amount: fmtBaht(summary.dailySafe),
+  });
+};

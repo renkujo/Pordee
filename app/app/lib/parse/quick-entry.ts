@@ -61,7 +61,7 @@ const CATEGORY_RULES: { name: string; keywords: string[] }[] = [
 
 const AMOUNT_PATTERN = /-?\d+(?:[.,]\d+)?/g;
 
-export function parseQuickEntry(input: string): QuickEntryParse {
+export const parseQuickEntry = (input: string): QuickEntryParse => {
   const raw = input.trim();
   const matches = raw.match(AMOUNT_PATTERN);
   const lastNumber = matches?.[matches.length - 1] ?? null;
@@ -89,9 +89,12 @@ export function parseQuickEntry(input: string): QuickEntryParse {
     title,
     categoryName,
   };
-}
+};
 
-function inferCategory(lowered: string, kind: TransactionKind): string | null {
+const inferCategory = (
+  lowered: string,
+  kind: TransactionKind
+): string | null => {
   for (const rule of CATEGORY_RULES) {
     const isIncomeRule = INCOME_CATEGORY_NAMES.includes(
       rule.name as (typeof INCOME_CATEGORY_NAMES)[number]
@@ -103,8 +106,8 @@ function inferCategory(lowered: string, kind: TransactionKind): string | null {
     }
   }
   return null;
-}
+};
 
-function escapeRegExp(value: string): string {
+const escapeRegExp = (value: string): string => {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+};

@@ -20,16 +20,17 @@ import { cn } from "~/lib/cn";
 import { fmtBaht } from "~/lib/format/baht";
 import { dayValueToIso, todayDayValue } from "~/lib/date/day-value";
 import { addContributionSchema, createGoalSchema } from "~/lib/validators/goal";
+import { usePordeeTranslation } from "~/lib/i18n/provider";
 
-export function meta(_: Route.MetaArgs) {
+export const meta = (_: Route.MetaArgs) => {
   return [{ title: "พอดี — เป้าหมาย" }];
-}
+};
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   const goals = await repo.listGoals(user.id);
   return { goals };
-}
+};
 
 interface ActionFieldErrors {
   name?: string;
@@ -57,9 +58,9 @@ type ActionResult =
     }
   | undefined;
 
-export async function action({
+export const action = async ({
   request,
-}: Route.ActionArgs): Promise<ActionResult | Response> {
+}: Route.ActionArgs): Promise<ActionResult | Response> => {
   const user = await requireUser(request);
   const form = await request.formData();
   const intent = form.get("intent");
@@ -82,10 +83,10 @@ export async function action({
       for (const issue of parsed.error.issues) {
         const key = issue.path[0];
         if (key === "amount") {
-          errors.amount = "จำนวนเติมต้องมากกว่า 0";
+          errors.amount = "goal.error.contributionAmountPositive";
         }
         if (key === "goalId") {
-          errors.goalId = "เลือกเป้าหมาย";
+          errors.goalId = "goal.error.selectGoal";
         }
         if (key === "note") {
           errors.note = issue.message;
@@ -108,7 +109,7 @@ export async function action({
       return {
         ok: false,
         intent: "contribute",
-        errors: { goalId: "ไม่พบเป้าหมายนี้" },
+        errors: { goalId: "goal.error.notFound" },
         values: {
           goalId: parsed.data.goalId,
           amount: String(raw.amount ?? ""),
@@ -152,11 +153,12 @@ export async function action({
 
   await repo.createGoal(user.id, parsed.data);
   return redirect("/goals");
-}
+};
 
-export default function Goals() {
+const Goals = () => {
   const { goals } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
+  const t = usePordeeTranslation();
   const totalTarget = goals.reduce((sum, goal) => sum + goal.target, 0);
   const totalSaved = goals.reduce((sum, goal) => sum + goal.saved, 0);
   const totalRemaining = Math.max(0, totalTarget - totalSaved);
@@ -173,16 +175,15 @@ export default function Goals() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="text-ink text-3xl font-semibold tracking-tight">
-          เป้าหมาย
+          {t("goals.title")}
         </h1>
         <p className="text-muted max-w-2xl text-sm leading-6">
-          กันเงินไว้ให้เรื่องสำคัญ เห็นยอดรวม ยอดที่ยังขาด
-          และเติมเงินเข้าแต่ละเป้าหมายได้จากหน้าเดียว
+          {t("goals.description")}
         </p>
       </header>
 
       <section
-        aria-label="ภาพรวมเป้าหมาย"
+        aria-label={t("goals.summary.ariaLabel")}
         className="border-line bg-surface overflow-hidden rounded-lg border"
       >
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -190,13 +191,15 @@ export default function Goals() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-ink text-sm font-semibold">
-                  เก็บไว้แล้วทั้งหมด
+                  {t("goals.summary.saved")}
                 </p>
                 <p className="text-teal mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
                   {fmtBaht(totalSaved)}
                 </p>
                 <p className="text-muted mt-2 text-sm">
-                  จากเป้าหมายรวม {fmtBaht(totalTarget)}
+                  {t("goals.summary.fromTotal", {
+                    amount: fmtBaht(totalTarget),
+                  })}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -210,7 +213,9 @@ export default function Goals() {
                   <p className="text-ink text-3xl font-semibold tabular-nums">
                     {overallPct}%
                   </p>
-                  <p className="text-muted text-xs">ความคืบหน้ารวม</p>
+                  <p className="text-muted text-xs">
+                    {t("goals.summary.overallProgress")}
+                  </p>
                 </div>
               </div>
             </div>
@@ -220,22 +225,22 @@ export default function Goals() {
           <div className="border-line grid grid-cols-2 gap-0 border-t lg:border-t-0 lg:border-l">
             <SummaryTile
               icon={Target}
-              label="เป้าหมายทั้งหมด"
-              value={`${goals.length} รายการ`}
+              label={t("goals.summary.totalGoals")}
+              value={t("common.itemCount", { count: goals.length })}
             />
             <SummaryTile
               icon={WalletCards}
-              label="กำลังเก็บ"
-              value={`${activeCount} รายการ`}
+              label={t("goals.summary.active")}
+              value={t("common.itemCount", { count: activeCount })}
             />
             <SummaryTile
               icon={PiggyBank}
-              label="ครบแล้ว"
-              value={`${completedCount} รายการ`}
+              label={t("goals.summary.completed")}
+              value={t("common.itemCount", { count: completedCount })}
             />
             <SummaryTile
               icon={PlusCircle}
-              label="ยังขาด"
+              label={t("goals.summary.remaining")}
               value={fmtBaht(totalRemaining)}
             />
           </div>
@@ -244,24 +249,33 @@ export default function Goals() {
 
       <MascotTip
         mood={goals.length > 0 ? "saving" : "normal"}
-        title={goals.length > 0 ? "พอดีเห็นเป้าหมายแล้ว" : "พอดีช่วยตั้งหลัก"}
+        title={
+          goals.length > 0
+            ? t("goals.mascot.hasGoalsTitle")
+            : t("goals.mascot.emptyTitle")
+        }
       >
         {goals.length > 0
-          ? `ตอนนี้กันเงินไว้แล้ว ${fmtBaht(totalSaved)} จากเป้าหมายรวม ${fmtBaht(totalTarget)} เติมทีละนิดก็ยังนับว่าเดินหน้า`
-          : "เลือกเรื่องเดียวที่อยากกันเงินไว้ก่อน จำนวนไม่ต้องใหญ่ แค่ทำให้เริ่มเก็บง่ายขึ้น"}
+          ? t("goals.mascot.hasGoalsDescription", {
+              saved: fmtBaht(totalSaved),
+              target: fmtBaht(totalTarget),
+            })
+          : t("goals.mascot.emptyDescription")}
       </MascotTip>
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:items-start">
         <section
-          aria-label="เป้าหมายที่กำลังเก็บ"
+          aria-label={t("goals.list.ariaLabel")}
           className="border-line bg-surface rounded-lg border"
         >
           <div className="border-line flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
             <div>
               <h2 className="text-ink text-base font-semibold">
-                เป้าหมายที่กำลังเก็บ
+                {t("goals.list.title")}
               </h2>
-              <p className="text-muted text-sm">{goals.length} รายการ</p>
+              <p className="text-muted text-sm">
+                {t("common.itemCount", { count: goals.length })}
+              </p>
             </div>
             {goals.length > 0 ? (
               <span className="text-teal text-sm font-semibold tabular-nums">
@@ -274,8 +288,8 @@ export default function Goals() {
             {goals.length === 0 ? (
               <MascotState
                 mood="saving"
-                title="เริ่มจากเป้าหมายเล็ก ๆ ก่อนก็พอดี"
-                description="เลือกเรื่องที่อยากกันเงินไว้ แล้วค่อยเติมทีละนิดตามจังหวะของคุณ"
+                title={t("goals.empty.title")}
+                description={t("goals.empty.description")}
               />
             ) : (
               <ul className="flex flex-col gap-3" data-testid="goals-list">
@@ -289,9 +303,11 @@ export default function Goals() {
 
         <aside className="border-line bg-surface rounded-lg border 2xl:sticky 2xl:top-5">
           <div className="border-line border-b px-4 py-3 sm:px-5">
-            <h2 className="text-ink text-base font-semibold">เพิ่มเป้าหมาย</h2>
+            <h2 className="text-ink text-base font-semibold">
+              {t("goals.create.title")}
+            </h2>
             <p className="text-muted text-sm">
-              ตั้งชื่อสั้น ๆ และจำนวนเงินที่อยากกันไว้
+              {t("goals.create.description")}
             </p>
           </div>
           <Form
@@ -301,32 +317,36 @@ export default function Goals() {
           >
             <input type="hidden" name="intent" value="create" />
             <div className="border-line bg-sky/45 rounded-md border p-3">
-              <p className="text-ink text-sm font-semibold">พอดีแนะนำ</p>
+              <p className="text-ink text-sm font-semibold">
+                {t("goals.create.tipTitle")}
+              </p>
               <p className="text-muted mt-1 text-sm leading-6">
-                ชื่อเป้าหมายควรจำได้ทันที เช่น กองทุนฉุกเฉิน หรือค่าทริป
+                {t("goals.create.tipDescription")}
               </p>
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="goal-name">ชื่อเป้าหมาย</Label>
+              <Label htmlFor="goal-name">{t("goals.create.nameLabel")}</Label>
               <Input
                 id="goal-name"
                 name="name"
                 defaultValue={
                   actionData?.intent === "create" ? actionData.values.name : ""
                 }
-                placeholder="กองทุนฉุกเฉิน"
+                placeholder={t("goals.create.namePlaceholder")}
                 required
               />
               {actionData?.intent === "create" && actionData.errors.name && (
                 <p className="text-coral-strong text-sm">
-                  {actionData.errors.name}
+                  {t(actionData.errors.name)}
                 </p>
               )}
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="goal-target">จำนวนเงินเป้าหมาย (บาท)</Label>
+              <Label htmlFor="goal-target">
+                {t("goals.create.targetLabel")}
+              </Label>
               <Input
                 id="goal-target"
                 name="target"
@@ -343,26 +363,28 @@ export default function Goals() {
               />
               {actionData?.intent === "create" && actionData.errors.target && (
                 <p className="text-coral-strong text-sm">
-                  {actionData.errors.target}
+                  {t(actionData.errors.target)}
                 </p>
               )}
             </div>
 
-            <Button type="submit">เพิ่มเป้าหมาย</Button>
+            <Button type="submit">{t("goals.create.submit")}</Button>
           </Form>
         </aside>
       </div>
     </div>
   );
-}
+};
 
-function GoalItem({
+export default Goals;
+
+const GoalItem = ({
   actionData,
   goal,
 }: {
   actionData: ActionResult;
   goal: Goal;
-}) {
+}) => {
   const pct =
     goal.target > 0
       ? Math.min(100, Math.round((goal.saved / goal.target) * 100))
@@ -372,6 +394,7 @@ function GoalItem({
   const hasContributionError =
     actionData?.intent === "contribute" && actionData.values.goalId === goal.id;
   const [occurredDate, setOccurredDate] = useState(todayDayValue());
+  const t = usePordeeTranslation();
 
   return (
     <li className="border-line rounded-md border">
@@ -384,8 +407,8 @@ function GoalItem({
               </p>
               <p className="text-muted mt-1 text-sm">
                 {isComplete
-                  ? "ครบเป้าหมายแล้ว"
-                  : `ขาดอีก ${fmtBaht(remaining)}`}
+                  ? t("goals.item.complete")
+                  : t("goals.item.remaining", { amount: fmtBaht(remaining) })}
               </p>
             </div>
             <span
@@ -402,13 +425,18 @@ function GoalItem({
 
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             <GoalMetric
-              label="เก็บแล้ว"
+              label={t("goals.metric.saved")}
               value={fmtBaht(goal.saved)}
               tone="teal"
             />
-            <GoalMetric label="เป้าหมาย" value={fmtBaht(goal.target)} />
             <GoalMetric
-              label={isComplete ? "เกินเป้า" : "ยังขาด"}
+              label={t("goals.metric.target")}
+              value={fmtBaht(goal.target)}
+            />
+            <GoalMetric
+              label={
+                isComplete ? t("goals.metric.extra") : t("goals.metric.gap")
+              }
               value={fmtBaht(
                 isComplete ? Math.max(0, goal.saved - goal.target) : remaining
               )}
@@ -425,7 +453,9 @@ function GoalItem({
           <input type="hidden" name="goalId" value={goal.id} />
           <input type="hidden" name="occurredAt" value={occurredDate} />
           <div className="flex flex-col gap-2">
-            <Label htmlFor={`goal-${goal.id}-amount`}>เติมเงินเข้าเป้า</Label>
+            <Label htmlFor={`goal-${goal.id}-amount`}>
+              {t("goals.contribution.amountLabel")}
+            </Label>
             <Input
               id={`goal-${goal.id}-amount`}
               name="amount"
@@ -441,31 +471,35 @@ function GoalItem({
             />
             {hasContributionError && actionData.errors.amount && (
               <p className="text-coral-strong text-sm">
-                {actionData.errors.amount}
+                {t(actionData.errors.amount)}
               </p>
             )}
             {hasContributionError && actionData.errors.goalId && (
               <p className="text-coral-strong text-sm">
-                {actionData.errors.goalId}
+                {t(actionData.errors.goalId)}
               </p>
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor={`goal-${goal.id}-note`}>โน้ต</Label>
+            <Label htmlFor={`goal-${goal.id}-note`}>
+              {t("goals.contribution.noteLabel")}
+            </Label>
             <Input
               id={`goal-${goal.id}-note`}
               name="note"
-              placeholder="เช่น เงินเหลือวันนี้"
+              placeholder={t("goals.contribution.notePlaceholder")}
               defaultValue={hasContributionError ? actionData.values.note : ""}
             />
             {hasContributionError && actionData.errors.note && (
               <p className="text-coral-strong text-sm">
-                {actionData.errors.note}
+                {t(actionData.errors.note)}
               </p>
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor={`goal-${goal.id}-date`}>วันที่เติมเงิน</Label>
+            <Label htmlFor={`goal-${goal.id}-date`}>
+              {t("goals.contribution.dateLabel")}
+            </Label>
             <DatePicker
               id={`goal-${goal.id}-date`}
               value={occurredDate}
@@ -474,15 +508,15 @@ function GoalItem({
             />
           </div>
           <Button type="submit" variant="teal" className="w-full">
-            บันทึกเงินเข้าเป้า
+            {t("goals.contribution.submit")}
           </Button>
         </Form>
       </article>
     </li>
   );
-}
+};
 
-function ProgressBar({
+const ProgressBar = ({
   className,
   complete = false,
   pct,
@@ -490,14 +524,16 @@ function ProgressBar({
   className?: string;
   complete?: boolean;
   pct: number;
-}) {
+}) => {
+  const t = usePordeeTranslation();
+
   return (
     <div
       className={cn(
         "bg-line/70 h-2.5 w-full overflow-hidden rounded-xs",
         className
       )}
-      aria-label={`คืบหน้า ${pct}%`}
+      aria-label={t("goals.progress.ariaLabel", { pct })}
     >
       <div
         className={cn("h-full rounded-xs", complete ? "bg-lime" : "bg-teal")}
@@ -505,9 +541,9 @@ function ProgressBar({
       />
     </div>
   );
-}
+};
 
-function SummaryTile({
+const SummaryTile = ({
   icon: Icon,
   label,
   value,
@@ -515,7 +551,7 @@ function SummaryTile({
   icon: typeof Target;
   label: string;
   value: string;
-}) {
+}) => {
   return (
     <div className="border-line flex min-h-24 flex-col justify-between border-r border-b p-4 even:border-r-0 sm:p-5">
       <Icon className="text-coral h-4 w-4" />
@@ -527,9 +563,9 @@ function SummaryTile({
       </div>
     </div>
   );
-}
+};
 
-function GoalMetric({
+const GoalMetric = ({
   label,
   tone,
   value,
@@ -537,7 +573,7 @@ function GoalMetric({
   label: string;
   tone?: "teal";
   value: string;
-}) {
+}) => {
   return (
     <div className="border-line rounded-xs border px-3 py-2">
       <p className="text-muted text-xs">{label}</p>
@@ -551,4 +587,4 @@ function GoalMetric({
       </p>
     </div>
   );
-}
+};

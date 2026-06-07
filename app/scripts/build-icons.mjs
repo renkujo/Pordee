@@ -38,15 +38,15 @@ const appIconSizes = [32, 180, 192, 512];
 const appIconBackground = "#EAF7FF";
 const sourceSize = 1254;
 
-async function emitSourcePng() {
+const emitSourcePng = async () => {
   await sharp(SOURCE)
     .resize(sourceSize, sourceSize, { fit: "cover" })
     .png({ compressionLevel: 9 })
     .toFile(SOURCE_PNG);
   console.log(`  • ${SOURCE_PNG}`);
-}
+};
 
-async function emitAppIconSizes() {
+const emitAppIconSizes = async () => {
   for (const size of appIconSizes) {
     const out = resolve(OUT_BRAND, `icon-${size}.png`);
     await (await createIconTile(size, 0.76))
@@ -54,17 +54,17 @@ async function emitAppIconSizes() {
       .toFile(out);
     console.log(`  • ${out}`);
   }
-}
+};
 
-async function emitMaskable() {
+const emitMaskable = async () => {
   const out = resolve(OUT_BRAND, "icon-maskable-512.png");
   await (await createIconTile(512, 0.62))
     .png({ compressionLevel: 9 })
     .toFile(out);
   console.log(`  • ${out}`);
-}
+};
 
-async function createIconTile(size, markScale) {
+const createIconTile = async (size, markScale) => {
   const markSize = Math.round(size * markScale);
   const mark = await sharp(SOURCE_PNG)
     .resize(markSize, markSize, { fit: "inside" })
@@ -79,9 +79,9 @@ async function createIconTile(size, markScale) {
       background: appIconBackground,
     },
   }).composite([{ input: mark, gravity: "center" }]);
-}
+};
 
-async function emitFavicon() {
+const emitFavicon = async () => {
   // 16/32/48 inside a single .ico for crisp browser-tab rendering.
   const buffers = await Promise.all(
     [16, 32, 48].map((size) =>
@@ -91,9 +91,9 @@ async function emitFavicon() {
   const ico = await pngToIco(buffers);
   await writeFile(OUT_FAVICON, ico);
   console.log(`  • ${OUT_FAVICON}`);
-}
+};
 
-async function main() {
+const main = async () => {
   await mkdir(OUT_BRAND, { recursive: true });
   console.log("Generating Pordee icons from", SOURCE);
   await emitSourcePng();
@@ -101,7 +101,7 @@ async function main() {
   await emitMaskable();
   await emitFavicon();
   console.log("Done.");
-}
+};
 
 main().catch((err) => {
   console.error(err);

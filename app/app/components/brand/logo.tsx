@@ -9,13 +9,13 @@ interface PordeeLogoProps {
   wordmarkClassName?: string;
 }
 
-export function PordeeLogo({
+export const PordeeLogo = ({
   size = 32,
   withWordmark = true,
   variant = "light",
   className,
   wordmarkClassName,
-}: PordeeLogoProps) {
+}: PordeeLogoProps) => {
   return (
     <span
       className={cn(
@@ -42,4 +42,4 @@ export function PordeeLogo({
       )}
     </span>
   );
-}
+};

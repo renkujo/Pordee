@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-export function ReactGrabDev() {
+export const ReactGrabDev = () => {
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     if (typeof window === "undefined") return;
@@ -20,4 +20,4 @@ export function ReactGrabDev() {
   }, []);
 
   return null;
-}
+};

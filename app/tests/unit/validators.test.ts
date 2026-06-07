@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createTransactionSchema } from "~/lib/validators/transaction";
+import {
+  createTransactionSchema,
+  getTransactionDiscountState,
+  transactionDiscountErrors,
+} from "~/lib/validators/transaction";
 import { createGoalSchema, addContributionSchema } from "~/lib/validators/goal";
 import {
   createCategorySchema,
@@ -57,6 +61,51 @@ describe("createTransactionSchema", () => {
     expect(() =>
       createTransactionSchema.parse({ kind: "savings", title: "x", amount: 1 })
     ).toThrow();
+  });
+});
+
+describe("getTransactionDiscountState", () => {
+  it("returns the net expense amount after discount", () => {
+    const result = getTransactionDiscountState({
+      kind: "expense",
+      amount: "200",
+      discountAmount: "50",
+    });
+
+    expect(result.netAmount).toBe(150);
+    expect(result.discountNumber).toBe(50);
+    expect(result.hasValidDiscount).toBe(true);
+    expect(result.canUseNetAmount).toBe(true);
+  });
+
+  it("rejects invalid discount values for expenses", () => {
+    expect(
+      getTransactionDiscountState({
+        kind: "expense",
+        amount: "100",
+        discountAmount: "-1",
+      }).discountError
+    ).toBe(transactionDiscountErrors.invalid);
+
+    expect(
+      getTransactionDiscountState({
+        kind: "expense",
+        amount: "100",
+        discountAmount: "100",
+      }).discountError
+    ).toBe(transactionDiscountErrors.tooHigh);
+  });
+
+  it("ignores discount input for income", () => {
+    const result = getTransactionDiscountState({
+      kind: "income",
+      amount: "100",
+      discountAmount: "40",
+    });
+
+    expect(result.appliesDiscount).toBe(false);
+    expect(result.discountNumber).toBe(0);
+    expect(result.netAmount).toBe(100);
   });
 });
 

@@ -19,8 +19,20 @@ test("settings language switch localizes the app shell and persists", async ({
     page.getByRole("link", { name: /Add transaction/ })
   ).toBeVisible();
 
+  await page.goto("/add");
+  await expect(
+    page.getByRole("heading", { name: "Add transaction" })
+  ).toBeVisible();
+
+  await page.goto("/history");
+  await expect(
+    page.getByRole("heading", { name: "Transaction history" })
+  ).toBeVisible();
+
   await page.reload();
 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Transaction history" })
+  ).toBeVisible();
 });

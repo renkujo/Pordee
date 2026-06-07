@@ -11,7 +11,7 @@ import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter(({ to }) => to !== "/add");
 
-export function Sidebar({ user }: { user: AuthUser }) {
+export const Sidebar = ({ user }: { user: AuthUser }) => {
   const t = usePordeeTranslation();
 
   return (
@@ -128,4 +128,4 @@ export function Sidebar({ user }: { user: AuthUser }) {
       </div>
     </aside>
   );
-}
+};

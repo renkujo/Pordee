@@ -2,11 +2,11 @@ import { redirect } from "react-router";
 import type { Route } from "./+types/logout";
 import { appendAuthCookies, auth, ensureAuthDatabase } from "~/lib/auth.server";
 
-export async function loader() {
+export const loader = async () => {
   return redirect("/login");
-}
+};
 
-export async function action({ request }: Route.ActionArgs) {
+export const action = async ({ request }: Route.ActionArgs) => {
   await ensureAuthDatabase();
 
   const { headers: authHeaders } = await auth.api.signOut({
@@ -17,4 +17,4 @@ export async function action({ request }: Route.ActionArgs) {
   const headers = new Headers({ Location: "/login" });
   appendAuthCookies(headers, authHeaders);
   return new Response(null, { status: 302, headers });
-}
+};

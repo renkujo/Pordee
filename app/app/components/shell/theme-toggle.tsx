@@ -1,6 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { cn } from "~/lib/cn";
+import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 type ThemePreference = "light" | "dark" | "system";
 type ThemeValue = "light" | "dark";
@@ -10,27 +11,27 @@ const LIGHT_THEME_COLOR = "#EAF7FF";
 const DARK_THEME_COLOR = "#10181D";
 
 const themeOptions: Array<{
-  description: string;
+  descriptionKey: string;
   icon: typeof Sun;
-  label: string;
+  labelKey: string;
   value: ThemePreference;
 }> = [
   {
-    description: "พื้นฟ้าอ่อน อ่านง่ายตอนกลางวัน",
+    descriptionKey: "theme.light.description",
     icon: Sun,
-    label: "สว่าง",
+    labelKey: "theme.light.label",
     value: "light",
   },
   {
-    description: "ลดแสงจ้า เหมาะกับที่แสงน้อย",
+    descriptionKey: "theme.dark.description",
     icon: Moon,
-    label: "มืด",
+    labelKey: "theme.dark.label",
     value: "dark",
   },
   {
-    description: "ให้พอดีเปลี่ยนตามเครื่องนี้",
+    descriptionKey: "theme.system.description",
     icon: Monitor,
-    label: "ตามเครื่อง",
+    labelKey: "theme.system.label",
     value: "system",
   },
 ];
@@ -40,21 +41,22 @@ interface ThemeToggleProps {
   variant?: "compact" | "icon-segmented" | "segmented";
 }
 
-export function ThemeToggle({
+export const ThemeToggle = ({
   className,
   variant = "segmented",
-}: ThemeToggleProps) {
+}: ThemeToggleProps) => {
+  const t = usePordeeTranslation();
   const preference = useSyncExternalStore(
     subscribeToThemePreference,
     readThemePreference,
     getServerThemePreference
   );
 
-  function updatePreference(nextPreference: ThemePreference) {
+  const updatePreference = (nextPreference: ThemePreference) => {
     window.localStorage.setItem(THEME_STORAGE_KEY, nextPreference);
     applyThemePreference(nextPreference);
     window.dispatchEvent(new Event("pordee-theme-change"));
-  }
+  };
 
   if (variant === "compact") {
     const currentIndex = themeOptions.findIndex(
@@ -64,17 +66,22 @@ export function ThemeToggle({
       currentIndex >= 0 ? themeOptions[currentIndex] : themeOptions[2];
     const nextOption = themeOptions[(currentIndex + 1) % themeOptions.length];
     const Icon = currentOption.icon;
+    const currentLabel = t(currentOption.labelKey);
+    const nextLabel = t(nextOption.labelKey);
 
     return (
       <button
         type="button"
-        aria-label={`ธีม ${currentOption.label} กดเพื่อเปลี่ยนเป็น ${nextOption.label}`}
+        aria-label={t("theme.compact.ariaLabel", {
+          current: currentLabel,
+          next: nextLabel,
+        })}
         className={cn(
           "border-line bg-surface text-muted hover:bg-sky/70 hover:text-ink focus-visible:ring-coral/40 flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border transition-colors focus-visible:ring-2 focus-visible:outline-none",
           className
         )}
         onClick={() => updatePreference(nextOption.value)}
-        title={`ธีม: ${currentOption.label}`}
+        title={t("theme.title", { label: currentLabel })}
       >
         <Icon className="h-4 w-4" />
       </button>
@@ -84,20 +91,21 @@ export function ThemeToggle({
   if (variant === "icon-segmented") {
     return (
       <div
-        aria-label="เลือกธีม"
+        aria-label={t("theme.groupLabel")}
         className={cn(
           "border-line bg-surface grid grid-cols-3 gap-1 rounded-[14px] border p-1",
           className
         )}
         role="group"
       >
-        {themeOptions.map(({ icon: Icon, label, value }) => {
+        {themeOptions.map(({ icon: Icon, labelKey, value }) => {
           const active = preference === value;
+          const label = t(labelKey);
 
           return (
             <button
               type="button"
-              aria-label={`ธีม ${label}`}
+              aria-label={t("theme.optionAriaLabel", { label })}
               aria-pressed={active}
               className={cn(
                 "focus-visible:ring-coral/40 flex h-9 min-w-0 items-center justify-center rounded-[10px] transition-colors focus-visible:ring-2 focus-visible:outline-none",
@@ -107,7 +115,7 @@ export function ThemeToggle({
               )}
               key={value}
               onClick={() => updatePreference(value)}
-              title={`ธีม: ${label}`}
+              title={t("theme.title", { label })}
             >
               <Icon className="h-4 w-4 shrink-0" />
             </button>
@@ -119,12 +127,13 @@ export function ThemeToggle({
 
   return (
     <div
-      aria-label="เลือกธีม"
+      aria-label={t("theme.groupLabel")}
       className={cn("grid gap-2 sm:grid-cols-3", className)}
       role="group"
     >
-      {themeOptions.map(({ description, icon: Icon, label, value }) => {
+      {themeOptions.map(({ descriptionKey, icon: Icon, labelKey, value }) => {
         const active = preference === value;
+        const label = t(labelKey);
 
         return (
           <button
@@ -168,7 +177,7 @@ export function ThemeToggle({
                 {label}
               </span>
               <span className="text-muted mt-1 block text-xs leading-5">
-                {description}
+                {t(descriptionKey)}
               </span>
             </span>
           </button>
@@ -176,29 +185,29 @@ export function ThemeToggle({
       })}
     </div>
   );
-}
+};
 
-function subscribeToThemePreference(onStoreChange: () => void) {
+const subscribeToThemePreference = (onStoreChange: () => void) => {
   const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-  function handleSystemThemeChange() {
+  const handleSystemThemeChange = () => {
     const nextPreference = readThemePreference();
     if (nextPreference === "system") {
       applyThemePreference(nextPreference);
       onStoreChange();
     }
-  }
+  };
 
-  function handleStorageChange(event: StorageEvent) {
+  const handleStorageChange = (event: StorageEvent) => {
     if (event.key === THEME_STORAGE_KEY) {
       applyThemePreference(readThemePreference());
       onStoreChange();
     }
-  }
+  };
 
-  function handleLocalThemeChange() {
+  const handleLocalThemeChange = () => {
     onStoreChange();
-  }
+  };
 
   mediaQuery.addEventListener("change", handleSystemThemeChange);
   window.addEventListener("storage", handleStorageChange);
@@ -209,9 +218,9 @@ function subscribeToThemePreference(onStoreChange: () => void) {
     window.removeEventListener("storage", handleStorageChange);
     window.removeEventListener("pordee-theme-change", handleLocalThemeChange);
   };
-}
+};
 
-function readThemePreference(): ThemePreference {
+const readThemePreference = (): ThemePreference => {
   const attributePreference = document.documentElement.dataset.themePreference;
   if (isThemePreference(attributePreference)) return attributePreference;
 
@@ -219,13 +228,13 @@ function readThemePreference(): ThemePreference {
   if (isThemePreference(storedPreference)) return storedPreference;
 
   return "system";
-}
+};
 
-function getServerThemePreference(): ThemePreference {
+const getServerThemePreference = (): ThemePreference => {
   return "system";
-}
+};
 
-function applyThemePreference(preference: ThemePreference) {
+const applyThemePreference = (preference: ThemePreference) => {
   const theme = resolveTheme(preference);
   const root = document.documentElement;
   root.dataset.theme = theme;
@@ -237,15 +246,15 @@ function applyThemePreference(preference: ThemePreference) {
       "content",
       theme === "dark" ? DARK_THEME_COLOR : LIGHT_THEME_COLOR
     );
-}
+};
 
-function resolveTheme(preference: ThemePreference): ThemeValue {
+const resolveTheme = (preference: ThemePreference): ThemeValue => {
   if (preference === "light" || preference === "dark") return preference;
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
-}
+};
 
-function isThemePreference(value: unknown): value is ThemePreference {
+const isThemePreference = (value: unknown): value is ThemePreference => {
   return value === "light" || value === "dark" || value === "system";
-}
+};

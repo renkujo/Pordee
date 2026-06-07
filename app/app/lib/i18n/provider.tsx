@@ -13,11 +13,11 @@ import {
   DEFAULT_LOCALE,
   isPordeeLocale,
   LOCALE_STORAGE_KEY,
-  messages,
   type PordeeLocale,
 } from "./messages";
+import { catalogs } from "./catalogs";
 
-i18n.load(messages);
+i18n.load(catalogs);
 i18n.activate(DEFAULT_LOCALE);
 
 interface PordeeI18nContextValue {
@@ -27,16 +27,12 @@ interface PordeeI18nContextValue {
 
 const PordeeI18nContext = createContext<PordeeI18nContextValue | null>(null);
 
-export function PordeeI18nProvider({ children }: { children: ReactNode }) {
+export const PordeeI18nProvider = ({ children }: { children: ReactNode }) => {
   const locale = useSyncExternalStore(
     subscribeToLocale,
     readLocale,
     getServerLocale
   );
-
-  if (i18n.locale !== locale) {
-    i18n.activate(locale);
-  }
 
   const setLocale = useCallback((nextLocale: PordeeLocale) => {
     i18n.activate(nextLocale);
@@ -45,6 +41,9 @@ export function PordeeI18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (i18n.locale !== locale) {
+      i18n.activate(locale);
+    }
     document.documentElement.lang = locale;
   }, [locale]);
 
@@ -55,35 +54,35 @@ export function PordeeI18nProvider({ children }: { children: ReactNode }) {
       <I18nProvider i18n={i18n}>{children}</I18nProvider>
     </PordeeI18nContext.Provider>
   );
-}
+};
 
-export function usePordeeLocale() {
+export const usePordeeLocale = () => {
   const context = useContext(PordeeI18nContext);
   if (!context) {
     throw new Error("usePordeeLocale must be used inside PordeeI18nProvider");
   }
   return context;
-}
+};
 
-export function usePordeeTranslation() {
+export const usePordeeTranslation = () => {
   const { _ } = useLingui();
   return _;
-}
+};
 
-function subscribeToLocale(onStoreChange: () => void) {
+const subscribeToLocale = (onStoreChange: () => void) => {
   window.addEventListener("pordee-locale-change", onStoreChange);
   window.addEventListener("storage", onStoreChange);
   return () => {
     window.removeEventListener("pordee-locale-change", onStoreChange);
     window.removeEventListener("storage", onStoreChange);
   };
-}
+};
 
-function readLocale(): PordeeLocale {
+const readLocale = (): PordeeLocale => {
   const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY);
   return isPordeeLocale(storedLocale) ? storedLocale : DEFAULT_LOCALE;
-}
+};
 
-function getServerLocale(): PordeeLocale {
+const getServerLocale = (): PordeeLocale => {
   return DEFAULT_LOCALE;
-}
+};

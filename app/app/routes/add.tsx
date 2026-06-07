@@ -12,6 +12,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
+import { DiscountAmountField } from "~/components/transactions/discount-amount-field";
 import {
   Select,
   SelectContent,
@@ -30,20 +31,25 @@ import {
 import { repo } from "~/lib/db";
 import type { Category, TransactionKind } from "~/lib/db";
 import { requireUser } from "~/lib/auth.server";
-import { createTransactionSchema } from "~/lib/validators/transaction";
+import {
+  createTransactionSchema,
+  getTransactionDiscountState,
+} from "~/lib/validators/transaction";
 import { parseQuickEntry } from "~/lib/parse/quick-entry";
+import { fmtNumber } from "~/lib/format/number";
+import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 const NO_CATEGORY_VALUE = "__none__";
 
-export function meta(_: Route.MetaArgs) {
+export const meta = (_: Route.MetaArgs) => {
   return [{ title: "พอดี — บันทึกรายการ" }];
-}
+};
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   const categories = await repo.listCategories(user.id);
   return { categories };
-}
+};
 
 interface ActionFieldErrors {
   title?: string;
@@ -56,34 +62,24 @@ type ActionResult =
   | { ok: false; errors: ActionFieldErrors; values: Record<string, string> }
   | undefined;
 
-export async function action({
+export const action = async ({
   request,
-}: Route.ActionArgs): Promise<ActionResult | Response> {
+}: Route.ActionArgs): Promise<ActionResult | Response> => {
   const user = await requireUser(request);
   const form = await request.formData();
   const categoryId = form.get("categoryId");
+  const rawKind = form.get("kind");
   const rawAmount = form.get("amount");
   const rawDiscountAmount = form.get("discountAmount");
-  const grossAmount =
-    typeof rawAmount === "string" ? Number(rawAmount) : Number.NaN;
-  const discountAmount =
-    typeof rawDiscountAmount === "string" && rawDiscountAmount.trim() !== ""
-      ? Number(rawDiscountAmount)
-      : 0;
+  const discountState = getTransactionDiscountState({
+    kind: rawKind,
+    amount: rawAmount,
+    discountAmount: rawDiscountAmount,
+  });
   const errors: ActionFieldErrors = {};
 
-  if (!Number.isFinite(discountAmount) || discountAmount < 0) {
-    errors.discountAmount = "ส่วนลดต้องเป็นจำนวนตั้งแต่ 0 ขึ้นไป";
-  }
-
-  if (
-    Number.isFinite(grossAmount) &&
-    grossAmount > 0 &&
-    Number.isFinite(discountAmount) &&
-    discountAmount > 0 &&
-    discountAmount >= grossAmount
-  ) {
-    errors.discountAmount = "ส่วนลดต้องน้อยกว่าจำนวนเงิน";
+  if (discountState.discountError) {
+    errors.discountAmount = discountState.discountError;
   }
 
   const rawDate = form.get("occurredAt");
@@ -92,12 +88,9 @@ export async function action({
   );
 
   const raw = {
-    kind: form.get("kind"),
+    kind: rawKind,
     title: form.get("title"),
-    amount:
-      Number.isFinite(grossAmount) && Number.isFinite(discountAmount)
-        ? grossAmount - discountAmount
-        : rawAmount,
+    amount: discountState.canUseNetAmount ? discountState.netAmount : rawAmount,
     categoryId:
       typeof categoryId === "string" && categoryId !== NO_CATEGORY_VALUE
         ? categoryId
@@ -141,13 +134,18 @@ export async function action({
   });
 
   return redirect("/history");
-}
+};
 
-const QUICK_EXAMPLES = ["กาแฟ 65", "ข้าวเที่ยง 80", "ค่ารถ 40"];
+const QUICK_EXAMPLES = [
+  "add.example.coffee",
+  "add.example.lunch",
+  "add.example.fare",
+];
 
-export default function Add() {
+const Add = () => {
   const { categories } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
+  const t = usePordeeTranslation();
 
   const [quick, setQuick] = useState(actionData?.values?.title ?? "");
   const preview = useMemo(() => parseQuickEntry(quick), [quick]);
@@ -182,21 +180,13 @@ export default function Add() {
   const effectiveCategory =
     categoryOverride !== null ? categoryOverride : inferredCategory;
   const amountNumber = Number(effectiveAmount);
-  const discountNumber =
-    discountAmount.trim().length > 0 ? Number(discountAmount) : 0;
-  const appliesDiscount = effectiveKind === "expense";
-  const hasDiscountInput = appliesDiscount && discountAmount.trim().length > 0;
-  const hasValidDiscount =
-    !hasDiscountInput ||
-    (Number.isFinite(discountNumber) &&
-      discountNumber >= 0 &&
-      (!Number.isFinite(amountNumber) || discountNumber < amountNumber));
-  const netAmount =
-    appliesDiscount &&
-    Number.isFinite(amountNumber) &&
-    Number.isFinite(discountNumber)
-      ? amountNumber - discountNumber
-      : amountNumber;
+  const discountState = getTransactionDiscountState({
+    kind: effectiveKind,
+    amount: effectiveAmount,
+    discountAmount,
+  });
+  const { discountNumber, hasDiscountInput, hasValidDiscount, netAmount } =
+    discountState;
   const canSubmit =
     preview.title.trim().length > 0 &&
     Number.isFinite(amountNumber) &&
@@ -205,28 +195,36 @@ export default function Add() {
     netAmount > 0;
   const entryHint =
     quick.trim().length === 0
-      ? "พิมพ์ชื่อรายการพร้อมจำนวนเงิน เช่น “กาแฟ 65”"
+      ? t("add.quick.hint.empty")
       : preview.amount === null
-        ? "เพิ่มจำนวนเงินท้ายรายการ หรือกรอกจำนวนเงินด้านล่าง"
+        ? t("add.quick.hint.missingAmount")
         : null;
   const previewTitle =
-    preview.title.trim().length > 0 ? preview.title.trim() : "รายการนี้";
+    preview.title.trim().length > 0
+      ? preview.title.trim()
+      : t("transaction.fallbackTitle");
   const selectedCategoryName =
     filteredCategories.find((c) => c.id === effectiveCategory)?.name ??
-    "ไม่ระบุ";
+    t("transaction.noCategory");
   const previewDescription =
     preview.amount !== null
-      ? `พอดีอ่านว่า “${previewTitle}” เป็น${effectiveKind === "income" ? "รายรับ" : "รายจ่าย"} ${effectiveAmount} บาท`
-      : "พิมพ์จำนวนเงินต่อท้าย เช่น 65 แล้วพอดีจะช่วยแยกชื่อรายการกับจำนวนเงินให้";
+      ? t("add.preview.description.parsed", {
+          title: previewTitle,
+          kind: t(
+            effectiveKind === "income"
+              ? "transaction.kind.income"
+              : "transaction.kind.expense"
+          ),
+          amount: effectiveAmount,
+        })
+      : t("add.preview.description.empty");
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
         <div>
-          <h1 className="text-ink text-2xl font-semibold">บันทึกรายการ</h1>
-          <p className="text-muted text-sm">
-            พิมพ์สั้น ๆ แล้วตรวจให้ตรงก่อนบันทึก
-          </p>
+          <h1 className="text-ink text-2xl font-semibold">{t("add.title")}</h1>
+          <p className="text-muted text-sm">{t("add.description")}</p>
         </div>
         <StepRail
           currentStep={canSubmit ? 3 : preview.amount !== null ? 2 : 1}
@@ -238,14 +236,12 @@ export default function Add() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <StepNumber>1</StepNumber>
-              <CardTitle>พิมพ์รายการ</CardTitle>
+              <CardTitle>{t("add.step.quick.title")}</CardTitle>
             </div>
-            <CardDescription>
-              ใส่ชื่อรายการพร้อมจำนวนเงิน เช่น “กาแฟ 65”
-            </CardDescription>
+            <CardDescription>{t("add.step.quick.description")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <Label htmlFor="quick-entry">รายการ</Label>
+            <Label htmlFor="quick-entry">{t("transaction.title.label")}</Label>
             <Input
               id="quick-entry"
               value={quick}
@@ -255,32 +251,35 @@ export default function Add() {
                 setKindOverride(null);
                 setCategoryOverride(null);
               }}
-              placeholder="กาแฟ 65"
+              placeholder={t("add.quick.placeholder")}
               autoComplete="off"
               aria-describedby="quick-entry-hint"
             />
             <input type="hidden" name="title" value={preview.title} />
             <div className="flex flex-wrap gap-2">
-              {QUICK_EXAMPLES.map((ex) => (
-                <Button
-                  key={ex}
-                  variant="secondary"
-                  size="sm"
-                  type="button"
-                  onClick={() => {
-                    setQuick(ex);
-                    setAmountOverride(null);
-                    setKindOverride(null);
-                    setCategoryOverride(null);
-                  }}
-                >
-                  {ex}
-                </Button>
-              ))}
+              {QUICK_EXAMPLES.map((exampleId) => {
+                const example = t(exampleId);
+                return (
+                  <Button
+                    key={exampleId}
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setQuick(example);
+                      setAmountOverride(null);
+                      setKindOverride(null);
+                      setCategoryOverride(null);
+                    }}
+                  >
+                    {example}
+                  </Button>
+                );
+              })}
             </div>
             {actionData && !actionData.ok && actionData.errors.title && (
               <p className="text-coral-strong text-sm">
-                {actionData.errors.title}
+                {t(actionData.errors.title)}
               </p>
             )}
             {entryHint && (
@@ -290,7 +289,7 @@ export default function Add() {
             )}
             <MascotTip
               mood={preview.amount !== null ? "thinking" : "normal"}
-              title="พอดีช่วยอ่านรายการ"
+              title={t("add.mascot.title")}
             >
               {previewDescription}
             </MascotTip>
@@ -301,10 +300,10 @@ export default function Add() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <StepNumber>2</StepNumber>
-              <CardTitle>ตรวจรายการ</CardTitle>
+              <CardTitle>{t("add.step.review.title")}</CardTitle>
             </div>
             <CardDescription>
-              พอดีเดาให้ก่อน แก้ชนิด จำนวนเงิน และหมวดได้ทันที
+              {t("add.step.review.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -324,17 +323,24 @@ export default function Add() {
             <div className="border-line bg-surface rounded-md border p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-ink text-sm font-semibold">ประเภท</p>
+                  <p className="text-ink text-sm font-semibold">
+                    {t("transaction.kind.label")}
+                  </p>
                   <p className="text-muted mt-1 text-sm">
-                    เลือกว่าเป็นเงินเข้า หรือเงินออกจากกระเป๋า
+                    {t("add.kind.description")}
                   </p>
                 </div>
                 <Badge
                   tone={effectiveKind === "income" ? "teal" : "coral"}
                   className="w-fit"
                 >
-                  กำลังบันทึกเป็น{" "}
-                  {effectiveKind === "income" ? "รายรับ" : "รายจ่าย"}
+                  {t("transaction.kind.savingAs", {
+                    kind: t(
+                      effectiveKind === "income"
+                        ? "transaction.kind.income"
+                        : "transaction.kind.expense"
+                    ),
+                  })}
                 </Badge>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -346,7 +352,7 @@ export default function Add() {
                     setCategoryOverride(null);
                   }}
                 >
-                  รายจ่าย
+                  {t("transaction.kind.expense")}
                 </KindToggle>
                 <KindToggle
                   active={effectiveKind === "income"}
@@ -356,7 +362,7 @@ export default function Add() {
                     setCategoryOverride(null);
                   }}
                 >
-                  รายรับ
+                  {t("transaction.kind.income")}
                 </KindToggle>
               </div>
             </div>
@@ -373,8 +379,8 @@ export default function Add() {
               <div className="flex flex-col gap-2">
                 <Label htmlFor="amount">
                   {effectiveKind === "expense"
-                    ? "จำนวนเงินก่อนส่วนลด"
-                    : "จำนวนเงิน"}
+                    ? t("transaction.amount.beforeDiscount")
+                    : t("transaction.amount.label")}
                 </Label>
                 <Input
                   id="amount"
@@ -390,53 +396,35 @@ export default function Add() {
                 />
                 {actionData && !actionData.ok && actionData.errors.amount && (
                   <p className="text-coral-strong text-sm">
-                    {actionData.errors.amount}
+                    {t(actionData.errors.amount)}
                   </p>
                 )}
                 {!canSubmit && (
                   <p id="amount-hint" className="text-muted text-sm">
-                    ต้องมีจำนวนเงินมากกว่า 0 ก่อนบันทึก
+                    {t("transaction.amount.hint.required")}
                   </p>
                 )}
               </div>
 
               {effectiveKind === "expense" && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="discountAmount">ส่วนลด</Label>
-                  <Input
-                    id="discountAmount"
-                    name="discountAmount"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    value={discountAmount}
-                    onChange={(e) => setDiscountAmount(e.target.value)}
-                    placeholder="0"
-                    aria-describedby="discount-hint"
-                  />
-                  {actionData &&
-                    !actionData.ok &&
-                    actionData.errors.discountAmount && (
-                      <p className="text-coral-strong text-sm">
-                        {actionData.errors.discountAmount}
-                      </p>
-                    )}
-                  {hasDiscountInput && hasValidDiscount && (
-                    <p id="discount-hint" className="text-muted text-sm">
-                      ยอดสุทธิ {formatNumber(netAmount)} บาท
-                    </p>
-                  )}
-                  {hasDiscountInput && !hasValidDiscount && (
-                    <p id="discount-hint" className="text-coral-strong text-sm">
-                      ส่วนลดต้องน้อยกว่าจำนวนเงิน
-                    </p>
-                  )}
-                </div>
+                <DiscountAmountField
+                  value={discountAmount}
+                  onChange={setDiscountAmount}
+                  error={
+                    actionData && !actionData.ok
+                      ? actionData.errors.discountAmount
+                      : undefined
+                  }
+                  hasDiscountInput={hasDiscountInput}
+                  hasValidDiscount={hasValidDiscount}
+                  netAmount={netAmount}
+                />
               )}
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="category">หมวด</Label>
+                <Label htmlFor="category">
+                  {t("transaction.category.label")}
+                </Label>
                 <Select
                   name="categoryId"
                   value={effectiveCategory ?? NO_CATEGORY_VALUE}
@@ -447,11 +435,11 @@ export default function Add() {
                   }
                 >
                   <SelectTrigger id="category">
-                    <SelectValue placeholder="— ไม่ระบุ —" />
+                    <SelectValue placeholder={t("transaction.noCategory")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_CATEGORY_VALUE}>
-                      — ไม่ระบุ —
+                      {t("transaction.noCategory")}
                     </SelectItem>
                     {filteredCategories.map((c: Category) => (
                       <SelectItem key={c.id} value={c.id}>
@@ -464,7 +452,7 @@ export default function Add() {
             </div>
 
             <div className="flex flex-col gap-2 sm:max-w-xs">
-              <Label htmlFor="occurredAt">วันที่ของรายการ</Label>
+              <Label htmlFor="occurredAt">{t("transaction.date.label")}</Label>
               <DatePicker
                 id="occurredAt"
                 value={occurredDate}
@@ -475,7 +463,7 @@ export default function Add() {
               />
               <input type="hidden" name="occurredAt" value={occurredDate} />
               <p id="occurred-hint" className="text-muted text-sm">
-                ค่าเริ่มต้นเป็นวันนี้ เลือกย้อนหลังได้ถ้าบันทึกรายการที่ผ่านมา
+                {t("add.date.hint")}
               </p>
             </div>
 
@@ -484,17 +472,20 @@ export default function Add() {
                 <div className="flex items-center gap-2">
                   <StepNumber>3</StepNumber>
                   <p className="text-ink text-sm font-semibold">
-                    บันทึกเมื่อข้อมูลตรงแล้ว
+                    {t("add.submit.title")}
                   </p>
                 </div>
                 <p className="text-muted mt-1 text-sm">
                   {canSubmit
-                    ? `พร้อมบันทึก “${previewTitle}” ${formatNumber(netAmount)} บาท`
-                    : "พอดีจะเปิดปุ่มบันทึกเมื่อมีชื่อรายการและจำนวนเงิน"}
+                    ? t("add.submit.ready", {
+                        title: previewTitle,
+                        amount: fmtNumber(netAmount),
+                      })
+                    : t("add.submit.disabledHint")}
                 </p>
               </div>
               <Button type="submit" disabled={!canSubmit} className="sm:w-44">
-                บันทึกรายการ
+                {t("add.submit.button")}
               </Button>
             </div>
           </CardContent>
@@ -502,10 +493,17 @@ export default function Add() {
       </Form>
     </div>
   );
-}
+};
 
-function StepRail({ currentStep }: { currentStep: number }) {
-  const steps = ["พิมพ์รายการ", "ตรวจรายการ", "บันทึก"];
+export default Add;
+
+const StepRail = ({ currentStep }: { currentStep: number }) => {
+  const t = usePordeeTranslation();
+  const steps = [
+    t("add.step.quick.title"),
+    t("add.step.review.title"),
+    t("add.step.save.short"),
+  ];
   return (
     <ol className="grid grid-cols-3 gap-2">
       {steps.map((step, index) => {
@@ -533,17 +531,17 @@ function StepRail({ currentStep }: { currentStep: number }) {
       })}
     </ol>
   );
-}
+};
 
-function StepNumber({ children }: { children: React.ReactNode }) {
+const StepNumber = ({ children }: { children: React.ReactNode }) => {
   return (
     <span className="bg-ink text-surface flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
       {children}
     </span>
   );
-}
+};
 
-function ParsedPreview({
+const ParsedPreview = ({
   amount,
   categoryName,
   dateLabel,
@@ -559,7 +557,8 @@ function ParsedPreview({
   kind: TransactionKind;
   netAmount: number;
   title: string;
-}) {
+}) => {
+  const t = usePordeeTranslation();
   const hasAmount = Number(amount) > 0;
   const displayAmount =
     hasAmount && kind === "expense" && discountAmount > 0
@@ -570,54 +569,68 @@ function ParsedPreview({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <MascotTip
           mood={hasAmount ? "happy" : "thinking"}
-          title={hasAmount ? "พอดีอ่านให้แล้ว" : "พอดีกำลังรอจำนวนเงิน"}
+          title={
+            hasAmount
+              ? t("add.parsedPreview.readyTitle")
+              : t("add.parsedPreview.waitingTitle")
+          }
           className="border-0 bg-transparent p-0 sm:max-w-md"
         >
           {hasAmount
-            ? "ตรวจรายการด้านล่างอีกครั้ง ถ้าตรงแล้วบันทึกได้เลย"
-            : "เพิ่มจำนวนเงินท้ายรายการหรือกรอกเองในช่องจำนวนเงิน"}
+            ? t("add.parsedPreview.readyDescription")
+            : t("add.parsedPreview.waitingDescription")}
         </MascotTip>
         <div className="grid min-w-0 grid-cols-2 gap-2 sm:w-80">
-          <PreviewChip label="ประเภท">
-            {kind === "income" ? "รายรับ" : "รายจ่าย"}
+          <PreviewChip label={t("transaction.kind.label")}>
+            {t(
+              kind === "income"
+                ? "transaction.kind.income"
+                : "transaction.kind.expense"
+            )}
           </PreviewChip>
-          <PreviewChip label="จำนวน">
-            {hasAmount ? `฿${formatNumber(displayAmount)}` : "รอจำนวน"}
+          <PreviewChip label={t("transaction.amount.label")}>
+            {hasAmount
+              ? t("currency.baht.compact", { amount: fmtNumber(displayAmount) })
+              : t("transaction.amount.waiting")}
           </PreviewChip>
           {kind === "expense" && discountAmount > 0 ? (
-            <PreviewChip label="ส่วนลด">
-              ฿{formatNumber(discountAmount)}
+            <PreviewChip label={t("transaction.discount.label")}>
+              {t("currency.baht.compact", {
+                amount: fmtNumber(discountAmount),
+              })}
             </PreviewChip>
           ) : null}
-          <PreviewChip label="รายการ">{title}</PreviewChip>
-          <PreviewChip label="หมวด">{categoryName}</PreviewChip>
-          <PreviewChip label="วันที่">{dateLabel}</PreviewChip>
+          <PreviewChip label={t("transaction.title.label")}>
+            {title}
+          </PreviewChip>
+          <PreviewChip label={t("transaction.category.label")}>
+            {categoryName}
+          </PreviewChip>
+          <PreviewChip label={t("transaction.date.label")}>
+            {dateLabel}
+          </PreviewChip>
         </div>
       </div>
     </div>
   );
-}
+};
 
-function formatNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
-function PreviewChip({
+const PreviewChip = ({
   children,
   label,
 }: {
   children: React.ReactNode;
   label: string;
-}) {
+}) => {
   return (
     <div className="border-line bg-surface min-w-0 rounded-xs border px-3 py-2">
       <p className="text-muted text-xs">{label}</p>
       <p className="text-ink truncate text-sm font-semibold">{children}</p>
     </div>
   );
-}
+};
 
-function KindToggle({
+const KindToggle = ({
   active,
   onClick,
   tone,
@@ -627,7 +640,7 @@ function KindToggle({
   onClick: () => void;
   tone: "coral" | "teal";
   children: React.ReactNode;
-}) {
+}) => {
   return (
     <Button
       type="button"
@@ -647,4 +660,4 @@ function KindToggle({
       {children}
     </Button>
   );
-}
+};
