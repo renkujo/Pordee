@@ -66,7 +66,12 @@ export const usePordeeLocale = () => {
 
 export const usePordeeTranslation = () => {
   const { _ } = useLingui();
-  return _;
+  return useCallback(
+    (id: string, values?: Record<string, unknown>) => {
+      return _({ id, message: id } as never, values);
+    },
+    [_]
+  );
 };
 
 const subscribeToLocale = (onStoreChange: () => void) => {
