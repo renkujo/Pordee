@@ -114,6 +114,7 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
     "dashboard.coach.title": "ควรทำอะไรต่อ",
     "dashboard.dailySafe.noIncomeCopy":
       "เพิ่มรายรับเดือนนี้ก่อน แล้วพอดีจะช่วยเฉลี่ยเงินที่ใช้ได้ต่อวัน",
+    "dashboard.dailySafe.noIncomeTitle": "รอรายรับเดือนนี้",
     "dashboard.dailySafe.normalCopy":
       "ถ้าไม่อยากเกินเดือนนี้ ใช้เฉลี่ยได้ประมาณ {amount} ต่อวัน",
     "dashboard.dailySafe.overCopy":
@@ -628,6 +629,7 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
     "dashboard.coach.title": "What to do next",
     "dashboard.dailySafe.noIncomeCopy":
       "Add this month's income first, then Pordee can average safe daily spending.",
+    "dashboard.dailySafe.noIncomeTitle": "Waiting for this month's income",
     "dashboard.dailySafe.normalCopy":
       "To avoid overspending this month, average around {amount} per day.",
     "dashboard.dailySafe.overCopy":

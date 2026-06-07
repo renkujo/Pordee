@@ -18,6 +18,17 @@ const dayValue = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+test("dashboard waits for income before showing daily-safe days left", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.getByText("รอรายรับเดือนนี้")).toBeVisible();
+  await expect(page.getByText(/เหลืออีก \\d+ วันในเดือนนี้/)).toHaveCount(0);
+});
+
 test("dashboard reflects month income/expense after adding rows", async ({
   page,
 }) => {

@@ -93,12 +93,14 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
   const isCurrentMonth =
     now.getFullYear() === today.getFullYear() &&
     now.getMonth() === today.getMonth();
-  const todayDay = todayDayValue(today);
-  const toDate = parseDayValue(range.toDay) ?? today;
-  const daysLeft =
-    isCurrentMonth && range.toDay >= todayDay
-      ? Math.max(1, toDate.getDate() - today.getDate() + 1)
-      : 0;
+  const currentMonthEnd = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0
+  );
+  const daysLeft = isCurrentMonth
+    ? Math.max(1, currentMonthEnd.getDate() - today.getDate() + 1)
+    : 0;
   const balance = income - expense;
 
   return {
@@ -443,9 +445,11 @@ const Dashboard = () => {
                   <div>
                     <p className="text-ink text-sm font-semibold">
                       {isCurrentMonth
-                        ? daysLeft > 0
-                          ? t("dashboard.daysLeft", { daysLeft })
-                          : t("dashboard.monthSummary.current")
+                        ? dailySafe === null
+                          ? t("dashboard.dailySafe.noIncomeTitle")
+                          : daysLeft > 0
+                            ? t("dashboard.daysLeft", { daysLeft })
+                            : t("dashboard.monthSummary.current")
                         : t("dashboard.monthSummary.selected", {
                             month: monthLabel,
                           })}
