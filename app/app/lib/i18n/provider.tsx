@@ -13,6 +13,7 @@ import {
   DEFAULT_LOCALE,
   isPordeeLocale,
   LOCALE_STORAGE_KEY,
+  messages as manualMessages,
   type PordeeLocale,
 } from "./messages";
 import { catalogs } from "./catalogs";
@@ -68,7 +69,13 @@ export const usePordeeTranslation = () => {
   const { _ } = useLingui();
   return useCallback(
     (id: string, values?: Record<string, unknown>) => {
-      return _({ id, message: id } as never, values);
+      const locale = isPordeeLocale(i18n.locale) ? i18n.locale : DEFAULT_LOCALE;
+      const message = manualMessages[locale][id] ?? _(id);
+      if (!values) return message;
+
+      return message.replace(/\{(\w+)\}/g, (placeholder, key: string) => {
+        return Object.hasOwn(values, key) ? String(values[key]) : placeholder;
+      });
     },
     [_]
   );
