@@ -1,0 +1,37 @@
+services:
+  web:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - 3000
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set BETTER_AUTH_URL to the public app URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET}
+      DATABASE_URL: postgres://pordee:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/pordee
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pordee
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: pordee
+    volumes:
+      - pordee_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pordee -d pordee"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pordee_postgres_data:

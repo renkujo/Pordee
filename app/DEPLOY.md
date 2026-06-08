@@ -1,7 +1,7 @@
 # Pordee Deploy Notes
 
-Phase 1 deploy target: **Dokploy** running the app as a single Node service,
-backed by **Postgres**.
+Phase 1 deploy target: **Dokploy** running the app as one Docker Compose
+deployment, backed by **Postgres** in the same compose file.
 
 Finance data and Better Auth both persist in Postgres. The app requires
 `DATABASE_URL` to run; there is no SQLite file and no in-memory fallback.
@@ -33,27 +33,34 @@ docker run --rm -p 3000:3000 \
 The image no longer mounts a data volume — all state lives in Postgres.
 PWA service worker is only emitted in production builds.
 
-## Dokploy
+## Dokploy Docker Compose
 
-1. Point the Dokploy app at this repo's `app/` directory.
-2. Build with the included `Dockerfile`.
-3. Expose port `3000`.
-4. Add a domain to the app and route it to container port `3000`.
-5. Add a **Postgres service** in Dokploy with its own persistent volume; note
-   its connection string.
-6. Set env vars from `.env.example`:
+Use one Dokploy **Compose** service for the whole stack. The compose file lives
+at the repo root and builds the web image from `./app/Dockerfile`.
+
+1. In Dokploy, create a Docker Compose service.
+2. Point it at this repo and set **Compose Path** to `./docker-compose.yml`.
+3. Add a domain in the Dokploy Domains tab and route it to service `web`, port
+   `3000`.
+4. Set these environment variables in the Compose service:
 
 ```bash
-NODE_ENV=production
-PORT=3000
 BETTER_AUTH_URL=https://your-pordee-domain.example
 BETTER_AUTH_SECRET=<generate-a-long-random-secret>
-DATABASE_URL=postgres://<user>:<pass>@<postgres-host>:5432/<db>
+POSTGRES_PASSWORD=<generate-a-long-random-db-password>
+
+# Optional Google OAuth:
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 ```
 
-7. Run `pnpm db:migrate` as a **pre-start / release step** so finance migrations
-   are applied before the app boots. Better Auth tables migrate automatically at
-   first request.
+The compose file derives `DATABASE_URL` internally as
+`postgres://pordee:${POSTGRES_PASSWORD}@postgres:5432/pordee`, so do not point
+the web app at a separate Dokploy Postgres service.
+
+Finance migrations are applied by the app through `ensureFinanceDatabase()` on
+first finance repository access. Better Auth tables migrate automatically on
+auth requests through `ensureAuthDatabase()`.
 
 Useful secret generation:
 
@@ -63,10 +70,9 @@ openssl rand -base64 32
 
 ## Deploy Readiness Notes
 
-- Use Dockerfile build type, not static build.
-- If this repo is configured as a monorepo in Dokploy, set the app/root
-  directory to `app/` so Dokploy sees `package.json`, `pnpm-lock.yaml`, and
-  `Dockerfile`.
+- Use Docker Compose type, not static build.
+- Keep the Compose Path at `./docker-compose.yml`; the compose file handles the
+  `./app` build context.
 - Keep replicas at `1` (a single connection pool per instance; multi-instance
   pool tuning is out of scope for Phase 1).
 - After changing env vars or domain settings, redeploy the app.
