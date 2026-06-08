@@ -27,6 +27,14 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  user: {
+    additionalFields: {
+      avatarPresetId: {
+        type: "string",
+        required: false,
+      },
+    },
+  },
   account: {
     accountLinking: {
       trustedProviders: ["google"],
@@ -55,6 +63,7 @@ export const ensureAuthDatabase = () => {
 };
 
 export interface AuthUser {
+  avatarPresetId?: string | null;
   id: string;
   name: string;
   email: string;
@@ -68,6 +77,7 @@ export const getAuthUser = async (
   if (!session?.user) return null;
 
   return {
+    avatarPresetId: session.user.avatarPresetId,
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,

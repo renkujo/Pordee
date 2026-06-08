@@ -7,11 +7,14 @@ import {
   useNavigation,
   useSearchParams,
 } from "react-router";
-import { useState } from "react";
-import type { ComponentType, InputHTMLAttributes } from "react";
+import { useState, useSyncExternalStore } from "react";
+import type { ComponentType, InputHTMLAttributes, ReactNode } from "react";
 import {
   Bell,
+  Banknote,
   Boxes,
+  BriefcaseBusiness,
+  Bus,
   Check,
   CheckCircle2,
   Circle,
@@ -19,15 +22,28 @@ import {
   Database,
   Eye,
   EyeOff,
+  Gift,
+  GraduationCap,
+  HeartPulse,
+  Home,
   KeyRound,
   Languages,
   Link2,
+  ListChecks,
+  LockKeyhole,
   LogOut,
   Mail,
+  PencilLine,
+  Plane,
   Plus,
+  Receipt,
+  RotateCcw,
   Save,
   ShieldCheck,
+  ShoppingBag,
+  Tags,
   Trash2,
+  Utensils,
   UserRound,
   WifiOff,
 } from "lucide-react";
@@ -45,6 +61,26 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "~/components/ui/drawer";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -55,11 +91,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
-import { AccountAvatar } from "~/components/brand/account-avatar";
+import {
+  AccountAvatar,
+  getAccountAvatarVariant,
+} from "~/components/brand/account-avatar";
+import {
+  accountAvatarPresets,
+  getAccountAvatarPresetById,
+  isAccountAvatarPresetId,
+} from "~/components/brand/account-avatar-presets";
 import { MascotTip } from "~/components/brand/mascot-state";
 import { ThemeToggle } from "~/components/shell/theme-toggle";
 import { repo } from "~/lib/db";
-import { auth, requireUser } from "~/lib/auth.server";
+import {
+  DEFAULT_CATEGORY_ICON_ID,
+  isCategoryIconId,
+  type CategoryIconId,
+} from "~/lib/db/category-icons";
+import { auth, redirectWithAuthCookies, requireUser } from "~/lib/auth.server";
 import type { AuthUser } from "~/lib/auth.server";
 import type { Category, TransactionKind } from "~/lib/db";
 import { cn } from "~/lib/cn";
@@ -75,14 +124,55 @@ import { changePasswordSchema, passwordRules } from "~/lib/validators/auth";
 type Translate = ReturnType<typeof usePordeeTranslation>;
 
 type CategoryIntent = "createCategory" | "updateCategory" | "deleteCategory";
+type AvatarIntent = "updateAvatarPreset";
 type PasswordIntent = "changePassword";
-type SettingsIntent = CategoryIntent | PasswordIntent;
+type SettingsIntent = AvatarIntent | CategoryIntent | PasswordIntent;
 type SettingsTab =
   | "account"
   | "notifications"
   | "security"
   | "language"
   | "categories";
+type CategoryIconComponent = ComponentType<{ className?: string }>;
+
+const categoryIconOptions: Array<{
+  icon: CategoryIconComponent;
+  id: CategoryIconId;
+  labelKey: string;
+}> = [
+  {
+    id: "utensils",
+    icon: Utensils,
+    labelKey: "settings.categoryIcon.utensils",
+  },
+  { id: "bus", icon: Bus, labelKey: "settings.categoryIcon.bus" },
+  { id: "receipt", icon: Receipt, labelKey: "settings.categoryIcon.receipt" },
+  {
+    id: "banknote",
+    icon: Banknote,
+    labelKey: "settings.categoryIcon.banknote",
+  },
+  {
+    id: "briefcase",
+    icon: BriefcaseBusiness,
+    labelKey: "settings.categoryIcon.briefcase",
+  },
+  { id: "home", icon: Home, labelKey: "settings.categoryIcon.home" },
+  {
+    id: "shopping-bag",
+    icon: ShoppingBag,
+    labelKey: "settings.categoryIcon.shoppingBag",
+  },
+  { id: "heart", icon: HeartPulse, labelKey: "settings.categoryIcon.heart" },
+  {
+    id: "graduation-cap",
+    icon: GraduationCap,
+    labelKey: "settings.categoryIcon.graduationCap",
+  },
+  { id: "plane", icon: Plane, labelKey: "settings.categoryIcon.plane" },
+  { id: "gift", icon: Gift, labelKey: "settings.categoryIcon.gift" },
+  { id: "tags", icon: Tags, labelKey: "settings.categoryIcon.tags" },
+];
 
 type AccountMethod = {
   description: string;
@@ -95,9 +185,11 @@ interface ActionErrors {
   confirmPassword?: string;
   currentPassword?: string;
   general?: string;
+  icon?: string;
   kind?: string;
   name?: string;
   newPassword?: string;
+  avatarPresetId?: string;
 }
 
 type ActionResult =
@@ -109,9 +201,25 @@ type ActionResult =
     }
   | {
       ok: true;
-      intent: PasswordIntent;
+      intent: AvatarIntent | PasswordIntent;
       message: string;
     }
+  | undefined;
+
+type AccountActionData =
+  | (
+      | {
+          ok: false;
+          intent: AvatarIntent;
+          errors: ActionErrors;
+          values: Record<string, string>;
+        }
+      | {
+          ok: true;
+          intent: AvatarIntent;
+          message: string;
+        }
+    )
   | undefined;
 
 type CategoryActionData =
@@ -174,6 +282,27 @@ export const action = async ({
     );
   }
 
+  if (intent === "updateAvatarPreset") {
+    const avatarPresetId = String(form.get("avatarPresetId") ?? "");
+    const nextAvatarPresetId = avatarPresetId || null;
+
+    if (nextAvatarPresetId && !isAccountAvatarPresetId(nextAvatarPresetId)) {
+      return fieldError(
+        intent,
+        { avatarPresetId: "settings.avatar.error.invalidPreset" },
+        form
+      );
+    }
+
+    const { headers } = await auth.api.updateUser({
+      body: { avatarPresetId: nextAvatarPresetId },
+      headers: request.headers,
+      returnHeaders: true,
+    });
+
+    return redirectWithAuthCookies("/settings?tab=account", headers);
+  }
+
   if (intent === "changePassword") {
     const raw = {
       currentPassword: form.get("currentPassword"),
@@ -213,6 +342,7 @@ export const action = async ({
 
   if (intent === "createCategory") {
     const raw = {
+      icon: form.get("icon"),
       name: form.get("name"),
       kind: form.get("kind"),
     };
@@ -241,6 +371,7 @@ export const action = async ({
   if (intent === "updateCategory") {
     const raw = {
       id: form.get("categoryId"),
+      icon: form.get("icon"),
       name: form.get("name"),
     };
     const parsed = updateCategorySchema.safeParse(raw);
@@ -272,7 +403,10 @@ export const action = async ({
       );
     }
 
-    await repo.updateCategory(user.id, category.id, { name: parsed.data.name });
+    await repo.updateCategory(user.id, category.id, {
+      icon: parsed.data.icon,
+      name: parsed.data.name,
+    });
     return redirect("/settings?tab=categories");
   }
 
@@ -310,6 +444,7 @@ const Settings = () => {
   const actionData = useActionData<ActionResult>();
   const [searchParams] = useSearchParams();
   const selectedTab = getSelectedTab(actionData, searchParams);
+  const accountActionData = getAccountActionData(actionData);
   const categoryActionData = getCategoryActionData(actionData);
   const passwordActionData = getPasswordActionData(actionData);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
@@ -337,7 +472,11 @@ const Settings = () => {
 
         <div className="min-w-0">
           {selectedTab === "account" ? (
-            <AccountSection accountMethods={accountMethods} user={user} />
+            <AccountSection
+              accountMethods={accountMethods}
+              actionData={accountActionData}
+              user={user}
+            />
           ) : selectedTab === "security" ? (
             <SecuritySection actionData={passwordActionData} />
           ) : selectedTab === "notifications" ? (
@@ -521,15 +660,27 @@ const CategoriesSection = ({
   const t = usePordeeTranslation();
 
   return (
-    <Card>
-      <CardHeader className="gap-2">
-        <CardTitle>{t("settings.categories.title")}</CardTitle>
-        <p className="text-muted text-sm leading-6">
-          {t("settings.categories.description")}
-        </p>
+    <Card className="overflow-hidden rounded-[18px]">
+      <CardHeader className="border-line bg-sky/20 gap-2 border-b">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle>{t("settings.categories.title")}</CardTitle>
+            <p className="text-muted mt-2 max-w-2xl text-sm leading-6">
+              {t("settings.categories.description")}
+            </p>
+          </div>
+          <Badge tone="teal" className="w-fit rounded-md">
+            {t("settings.categories.count", {
+              count: expenseCategories.length + incomeCategories.length,
+            })}
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <CreateCategoryForm actionData={actionData} />
+      <CardContent className="flex flex-col gap-5 p-4 sm:p-5">
+        <CreateCategoryResponsiveDialog
+          actionData={actionData}
+          key={getCreateCategorySurfaceKey(actionData)}
+        />
 
         {actionData?.intent === "deleteCategory" &&
           actionData.errors.general && (
@@ -538,7 +689,7 @@ const CategoriesSection = ({
             </p>
           )}
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <CategoryGroup
             actionData={actionData}
             categories={expenseCategories}
@@ -561,9 +712,11 @@ const CategoriesSection = ({
 
 const AccountSection = ({
   accountMethods,
+  actionData,
   user,
 }: {
   accountMethods: AccountMethod[];
+  actionData: AccountActionData;
   user: AuthUser;
 }) => {
   const t = usePordeeTranslation();
@@ -658,6 +811,8 @@ const AccountSection = ({
           </div>
         </CardHeader>
         <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <AvatarPresetForm actionData={actionData} user={user} />
+
           <div className="border-line border-b p-5 lg:border-r lg:border-b-0">
             <div className="mb-4 flex items-center gap-2">
               <ShieldCheck className="text-teal h-5 w-5" />
@@ -721,6 +876,183 @@ const AccountSection = ({
         </CardContent>
       </Card>
     </div>
+  );
+};
+
+const AvatarPresetForm = ({
+  actionData,
+  user,
+}: {
+  actionData: AccountActionData;
+  user: AuthUser;
+}) => {
+  const currentAvatarPresetId =
+    getAccountAvatarPresetById(user.avatarPresetId)?.id ?? "";
+  const [selectedAvatarPresetId, setSelectedAvatarPresetId] = useState(
+    currentAvatarPresetId
+  );
+  const t = usePordeeTranslation();
+  const navigation = useNavigation();
+  const selectedPreset = getAccountAvatarPresetById(selectedAvatarPresetId);
+  const previewPreset =
+    selectedPreset ??
+    getAccountAvatarVariant({ ...user, avatarPresetId: null });
+  const isSubmitting =
+    navigation.state !== "idle" &&
+    navigation.formData?.get("intent") === "updateAvatarPreset";
+  const isDirty = selectedAvatarPresetId !== currentAvatarPresetId;
+  const isError = actionData?.ok === false;
+
+  return (
+    <section className="border-line bg-sky/20 border-b lg:col-span-2">
+      <Form
+        method="post"
+        className="grid gap-0 lg:grid-cols-[18rem_minmax(0,1fr)]"
+        data-testid="avatar-preset-form"
+      >
+        <input type="hidden" name="intent" value="updateAvatarPreset" />
+
+        <div className="border-line flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center lg:flex-col lg:items-stretch lg:border-r lg:border-b-0">
+          <div className="border-line/60 bg-surface flex aspect-square w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border sm:w-20 lg:w-32">
+            <img
+              alt={t("settings.avatar.previewAlt")}
+              className="h-full w-full rounded-full object-cover"
+              draggable={false}
+              src={previewPreset.src}
+            />
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="bg-surface text-teal border-line flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border">
+                <UserRound className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-ink text-sm font-semibold">
+                  {t("settings.avatar.title")}
+                </h2>
+                <p className="text-muted mt-0.5 text-xs leading-5">
+                  {selectedPreset
+                    ? t("settings.avatar.selectedLabel", {
+                        index: selectedPreset.index,
+                      })
+                    : t("settings.avatar.generatedLabel")}
+                </p>
+              </div>
+            </div>
+            <p className="text-muted mt-2 max-w-sm text-sm leading-6 lg:max-w-none">
+              {t("settings.avatar.description")}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-surface flex min-w-0 flex-col gap-3 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <p className="text-ink text-sm font-semibold">
+                {t("settings.avatar.gridLabel")}
+              </p>
+              <p className="text-muted mt-1 text-xs leading-5">
+                {t("settings.avatar.previewHint")}
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={selectedAvatarPresetId === ""}
+                onClick={() => setSelectedAvatarPresetId("")}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t("settings.avatar.reset")}
+              </Button>
+            </div>
+          </div>
+
+          <div
+            aria-label={t("settings.avatar.gridLabel")}
+            className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-6"
+            role="radiogroup"
+          >
+            {accountAvatarPresets.map((preset) => {
+              const active = selectedAvatarPresetId === preset.id;
+
+              return (
+                <label
+                  className={cn(
+                    "border-line bg-sky/35 focus-within:ring-coral/40 relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-[12px] border transition-colors focus-within:ring-2",
+                    active
+                      ? "border-coral bg-coral/10 shadow-[inset_0_0_0_1px_var(--color-coral)]"
+                      : "hover:border-teal/35 hover:bg-sky"
+                  )}
+                  key={preset.id}
+                >
+                  <input
+                    aria-label={t("settings.avatar.optionLabel", {
+                      index: preset.index,
+                    })}
+                    checked={active}
+                    className="absolute inset-0 z-10 cursor-pointer opacity-0"
+                    name="avatarPresetId"
+                    onChange={() => setSelectedAvatarPresetId(preset.id)}
+                    type="radio"
+                    value={preset.id}
+                  />
+                  <img
+                    alt=""
+                    className="pointer-events-none h-full w-full scale-[1.12] object-cover"
+                    draggable={false}
+                    src={preset.src}
+                  />
+                  {active && (
+                    <span className="bg-coral pointer-events-none absolute top-1 right-1 z-20 flex h-5 w-5 items-center justify-center rounded-full text-white">
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+
+          {isError && actionData.errors.avatarPresetId && (
+            <p className="text-coral-strong text-sm">
+              {t(actionData.errors.avatarPresetId)}
+            </p>
+          )}
+
+          <div className="border-line flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted min-h-5 text-xs leading-5">
+              {isDirty ? t("settings.avatar.previewHint") : ""}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {isDirty && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    setSelectedAvatarPresetId(currentAvatarPresetId)
+                  }
+                >
+                  {t("common.cancel")}
+                </Button>
+              )}
+              <Button
+                type="submit"
+                variant="teal"
+                disabled={!isDirty || isSubmitting}
+              >
+                <Save className="h-4 w-4" />
+                {isSubmitting
+                  ? t("settings.avatar.submitting")
+                  : t("settings.avatar.submit")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Form>
+    </section>
   );
 };
 
@@ -949,12 +1281,20 @@ const getSelectedTab = (
   actionData: ActionResult,
   searchParams: URLSearchParams
 ): SettingsTab => {
+  if (actionData?.intent === "updateAvatarPreset") return "account";
   if (actionData?.intent === "changePassword") return "security";
   if (actionData?.intent && isCategoryIntent(actionData.intent)) {
     return "categories";
   }
 
   return getSettingsTab(searchParams);
+};
+
+const getAccountActionData = (actionData: ActionResult): AccountActionData => {
+  if (actionData?.intent === "updateAvatarPreset") {
+    return actionData as AccountActionData;
+  }
+  return undefined;
 };
 
 const getCategoryActionData = (
@@ -965,6 +1305,36 @@ const getCategoryActionData = (
   }
 
   return undefined;
+};
+
+const getCreateCategorySurfaceKey = (actionData: CategoryActionData) => {
+  if (actionData?.intent !== "createCategory") return "create-ready";
+
+  return [
+    "create-error",
+    actionData.values.name,
+    actionData.values.kind,
+    actionData.values.icon,
+  ].join("-");
+};
+
+const getEditCategorySurfaceKey = (
+  actionData: CategoryActionData,
+  categoryId: string
+) => {
+  if (
+    actionData?.intent !== "updateCategory" ||
+    actionData.values.categoryId !== categoryId
+  ) {
+    return `edit-ready-${categoryId}`;
+  }
+
+  return [
+    "edit-error",
+    categoryId,
+    actionData.values.name,
+    actionData.values.icon,
+  ].join("-");
 };
 
 const getPasswordActionData = (
@@ -983,7 +1353,8 @@ const isSettingsIntent = (
     value === "createCategory" ||
     value === "updateCategory" ||
     value === "deleteCategory" ||
-    value === "changePassword"
+    value === "changePassword" ||
+    value === "updateAvatarPreset"
   );
 };
 
@@ -1114,20 +1485,151 @@ const getAccountMethodDescription = (method: AccountMethod, t: Translate) => {
   return t(method.description);
 };
 
-const CreateCategoryForm = ({
+const CreateCategoryResponsiveDialog = ({
   actionData,
 }: {
   actionData: CategoryActionData;
 }) => {
   const isCreateError = actionData?.intent === "createCategory";
   const t = usePordeeTranslation();
+  const hasHydrated = useHasHydrated();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const navigation = useNavigation();
+  const [open, setOpen] = useState(isCreateError);
+  const isSubmitting =
+    navigation.state !== "idle" &&
+    navigation.formData?.get("intent") === "createCategory";
+  const selectedIcon = getSafeCategoryIconId(
+    isCreateError ? actionData.values.icon : DEFAULT_CATEGORY_ICON_ID
+  );
+  const trigger = (
+    <Button type="button" className="w-full sm:w-auto" disabled={!hasHydrated}>
+      <Plus className="h-4 w-4" />
+      {t("settings.categoryForm.submit")}
+    </Button>
+  );
+  const wrappedTrigger = !hasHydrated ? (
+    trigger
+  ) : isDesktop ? (
+    <DialogTrigger asChild>{trigger}</DialogTrigger>
+  ) : (
+    <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+  );
+
+  const prompt = (
+    <div className="border-line bg-sky/30 flex flex-col gap-3 rounded-[14px] border p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-ink text-sm font-semibold">
+          {t("settings.categoryForm.drawerPromptTitle")}
+        </p>
+        <p className="text-muted mt-1 text-sm leading-6">
+          {t("settings.categoryForm.drawerPromptDescription")}
+        </p>
+      </div>
+      {wrappedTrigger}
+    </div>
+  );
+
+  if (!hasHydrated) {
+    return prompt;
+  }
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        {prompt}
+        <DialogContent data-testid="create-category-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("settings.categoryForm.drawerTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("settings.categoryForm.drawerDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <Form
+            method="post"
+            className="grid gap-4"
+            onSubmit={() => setOpen(false)}
+          >
+            <input type="hidden" name="intent" value="createCategory" />
+            <CreateCategoryFormFields
+              actionData={actionData}
+              isCreateError={isCreateError}
+              selectedIcon={selectedIcon}
+            />
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  {t("common.cancel")}
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                <Plus className="h-4 w-4" />
+                {isSubmitting
+                  ? t("settings.categoryForm.submitting")
+                  : t("settings.categoryForm.submit")}
+              </Button>
+            </DialogFooter>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <Form
-      method="post"
-      className="border-line bg-sky/35 grid gap-3 rounded-md border p-4 md:grid-cols-[1fr_180px_auto]"
-    >
-      <input type="hidden" name="intent" value="createCategory" />
+    <Drawer open={open} onOpenChange={setOpen}>
+      {prompt}
+      <DrawerContent data-testid="create-category-drawer">
+        <DrawerHeader>
+          <DrawerTitle>{t("settings.categoryForm.drawerTitle")}</DrawerTitle>
+          <DrawerDescription>
+            {t("settings.categoryForm.drawerDescription")}
+          </DrawerDescription>
+        </DrawerHeader>
+        <Form
+          method="post"
+          className="flex flex-col"
+          onSubmit={() => setOpen(false)}
+        >
+          <input type="hidden" name="intent" value="createCategory" />
+          <div className="overflow-y-auto px-5 pb-4">
+            <CreateCategoryFormFields
+              actionData={actionData}
+              isCreateError={isCreateError}
+              selectedIcon={selectedIcon}
+            />
+          </div>
+          <DrawerFooter className="sm:flex-row sm:justify-end">
+            <DrawerClose asChild>
+              <Button type="button" variant="secondary">
+                {t("common.cancel")}
+              </Button>
+            </DrawerClose>
+            <Button type="submit" disabled={isSubmitting}>
+              <Plus className="h-4 w-4" />
+              {isSubmitting
+                ? t("settings.categoryForm.submitting")
+                : t("settings.categoryForm.submit")}
+            </Button>
+          </DrawerFooter>
+        </Form>
+      </DrawerContent>
+    </Drawer>
+  );
+};
+
+const CreateCategoryFormFields = ({
+  actionData,
+  isCreateError,
+  selectedIcon,
+}: {
+  actionData: CategoryActionData;
+  isCreateError: boolean;
+  selectedIcon: CategoryIconId;
+}) => {
+  const t = usePordeeTranslation();
+
+  return (
+    <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
       <div className="flex flex-col gap-2">
         <Label htmlFor="new-category-name">
           {t("settings.categoryForm.nameLabel")}
@@ -1135,10 +1637,10 @@ const CreateCategoryForm = ({
         <Input
           id="new-category-name"
           name="name"
-          defaultValue={isCreateError ? actionData.values.name : ""}
+          defaultValue={isCreateError ? actionData?.values.name : ""}
           placeholder={t("settings.categoryForm.namePlaceholder")}
         />
-        {isCreateError && actionData.errors.name && (
+        {isCreateError && actionData?.errors.name && (
           <p className="text-coral-strong text-sm">
             {t(actionData.errors.name)}
           </p>
@@ -1148,7 +1650,7 @@ const CreateCategoryForm = ({
         <Label htmlFor="new-category-kind">{t("transaction.kind.label")}</Label>
         <Select
           name="kind"
-          defaultValue={isCreateError ? actionData.values.kind : "expense"}
+          defaultValue={isCreateError ? actionData?.values.kind : "expense"}
         >
           <SelectTrigger id="new-category-kind">
             <SelectValue placeholder={t("transaction.kind.expense")} />
@@ -1162,19 +1664,19 @@ const CreateCategoryForm = ({
             </SelectItem>
           </SelectContent>
         </Select>
-        {isCreateError && actionData.errors.kind && (
+        {isCreateError && actionData?.errors.kind && (
           <p className="text-coral-strong text-sm">
             {t(actionData.errors.kind)}
           </p>
         )}
       </div>
-      <div className="flex items-end">
-        <Button type="submit" className="w-full md:w-auto">
-          <Plus className="h-4 w-4" />
-          {t("settings.categoryForm.submit")}
-        </Button>
-      </div>
-    </Form>
+      <CategoryIconPicker
+        className="md:col-span-2"
+        defaultValue={selectedIcon}
+        error={isCreateError ? actionData?.errors.icon : undefined}
+        legend={t("settings.categoryIcon.label")}
+      />
+    </div>
   );
 };
 
@@ -1194,10 +1696,19 @@ const CategoryGroup = ({
   const t = usePordeeTranslation();
 
   return (
-    <section className="border-line bg-surface rounded-md border">
-      <div className="border-line flex items-center justify-between border-b px-4 py-3">
-        <h2 className="text-ink text-base font-semibold">{title}</h2>
-        <span className="text-muted text-sm">
+    <section className="border-line bg-surface overflow-hidden rounded-[14px] border">
+      <div className="border-line bg-sky/20 flex items-center justify-between gap-3 border-b px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="bg-surface text-teal border-line flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border">
+            {kind === "income" ? (
+              <Banknote className="h-4 w-4" />
+            ) : (
+              <Receipt className="h-4 w-4" />
+            )}
+          </div>
+          <h2 className="text-ink truncate text-base font-semibold">{title}</h2>
+        </div>
+        <span className="text-muted shrink-0 text-sm">
           {t("settings.categories.count", { count: categories.length })}
         </span>
       </div>
@@ -1234,103 +1745,386 @@ const CategoryRow = ({
 }) => {
   const isRowError =
     actionData?.values.categoryId === category.id &&
-    actionData.intent !== "createCategory";
+    actionData.intent === "updateCategory";
   const canDelete = usageCount === 0;
   const deleteFormId = `delete-category-${category.id}`;
   const t = usePordeeTranslation();
+  const selectedIcon = getSafeCategoryIconId(
+    isRowError ? actionData?.values.icon : category.icon
+  );
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-3" data-testid="category-row">
-      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <Form method="post" className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <input type="hidden" name="intent" value="updateCategory" />
-          <input type="hidden" name="categoryId" value={category.id} />
+    <div className="px-4 py-4" data-testid="category-row">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+          <div className="border-line bg-sky/45 text-teal flex h-11 w-11 items-center justify-center rounded-[12px] border">
+            <CategoryIconGlyph icon={category.icon} className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p
+              aria-label={t("settings.categoryRow.nameAriaLabel", {
+                name: category.name,
+              })}
+              className="text-ink truncate text-sm font-semibold"
+            >
+              {category.name}
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <span
+                aria-label={
+                  usageCount > 0
+                    ? t("settings.categoryRow.usage", { count: usageCount })
+                    : t("settings.categoryRow.noUsage")
+                }
+                className="border-line text-muted inline-flex h-7 items-center gap-1.5 rounded-[8px] border px-2 text-xs tabular-nums"
+                title={
+                  usageCount > 0
+                    ? t("settings.categoryRow.usage", { count: usageCount })
+                    : t("settings.categoryRow.noUsage")
+                }
+              >
+                <ListChecks className="h-3.5 w-3.5" />
+                {usageCount}
+              </span>
+              {!canDelete && (
+                <span
+                  aria-label={t("settings.categoryRow.cannotDelete")}
+                  className="border-line text-muted inline-flex h-7 w-7 items-center justify-center rounded-[8px] border"
+                  title={t("settings.categoryRow.cannotDelete")}
+                >
+                  <LockKeyhole className="h-3.5 w-3.5" />
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-end sm:gap-1.5">
+          <EditCategoryResponsiveDialog
+            actionData={actionData}
+            category={category}
+            key={getEditCategorySurfaceKey(actionData, category.id)}
+            selectedIcon={selectedIcon}
+          />
+          <Form id={deleteFormId} method="post" className="hidden">
+            <input type="hidden" name="intent" value="deleteCategory" />
+            <input type="hidden" name="categoryId" value={category.id} />
+          </Form>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!canDelete}
+                className="text-coral-strong border-coral/40 hover:bg-coral/10 w-full lg:w-auto"
+              >
+                <Trash2 className="h-4 w-4" />
+                {t("common.delete")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("settings.categoryDelete.title")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("settings.categoryDelete.description", {
+                    name: category.name,
+                  })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      (
+                        document.getElementById(
+                          deleteFormId
+                        ) as HTMLFormElement | null
+                      )?.requestSubmit()
+                    }
+                    className="focus-visible:ring-coral/40 bg-coral hover:bg-coral-strong inline-flex h-10 items-center justify-center rounded-[12px] px-4 text-sm font-medium whitespace-nowrap text-white transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {t("settings.categoryDelete.confirm")}
+                  </button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EditCategoryResponsiveDialog = ({
+  actionData,
+  category,
+  selectedIcon,
+}: {
+  actionData: CategoryActionData;
+  category: Category;
+  selectedIcon: CategoryIconId;
+}) => {
+  const isRowError =
+    actionData?.values.categoryId === category.id &&
+    actionData.intent === "updateCategory";
+  const t = usePordeeTranslation();
+  const hasHydrated = useHasHydrated();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const navigation = useNavigation();
+  const [open, setOpen] = useState(isRowError);
+  const isSubmitting =
+    navigation.state !== "idle" &&
+    navigation.formData?.get("intent") === "updateCategory" &&
+    navigation.formData?.get("categoryId") === category.id;
+  const nameValue =
+    isRowError && actionData?.values.name
+      ? actionData.values.name
+      : category.name;
+  const trigger = (
+    <Button
+      type="button"
+      variant="secondary"
+      className="w-full sm:w-auto"
+      disabled={!hasHydrated}
+    >
+      <PencilLine className="h-4 w-4" />
+      {t("settings.categoryEdit.trigger")}
+    </Button>
+  );
+
+  if (!hasHydrated) {
+    return trigger;
+  }
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+        <DialogContent data-testid="edit-category-dialog">
+          <DialogHeader>
+            <DialogTitle>
+              {t("settings.categoryEdit.title", { name: category.name })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("settings.categoryEdit.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <EditCategoryForm
+            actionData={actionData}
+            category={category}
+            isRowError={isRowError}
+            nameValue={nameValue}
+            selectedIcon={selectedIcon}
+            onSubmit={() => setOpen(false)}
+          >
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  {t("common.cancel")}
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                <Save className="h-4 w-4" />
+                {isSubmitting
+                  ? t("settings.categoryEdit.submitting")
+                  : t("settings.categoryEdit.submit")}
+              </Button>
+            </DialogFooter>
+          </EditCategoryForm>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+      <DrawerContent data-testid="edit-category-drawer">
+        <DrawerHeader>
+          <DrawerTitle>
+            {t("settings.categoryEdit.title", { name: category.name })}
+          </DrawerTitle>
+          <DrawerDescription>
+            {t("settings.categoryEdit.description")}
+          </DrawerDescription>
+        </DrawerHeader>
+        <EditCategoryForm
+          actionData={actionData}
+          category={category}
+          isRowError={isRowError}
+          nameValue={nameValue}
+          selectedIcon={selectedIcon}
+          onSubmit={() => setOpen(false)}
+          className="px-5 pb-4"
+        >
+          <DrawerFooter className="-mx-5 mt-4 sm:flex-row sm:justify-end">
+            <DrawerClose asChild>
+              <Button type="button" variant="secondary">
+                {t("common.cancel")}
+              </Button>
+            </DrawerClose>
+            <Button type="submit" disabled={isSubmitting}>
+              <Save className="h-4 w-4" />
+              {isSubmitting
+                ? t("settings.categoryEdit.submitting")
+                : t("settings.categoryEdit.submit")}
+            </Button>
+          </DrawerFooter>
+        </EditCategoryForm>
+      </DrawerContent>
+    </Drawer>
+  );
+};
+
+const EditCategoryForm = ({
+  actionData,
+  category,
+  children,
+  className,
+  isRowError,
+  nameValue,
+  onSubmit,
+  selectedIcon,
+}: {
+  actionData: CategoryActionData;
+  category: Category;
+  children: ReactNode;
+  className?: string;
+  isRowError: boolean;
+  nameValue: string;
+  onSubmit: () => void;
+  selectedIcon: CategoryIconId;
+}) => {
+  const t = usePordeeTranslation();
+
+  return (
+    <Form
+      method="post"
+      className={cn("grid gap-4", className)}
+      onSubmit={onSubmit}
+    >
+      <input type="hidden" name="intent" value="updateCategory" />
+      <input type="hidden" name="categoryId" value={category.id} />
+      <div className="grid gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`edit-category-name-${category.id}`}>
+            {t("settings.categoryRow.nameAriaLabel", {
+              name: category.name,
+            })}
+          </Label>
           <Input
             aria-label={t("settings.categoryRow.nameAriaLabel", {
               name: category.name,
             })}
+            id={`edit-category-name-${category.id}`}
             name="name"
-            defaultValue={
-              isRowError && actionData?.values.name
-                ? actionData.values.name
-                : category.name
-            }
+            defaultValue={nameValue}
           />
-          <Button type="submit" variant="secondary">
-            <Save className="h-4 w-4" />
-            {t("common.save")}
-          </Button>
-        </Form>
-        <Form id={deleteFormId} method="post" className="hidden">
-          <input type="hidden" name="intent" value="deleteCategory" />
-          <input type="hidden" name="categoryId" value={category.id} />
-        </Form>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={!canDelete}
-              className="text-coral-strong border-coral/40 hover:bg-coral/10 w-full sm:w-auto"
-            >
-              <Trash2 className="h-4 w-4" />
-              {t("common.delete")}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("settings.categoryDelete.title")}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("settings.categoryDelete.description", {
-                  name: category.name,
-                })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <button
-                  type="button"
-                  onClick={() =>
-                    (
-                      document.getElementById(
-                        deleteFormId
-                      ) as HTMLFormElement | null
-                    )?.requestSubmit()
-                  }
-                  className="focus-visible:ring-coral/40 bg-coral hover:bg-coral-strong inline-flex h-10 items-center justify-center rounded-[12px] px-4 text-sm font-medium whitespace-nowrap text-white transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-                >
-                  {t("settings.categoryDelete.confirm")}
-                </button>
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          {isRowError && actionData?.errors.name && (
+            <p className="text-coral-strong text-sm">
+              {t(actionData.errors.name)}
+            </p>
+          )}
+        </div>
+        <CategoryIconPicker
+          defaultValue={selectedIcon}
+          error={isRowError ? actionData?.errors.icon : undefined}
+          legend={t("settings.categoryIcon.rowLabel", {
+            name: category.name,
+          })}
+        />
       </div>
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-muted text-sm">
-          {usageCount > 0
-            ? t("settings.categoryRow.usage", { count: usageCount })
-            : t("settings.categoryRow.noUsage")}
-        </p>
-        {!canDelete && (
-          <p className="text-muted text-sm">
-            {t("settings.categoryRow.cannotDelete")}
-          </p>
-        )}
-      </div>
-      {isRowError && actionData?.errors.name && (
-        <p className="text-coral-strong text-sm">{t(actionData.errors.name)}</p>
-      )}
       {isRowError && actionData?.errors.general && (
         <p className="text-coral-strong text-sm">
           {t(actionData.errors.general)}
         </p>
       )}
-    </div>
+      {children}
+    </Form>
   );
+};
+
+const CategoryIconPicker = ({
+  className,
+  compact = false,
+  defaultValue,
+  error,
+  legend,
+}: {
+  className?: string;
+  compact?: boolean;
+  defaultValue: CategoryIconId;
+  error?: string;
+  legend: string;
+}) => {
+  const t = usePordeeTranslation();
+
+  return (
+    <fieldset className={cn("min-w-0", className)}>
+      <legend className="text-ink mb-2 text-sm font-medium">{legend}</legend>
+      <div
+        className={cn(
+          "grid gap-2",
+          compact ? "grid-cols-6" : "grid-cols-4 sm:grid-cols-6"
+        )}
+      >
+        {categoryIconOptions.map((option) => {
+          const Icon = option.icon;
+          const label = t(option.labelKey);
+
+          return (
+            <label
+              className="focus-within:ring-coral/40 relative rounded-[10px] focus-within:ring-2 focus-within:outline-none"
+              key={option.id}
+              title={label}
+            >
+              <input
+                aria-label={t("settings.categoryIcon.optionLabel", {
+                  label,
+                })}
+                className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
+                defaultChecked={option.id === defaultValue}
+                name="icon"
+                type="radio"
+                value={option.id}
+              />
+              <span
+                className={cn(
+                  "border-line bg-surface text-muted peer-checked:border-coral peer-checked:bg-coral/10 peer-checked:text-coral-strong hover:border-teal/35 hover:text-teal flex cursor-pointer items-center justify-center rounded-[10px] border transition-colors",
+                  compact ? "h-9 w-9" : "h-11 w-11"
+                )}
+              >
+                <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      {error && <p className="text-coral-strong mt-2 text-sm">{t(error)}</p>}
+    </fieldset>
+  );
+};
+
+const CategoryIconGlyph = ({
+  className,
+  icon,
+}: {
+  className?: string;
+  icon: CategoryIconId;
+}) => {
+  const option =
+    categoryIconOptions.find((item) => item.id === icon) ??
+    categoryIconOptions[categoryIconOptions.length - 1];
+  const Icon = option.icon;
+
+  return <Icon className={className} />;
+};
+
+const getSafeCategoryIconId = (value: unknown): CategoryIconId => {
+  return isCategoryIconId(value) ? value : DEFAULT_CATEGORY_ICON_ID;
 };
 
 const findDuplicateCategory = async (
@@ -1364,7 +2158,9 @@ const fieldError = (
 
 const formValues = (form: FormData) => {
   return {
+    avatarPresetId: String(form.get("avatarPresetId") ?? ""),
     categoryId: String(form.get("categoryId") ?? ""),
+    icon: String(form.get("icon") ?? DEFAULT_CATEGORY_ICON_ID),
     kind: String(form.get("kind") ?? "expense"),
     name: String(form.get("name") ?? ""),
   };
@@ -1374,6 +2170,37 @@ const labelKind = (kind: TransactionKind, t: Translate) => {
   return kind === "income"
     ? t("transaction.kind.income")
     : t("transaction.kind.expense");
+};
+
+let hasHydratedSnapshot = false;
+
+const useHasHydrated = () => {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      if (!hasHydratedSnapshot) {
+        hasHydratedSnapshot = true;
+        queueMicrotask(onStoreChange);
+      }
+
+      return () => {};
+    },
+    () => hasHydratedSnapshot,
+    () => false
+  );
+};
+
+const useMediaQuery = (query: string) => {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const mediaQueryList = window.matchMedia(query);
+      mediaQueryList.addEventListener("change", onStoreChange);
+      return () => {
+        mediaQueryList.removeEventListener("change", onStoreChange);
+      };
+    },
+    () => window.matchMedia(query).matches,
+    () => false
+  );
 };
 
 const normalizeCategoryName = (name: string) => {
@@ -1394,9 +2221,11 @@ const zodFieldError = (
       key === "confirmPassword" ||
       key === "currentPassword" ||
       key === "general" ||
+      key === "icon" ||
       key === "kind" ||
       key === "name" ||
-      key === "newPassword"
+      key === "newPassword" ||
+      key === "avatarPresetId"
     ) {
       errors[key === "id" ? "categoryId" : key] = issue.message;
     }

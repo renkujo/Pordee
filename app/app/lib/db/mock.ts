@@ -6,6 +6,7 @@ import type {
   PordeeRepo,
   Transaction,
 } from "./types";
+import { getDefaultCategoryIconId } from "./category-icons";
 
 interface Store {
   seededUsers: Set<string>;
@@ -19,12 +20,12 @@ declare global {
   var __pordeeStore: Store | undefined;
 }
 
-const DEFAULT_CATEGORIES: Array<Pick<Category, "name" | "kind">> = [
-  { name: "อาหาร", kind: "expense" },
-  { name: "เดินทาง", kind: "expense" },
-  { name: "บิล", kind: "expense" },
-  { name: "เงินเดือน", kind: "income" },
-  { name: "งานเสริม", kind: "income" },
+const DEFAULT_CATEGORIES: Array<Pick<Category, "icon" | "name" | "kind">> = [
+  { name: "อาหาร", kind: "expense", icon: "utensils" },
+  { name: "เดินทาง", kind: "expense", icon: "bus" },
+  { name: "บิล", kind: "expense", icon: "receipt" },
+  { name: "เงินเดือน", kind: "income", icon: "banknote" },
+  { name: "งานเสริม", kind: "income", icon: "briefcase" },
 ];
 
 const emptyStore = (): Store => {
@@ -58,15 +59,33 @@ const ensureSeeded = (userId: string) => {
   }
 };
 
+const normalizeCategory = (category: Category): Category => {
+  return {
+    ...category,
+    icon:
+      category.icon ??
+      getDefaultCategoryIconId({ kind: category.kind, name: category.name }),
+  };
+};
+
 export const mockRepo: PordeeRepo = {
   async listCategories(userId) {
     ensureSeeded(userId);
-    return store.categories.filter((c) => c.userId === userId);
+    return store.categories
+      .filter((c) => c.userId === userId)
+      .map(normalizeCategory);
   },
 
   async createCategory(userId, input) {
     ensureSeeded(userId);
-    const category: Category = { id: randomUUID(), userId, ...input };
+    const category: Category = {
+      id: randomUUID(),
+      userId,
+      ...input,
+      icon:
+        input.icon ??
+        getDefaultCategoryIconId({ kind: input.kind, name: input.name }),
+    };
     store.categories.push(category);
     return category;
   },
@@ -76,7 +95,11 @@ export const mockRepo: PordeeRepo = {
       (c) => c.id === id && c.userId === userId
     );
     if (idx === -1) return null;
-    const next: Category = { ...store.categories[idx], name: input.name };
+    const next: Category = {
+      ...store.categories[idx],
+      icon: input.icon ?? store.categories[idx].icon,
+      name: input.name,
+    };
     store.categories[idx] = next;
     return next;
   },

@@ -1,3 +1,5 @@
+import type { CategoryIconId } from "./category-icons";
+
 export type Money = number;
 
 export type TransactionKind = "expense" | "income";
@@ -7,6 +9,7 @@ export interface Category {
   userId: string;
   name: string;
   kind: TransactionKind;
+  icon: CategoryIconId;
 }
 
 export interface Transaction {
@@ -43,12 +46,12 @@ export interface PordeeRepo {
   listCategories(userId: string): Promise<Category[]>;
   createCategory(
     userId: string,
-    input: Omit<Category, "id" | "userId">
+    input: Pick<Category, "kind" | "name"> & Partial<Pick<Category, "icon">>
   ): Promise<Category>;
   updateCategory(
     userId: string,
     id: string,
-    input: Pick<Category, "name">
+    input: Pick<Category, "name"> & Partial<Pick<Category, "icon">>
   ): Promise<Category | null>;
   deleteCategory(userId: string, id: string): Promise<boolean>;
   countTransactionsByCategory(

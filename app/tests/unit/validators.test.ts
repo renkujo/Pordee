@@ -117,6 +117,24 @@ describe("category schemas", () => {
     });
     expect(result.name).toBe("ของใช้บ้าน");
     expect(result.kind).toBe("expense");
+    expect(result.icon).toBe("tags");
+  });
+
+  it("accepts category icons from the allowlist", () => {
+    const result = createCategorySchema.parse({
+      name: "ของใช้บ้าน",
+      kind: "expense",
+      icon: "home",
+    });
+
+    expect(result.icon).toBe("home");
+    expect(() =>
+      createCategorySchema.parse({
+        name: "ของใช้บ้าน",
+        kind: "expense",
+        icon: "unknown",
+      })
+    ).toThrow();
   });
 
   it("rejects empty names and unknown kinds", () => {
@@ -132,9 +150,11 @@ describe("category schemas", () => {
     const result = updateCategorySchema.parse({
       id: "cat-food",
       name: "อาหารนอกบ้าน",
+      icon: "utensils",
     });
     expect(result.id).toBe("cat-food");
     expect(result.name).toBe("อาหารนอกบ้าน");
+    expect(result.icon).toBe("utensils");
   });
 });
 

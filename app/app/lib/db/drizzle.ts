@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./client";
+import { getDefaultCategoryIconId } from "./category-icons";
 import { ensureFinanceDatabase } from "./migrate.server";
 import { categories, goalContributions, goals, transactions } from "./schema";
 import type {
@@ -11,12 +12,12 @@ import type {
   Transaction,
 } from "./types";
 
-const DEFAULT_CATEGORIES: Array<Pick<Category, "name" | "kind">> = [
-  { name: "อาหาร", kind: "expense" },
-  { name: "เดินทาง", kind: "expense" },
-  { name: "บิล", kind: "expense" },
-  { name: "เงินเดือน", kind: "income" },
-  { name: "งานเสริม", kind: "income" },
+const DEFAULT_CATEGORIES: Array<Pick<Category, "icon" | "name" | "kind">> = [
+  { name: "อาหาร", kind: "expense", icon: "utensils" },
+  { name: "เดินทาง", kind: "expense", icon: "bus" },
+  { name: "บิล", kind: "expense", icon: "receipt" },
+  { name: "เงินเดือน", kind: "income", icon: "banknote" },
+  { name: "งานเสริม", kind: "income", icon: "briefcase" },
 ];
 
 const toMoney = (value: string): number => {
@@ -45,6 +46,12 @@ const rowToCategory = (row: typeof categories.$inferSelect): Category => {
     userId: row.userId,
     name: row.name,
     kind: row.kind as Category["kind"],
+    icon:
+      (row.icon as Category["icon"] | null) ??
+      getDefaultCategoryIconId({
+        kind: row.kind as Category["kind"],
+        name: row.name,
+      }),
   };
 };
 
@@ -62,6 +69,7 @@ const ensureSeeded = async (userId: string): Promise<void> => {
       userId,
       name: c.name,
       kind: c.kind,
+      icon: c.icon,
     }))
   );
 };
@@ -99,6 +107,9 @@ export const drizzleRepo: PordeeRepo = {
       userId,
       name: input.name,
       kind: input.kind,
+      icon:
+        input.icon ??
+        getDefaultCategoryIconId({ kind: input.kind, name: input.name }),
     };
     await db.insert(categories).values(row);
     return rowToCategory(row as typeof categories.$inferSelect);
@@ -106,9 +117,13 @@ export const drizzleRepo: PordeeRepo = {
 
   async updateCategory(userId, id, input) {
     await ensureFinanceDatabase();
+    const values = {
+      ...(input.icon ? { icon: input.icon } : {}),
+      name: input.name,
+    };
     const updated = await db
       .update(categories)
-      .set({ name: input.name })
+      .set(values)
       .where(and(eq(categories.id, id), eq(categories.userId, userId)))
       .returning();
     return updated.length ? rowToCategory(updated[0]) : null;

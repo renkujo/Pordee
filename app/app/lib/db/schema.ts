@@ -12,6 +12,7 @@ export const categories = pgTable(
     userId: text("user_id").notNull(),
     name: text("name").notNull(),
     kind: text("kind").notNull(), // 'expense' | 'income'
+    icon: text("icon").notNull().default("tags"),
   },
   (t) => ({
     userIdx: index("categories_user_idx").on(t.userId),
