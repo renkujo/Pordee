@@ -134,6 +134,14 @@ type SettingsTab =
   | "language"
   | "categories";
 type CategoryIconComponent = ComponentType<{ className?: string }>;
+type CategoryGroupTone = {
+  badgeClassName: string;
+  countClassName: string;
+  headerClassName: string;
+  iconClassName: string;
+  rowIconClassName: string;
+  sectionClassName: string;
+};
 
 const categoryIconOptions: Array<{
   icon: CategoryIconComponent;
@@ -1680,6 +1688,28 @@ const CreateCategoryFormFields = ({
   );
 };
 
+const getCategoryGroupTone = (kind: TransactionKind): CategoryGroupTone => {
+  if (kind === "income") {
+    return {
+      badgeClassName: "border-teal/30 bg-teal/10 text-teal",
+      countClassName: "border-teal/25 text-teal",
+      headerClassName: "border-teal/20 bg-teal/10",
+      iconClassName: "border-teal/25 bg-teal/10 text-teal",
+      rowIconClassName: "border-teal/20 bg-teal/10 text-teal",
+      sectionClassName: "border-teal/30",
+    };
+  }
+
+  return {
+    badgeClassName: "border-coral/30 bg-coral/10 text-coral-strong",
+    countClassName: "border-coral/25 text-coral-strong",
+    headerClassName: "border-coral/20 bg-coral/10",
+    iconClassName: "border-coral/25 bg-coral/10 text-coral-strong",
+    rowIconClassName: "border-coral/20 bg-coral/10 text-coral-strong",
+    sectionClassName: "border-coral/35",
+  };
+};
+
 const CategoryGroup = ({
   actionData,
   categories,
@@ -1694,21 +1724,58 @@ const CategoryGroup = ({
   usageByCategoryId: Record<string, number>;
 }) => {
   const t = usePordeeTranslation();
+  const kindLabel = labelKind(kind, t);
+  const tone = getCategoryGroupTone(kind);
 
   return (
-    <section className="border-line bg-surface overflow-hidden rounded-[14px] border">
-      <div className="border-line bg-sky/20 flex items-center justify-between gap-3 border-b px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="bg-surface text-teal border-line flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border">
+    <section
+      className={cn(
+        "bg-surface overflow-hidden rounded-[14px] border",
+        tone.sectionClassName
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-between gap-3 border-b px-4 py-3",
+          tone.headerClassName
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border",
+              tone.iconClassName
+            )}
+          >
             {kind === "income" ? (
               <Banknote className="h-4 w-4" />
             ) : (
               <Receipt className="h-4 w-4" />
             )}
           </div>
-          <h2 className="text-ink truncate text-base font-semibold">{title}</h2>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="text-ink truncate text-base font-semibold">
+                {title}
+              </h2>
+              <span
+                className={cn(
+                  "hidden shrink-0 rounded-[8px] border px-2 py-0.5 text-xs font-medium sm:inline-flex",
+                  tone.badgeClassName
+                )}
+              >
+                {kindLabel}
+              </span>
+            </div>
+            <p className="text-muted mt-0.5 text-xs sm:hidden">{kindLabel}</p>
+          </div>
         </div>
-        <span className="text-muted shrink-0 text-sm">
+        <span
+          className={cn(
+            "bg-surface shrink-0 rounded-[8px] border px-2 py-1 text-xs font-medium",
+            tone.countClassName
+          )}
+        >
           {t("settings.categories.count", { count: categories.length })}
         </span>
       </div>
@@ -1725,6 +1792,7 @@ const CategoryGroup = ({
               actionData={actionData}
               category={category}
               key={category.id}
+              tone={tone}
               usageCount={usageByCategoryId[category.id] ?? 0}
             />
           ))
@@ -1737,10 +1805,12 @@ const CategoryGroup = ({
 const CategoryRow = ({
   actionData,
   category,
+  tone,
   usageCount,
 }: {
   actionData: CategoryActionData;
   category: Category;
+  tone: CategoryGroupTone;
   usageCount: number;
 }) => {
   const isRowError =
@@ -1756,8 +1826,13 @@ const CategoryRow = ({
   return (
     <div className="px-4 py-4" data-testid="category-row">
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
-          <div className="border-line bg-sky/45 text-teal flex h-11 w-11 items-center justify-center rounded-[12px] border">
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+          <div
+            className={cn(
+              "flex h-11 w-11 items-center justify-center rounded-[12px] border",
+              tone.rowIconClassName
+            )}
+          >
             <CategoryIconGlyph icon={category.icon} className="h-5 w-5" />
           </div>
           <div className="min-w-0">
