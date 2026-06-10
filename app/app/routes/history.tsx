@@ -58,6 +58,9 @@ export const meta = (_: Route.MetaArgs) => {
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
+  await repo.processDueRecurring(user.id);
+  const url = new URL(request.url);
+  const sourceParam = url.searchParams.get("source");
   const [transactions, categories] = await Promise.all([
     repo.listTransactions(user.id),
     repo.listCategories(user.id),
@@ -67,6 +70,8 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
     categories,
     transactions,
     categoryNameById: Object.fromEntries(categoryNameById),
+    initialSourceFilter:
+      sourceParam === "recurring" ? "recurring" : "__all_sources__",
   };
 };
 
@@ -95,17 +100,22 @@ const fmtDate = new Intl.DateTimeFormat("th-TH", {
 
 const ALL_KINDS_VALUE = "__all_kinds__";
 const ALL_CATEGORIES_VALUE = "__all_categories__";
+const ALL_SOURCES_VALUE = "__all_sources__";
 
 type KindFilter = typeof ALL_KINDS_VALUE | TransactionKind;
+type SourceFilter = typeof ALL_SOURCES_VALUE | "manual" | "recurring";
 type MonthPreset = "all" | "this-month" | "last-month" | "custom";
 
 const History = () => {
-  const { categories, transactions, categoryNameById } =
+  const { categories, transactions, categoryNameById, initialSourceFilter } =
     useLoaderData<typeof loader>();
   const t = usePordeeTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<KindFilter>(ALL_KINDS_VALUE);
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES_VALUE);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(
+    initialSourceFilter as SourceFilter
+  );
   const [monthPreset, setMonthPreset] = useState<MonthPreset>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -121,6 +131,12 @@ const History = () => {
     if (
       categoryFilter !== ALL_CATEGORIES_VALUE &&
       transaction.categoryId !== categoryFilter
+    ) {
+      return false;
+    }
+    if (
+      sourceFilter !== ALL_SOURCES_VALUE &&
+      transaction.source !== sourceFilter
     ) {
       return false;
     }
@@ -153,13 +169,19 @@ const History = () => {
   const hasSearch = normalizedSearchQuery.length > 0;
   const hasKindFilter = kindFilter !== ALL_KINDS_VALUE;
   const hasCategoryFilter = categoryFilter !== ALL_CATEGORIES_VALUE;
+  const hasSourceFilter = sourceFilter !== ALL_SOURCES_VALUE;
   const hasFilter =
-    hasSearch || hasDateRange || hasKindFilter || hasCategoryFilter;
+    hasSearch ||
+    hasDateRange ||
+    hasKindFilter ||
+    hasCategoryFilter ||
+    hasSourceFilter;
 
   const clearFilters = () => {
     setSearchQuery("");
     setKindFilter(ALL_KINDS_VALUE);
     setCategoryFilter(ALL_CATEGORIES_VALUE);
+    setSourceFilter(ALL_SOURCES_VALUE);
     setMonthPreset("all");
     setFromDate("");
     setToDate("");
@@ -293,7 +315,7 @@ const History = () => {
                 ) : null}
               </div>
 
-              <div className="border-line bg-sky/30 grid gap-3 rounded-sm border p-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end">
+              <div className="border-line bg-sky/30 grid gap-3 rounded-sm border p-3 md:grid-cols-2 xl:grid-cols-5 xl:items-end">
                 <div className="flex flex-col gap-1.5">
                   <Label
                     className="text-muted flex items-center gap-1.5 text-xs"
@@ -392,6 +414,34 @@ const History = () => {
                           {category.name}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    className="text-muted text-xs"
+                    htmlFor="history-source-filter"
+                  >
+                    แหล่งที่มา
+                  </Label>
+                  <Select
+                    name="historySourceFilter"
+                    value={sourceFilter}
+                    onValueChange={(value) =>
+                      setSourceFilter(value as SourceFilter)
+                    }
+                  >
+                    <SelectTrigger
+                      id="history-source-filter"
+                      aria-label="แหล่งที่มา"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_SOURCES_VALUE}>ทั้งหมด</SelectItem>
+                      <SelectItem value="manual">บันทึกเอง</SelectItem>
+                      <SelectItem value="recurring">รายการประจำ</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -537,6 +587,9 @@ const getTransactionSearchText = (
       transaction.title,
       categoryName,
       kindLabel,
+      transaction.source === "recurring"
+        ? "รายการประจำ recurring"
+        : "บันทึกเอง manual",
       transaction.amount.toString(),
       fmtSignedBaht(transaction.amount, transaction.kind),
       fmtDate.format(new Date(transaction.occurredAt)),
@@ -597,15 +650,25 @@ const TransactionRow = ({
           <p className="text-ink truncate text-sm font-medium">
             {transaction.title}
           </p>
-          <p className="text-muted mt-0.5 text-xs md:hidden">
-            {date} · {categoryName}
+          <p className="text-muted mt-0.5 flex flex-wrap items-center gap-1 text-xs md:hidden">
+            <span>
+              {date} · {categoryName}
+            </span>
+            {transaction.source === "recurring" ? (
+              <span className="text-teal">· รายการประจำ</span>
+            ) : null}
           </p>
         </div>
         <p className="text-muted hidden truncate text-sm md:block">
           {categoryName}
         </p>
         <div className="hidden md:block">
-          <Badge tone={amountTone}>{kindLabel}</Badge>
+          <div className="flex flex-wrap gap-1">
+            <Badge tone={amountTone}>{kindLabel}</Badge>
+            {transaction.source === "recurring" ? (
+              <Badge tone="neutral">ประจำ</Badge>
+            ) : null}
+          </div>
         </div>
         <div className="flex items-center justify-between gap-2 md:justify-end">
           <span className="text-muted text-xs md:hidden">{kindLabel}</span>

@@ -43,6 +43,7 @@ export const meta = (_: Route.MetaArgs) => {
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
+  await repo.processDueRecurring(user.id);
   const url = new URL(request.url);
   const selectedDay = parseDayValue(url.searchParams.get("date"));
   const today = new Date();

@@ -7,6 +7,12 @@ export type {
   Category,
   Goal,
   GoalContribution,
+  RecurringFrequency,
+  RecurringOccurrence,
+  RecurringPostMode,
+  RecurringTemplate,
+  RecurringTemplateStatus,
   Transaction,
   TransactionKind,
+  TransactionSource,
 } from "./types";

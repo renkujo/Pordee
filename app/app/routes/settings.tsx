@@ -12,21 +12,29 @@ import type { ComponentType, InputHTMLAttributes, ReactNode } from "react";
 import {
   Bell,
   Banknote,
+  BookOpen,
   Boxes,
   BriefcaseBusiness,
   Bus,
+  Car,
   Check,
   CheckCircle2,
   Circle,
   CloudOff,
+  Coffee,
+  CreditCard,
   Database,
+  Dumbbell,
   Eye,
   EyeOff,
+  Fuel,
+  Gamepad2,
   Gift,
   GraduationCap,
   HeartPulse,
   Home,
   KeyRound,
+  Landmark,
   Languages,
   Link2,
   ListChecks,
@@ -34,17 +42,21 @@ import {
   LogOut,
   Mail,
   PencilLine,
+  PiggyBank,
   Plane,
   Plus,
   Receipt,
   RotateCcw,
   Save,
   ShieldCheck,
+  Shirt,
   ShoppingBag,
+  Smartphone,
   Tags,
   Trash2,
   Utensils,
   UserRound,
+  Wifi,
   WifiOff,
 } from "lucide-react";
 import type { Route } from "./+types/settings";
@@ -155,6 +167,7 @@ const categoryIconOptions: Array<{
   },
   { id: "bus", icon: Bus, labelKey: "settings.categoryIcon.bus" },
   { id: "receipt", icon: Receipt, labelKey: "settings.categoryIcon.receipt" },
+  { id: "coffee", icon: Coffee, labelKey: "settings.categoryIcon.coffee" },
   {
     id: "banknote",
     icon: Banknote,
@@ -166,19 +179,54 @@ const categoryIconOptions: Array<{
     labelKey: "settings.categoryIcon.briefcase",
   },
   { id: "home", icon: Home, labelKey: "settings.categoryIcon.home" },
+  { id: "car", icon: Car, labelKey: "settings.categoryIcon.car" },
+  { id: "fuel", icon: Fuel, labelKey: "settings.categoryIcon.fuel" },
+  {
+    id: "smartphone",
+    icon: Smartphone,
+    labelKey: "settings.categoryIcon.smartphone",
+  },
+  { id: "wifi", icon: Wifi, labelKey: "settings.categoryIcon.wifi" },
   {
     id: "shopping-bag",
     icon: ShoppingBag,
     labelKey: "settings.categoryIcon.shoppingBag",
   },
+  { id: "shirt", icon: Shirt, labelKey: "settings.categoryIcon.shirt" },
   { id: "heart", icon: HeartPulse, labelKey: "settings.categoryIcon.heart" },
+  {
+    id: "dumbbell",
+    icon: Dumbbell,
+    labelKey: "settings.categoryIcon.dumbbell",
+  },
   {
     id: "graduation-cap",
     icon: GraduationCap,
     labelKey: "settings.categoryIcon.graduationCap",
   },
+  {
+    id: "book-open",
+    icon: BookOpen,
+    labelKey: "settings.categoryIcon.bookOpen",
+  },
   { id: "plane", icon: Plane, labelKey: "settings.categoryIcon.plane" },
   { id: "gift", icon: Gift, labelKey: "settings.categoryIcon.gift" },
+  {
+    id: "piggy-bank",
+    icon: PiggyBank,
+    labelKey: "settings.categoryIcon.piggyBank",
+  },
+  {
+    id: "landmark",
+    icon: Landmark,
+    labelKey: "settings.categoryIcon.landmark",
+  },
+  {
+    id: "credit-card",
+    icon: CreditCard,
+    labelKey: "settings.categoryIcon.creditCard",
+  },
+  { id: "gamepad", icon: Gamepad2, labelKey: "settings.categoryIcon.gamepad" },
   { id: "tags", icon: Tags, labelKey: "settings.categoryIcon.tags" },
 ];
 
@@ -2142,8 +2190,10 @@ const CategoryIconPicker = ({
       <legend className="text-ink mb-2 text-sm font-medium">{legend}</legend>
       <div
         className={cn(
-          "grid gap-2",
-          compact ? "grid-cols-6" : "grid-cols-4 sm:grid-cols-6"
+          "border-line bg-sky/25 grid items-center rounded-md border",
+          compact
+            ? "grid-cols-[repeat(auto-fit,minmax(2.25rem,1fr))] gap-1.5 p-2"
+            : "grid-cols-[repeat(auto-fit,minmax(3rem,1fr))] gap-2 p-3"
         )}
       >
         {categoryIconOptions.map((option) => {
@@ -2152,7 +2202,7 @@ const CategoryIconPicker = ({
 
           return (
             <label
-              className="focus-within:ring-coral/40 relative rounded-[10px] focus-within:ring-2 focus-within:outline-none"
+              className="focus-within:ring-coral/40 relative min-w-0 rounded-md focus-within:ring-2 focus-within:outline-none"
               key={option.id}
               title={label}
             >
@@ -2168,8 +2218,8 @@ const CategoryIconPicker = ({
               />
               <span
                 className={cn(
-                  "border-line bg-surface text-muted peer-checked:border-coral peer-checked:bg-coral/10 peer-checked:text-coral-strong hover:border-teal/35 hover:text-teal flex cursor-pointer items-center justify-center rounded-[10px] border transition-colors",
-                  compact ? "h-9 w-9" : "h-11 w-11"
+                  "border-line bg-surface text-muted peer-checked:border-coral peer-checked:bg-coral/10 peer-checked:text-coral-strong hover:border-teal/35 hover:text-teal flex w-full cursor-pointer items-center justify-center rounded-md border transition-colors active:scale-[0.98]",
+                  compact ? "h-9" : "h-11"
                 )}
               >
                 <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />

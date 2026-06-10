@@ -195,3 +195,56 @@
     border-color: var(--color-line);
   }
 }
+
+@layer components {
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in oklab, var(--color-surface) 72%, transparent),
+        transparent
+      ),
+      color-mix(in oklab, var(--color-line) 72%, var(--color-surface));
+    background-size: 220% 100%;
+    animation: pordee-skeleton-shimmer 1.2s ease-in-out infinite;
+  }
+
+  [data-theme="dark"] .skeleton-shimmer {
+    background:
+      linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in oklab, var(--color-muted) 18%, transparent),
+        transparent
+      ),
+      color-mix(in oklab, var(--color-line) 68%, var(--color-surface));
+  }
+}
+
+@keyframes pordee-skeleton-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+  }
+}

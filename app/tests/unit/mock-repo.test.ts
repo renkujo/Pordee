@@ -5,6 +5,8 @@ interface PordeeStore {
   seededUsers: Set<string>;
   categories: unknown[];
   transactions: unknown[];
+  recurringTemplates: unknown[];
+  recurringOccurrences: unknown[];
   goals: unknown[];
   contributions: unknown[];
 }
@@ -19,6 +21,8 @@ beforeEach(() => {
   store.seededUsers.clear();
   store.categories.length = 0;
   store.transactions.length = 0;
+  store.recurringTemplates.length = 0;
+  store.recurringOccurrences.length = 0;
   store.goals.length = 0;
   store.contributions.length = 0;
 });
@@ -243,6 +247,79 @@ describe("mockRepo transactions: get/update/delete", () => {
     expect(await mockRepo.deleteTransaction(USER_A, tx.id)).toBe(true);
     expect(await mockRepo.getTransaction(USER_A, tx.id)).toBeNull();
     expect(await mockRepo.deleteTransaction(USER_A, tx.id)).toBe(false);
+  });
+});
+
+describe("mockRepo recurring transactions", () => {
+  it("creates pending occurrences once and confirms them as recurring transactions", async () => {
+    const template = await mockRepo.createRecurringTemplate(USER_A, {
+      kind: "expense",
+      title: "ค่าไฟ",
+      amount: 1200,
+      categoryId: null,
+      note: null,
+      frequency: "monthly",
+      weeklyDay: null,
+      monthlyDay: 10,
+      yearlyMonth: null,
+      yearlyDay: null,
+      startDate: "2026-06-10",
+      endDate: null,
+      postMode: "confirm",
+    });
+
+    await mockRepo.processDueRecurring(USER_A, "2026-06-10");
+    await mockRepo.processDueRecurring(USER_A, "2026-06-10");
+
+    const pending = await mockRepo.listPendingRecurringOccurrences(USER_A);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].templateId).toBe(template.id);
+
+    const tx = await mockRepo.confirmRecurringOccurrence(
+      USER_A,
+      pending[0].id,
+      {
+        kind: "expense",
+        title: "ค่าไฟจริง",
+        amount: 1320,
+        categoryId: null,
+        note: null,
+        occurredAt: "2026-06-10T05:00:00.000Z",
+      }
+    );
+
+    expect(tx?.source).toBe("recurring");
+    expect(tx?.recurringTemplateId).toBe(template.id);
+    expect(await mockRepo.listPendingRecurringOccurrences(USER_A)).toHaveLength(
+      0
+    );
+  });
+
+  it("auto-posts due recurring templates", async () => {
+    await mockRepo.createRecurringTemplate(USER_A, {
+      kind: "income",
+      title: "เงินเดือน",
+      amount: 45000,
+      categoryId: null,
+      note: null,
+      frequency: "monthly",
+      weeklyDay: null,
+      monthlyDay: 25,
+      yearlyMonth: null,
+      yearlyDay: null,
+      startDate: "2026-05-25",
+      endDate: null,
+      postMode: "auto",
+    });
+
+    await mockRepo.processDueRecurring(USER_A, "2026-05-25");
+
+    const recurring = await mockRepo.listTransactions(USER_A, {
+      source: "recurring",
+    });
+    expect(recurring).toHaveLength(1);
+    expect(recurring[0].title).toBe("เงินเดือน");
+    expect(recurring[0].kind).toBe("income");
   });
 });
 

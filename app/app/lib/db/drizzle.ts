@@ -3,14 +3,30 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "./client";
 import { getDefaultCategoryIconId } from "./category-icons";
 import { ensureFinanceDatabase } from "./migrate.server";
-import { categories, goalContributions, goals, transactions } from "./schema";
+import {
+  categories,
+  goalContributions,
+  goals,
+  recurringOccurrences,
+  recurringTemplates,
+  transactions,
+} from "./schema";
 import type {
   Category,
   Goal,
   GoalContribution,
   PordeeRepo,
+  RecurringOccurrence,
+  RecurringTemplate,
   Transaction,
 } from "./types";
+import {
+  getInitialNextRunOn,
+  getNextRunOnAfter,
+  getResumeNextRunOn,
+  normalizeRecurringStatus,
+} from "~/lib/date/recurrence";
+import { dayValueToIso, todayDayValue } from "~/lib/date/day-value";
 
 const DEFAULT_CATEGORIES: Array<Pick<Category, "icon" | "name" | "kind">> = [
   { name: "อาหาร", kind: "expense", icon: "utensils" },
@@ -36,6 +52,49 @@ const rowToTransaction = (
     categoryId: row.categoryId,
     note: row.note,
     occurredAt: row.occurredAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+    source: (row.source as Transaction["source"] | null) ?? "manual",
+    recurringTemplateId: row.recurringTemplateId,
+    recurringOccurrenceId: row.recurringOccurrenceId,
+  };
+};
+
+const rowToRecurringTemplate = (
+  row: typeof recurringTemplates.$inferSelect
+): RecurringTemplate => {
+  return {
+    id: row.id,
+    userId: row.userId,
+    kind: row.kind as RecurringTemplate["kind"],
+    title: row.title,
+    amount: toMoney(row.amount),
+    categoryId: row.categoryId,
+    note: row.note,
+    frequency: row.frequency as RecurringTemplate["frequency"],
+    weeklyDay: row.weeklyDay,
+    monthlyDay: row.monthlyDay,
+    yearlyMonth: row.yearlyMonth,
+    yearlyDay: row.yearlyDay,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    nextRunOn: row.nextRunOn,
+    postMode: row.postMode as RecurringTemplate["postMode"],
+    status: row.status as RecurringTemplate["status"],
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+};
+
+const rowToRecurringOccurrence = (
+  row: typeof recurringOccurrences.$inferSelect
+): RecurringOccurrence => {
+  return {
+    id: row.id,
+    userId: row.userId,
+    templateId: row.templateId,
+    scheduledOn: row.scheduledOn,
+    status: row.status as RecurringOccurrence["status"],
+    transactionId: row.transactionId,
     createdAt: row.createdAt.toISOString(),
   };
 };
@@ -139,6 +198,17 @@ export const drizzleRepo: PordeeRepo = {
       )
       .limit(1);
     if (used.length > 0) return false;
+    const usedByRecurring = await db
+      .select({ id: recurringTemplates.id })
+      .from(recurringTemplates)
+      .where(
+        and(
+          eq(recurringTemplates.categoryId, id),
+          eq(recurringTemplates.userId, userId)
+        )
+      )
+      .limit(1);
+    if (usedByRecurring.length > 0) return false;
     const deleted = await db
       .delete(categories)
       .where(and(eq(categories.id, id), eq(categories.userId, userId)))
@@ -175,6 +245,9 @@ export const drizzleRepo: PordeeRepo = {
     if (opts.categoryId) {
       conditions.push(eq(transactions.categoryId, opts.categoryId));
     }
+    if (opts.source) {
+      conditions.push(eq(transactions.source, opts.source));
+    }
     const rows = await db
       .select()
       .from(transactions)
@@ -206,6 +279,9 @@ export const drizzleRepo: PordeeRepo = {
       note: input.note,
       occurredAt: new Date(input.occurredAt),
       createdAt: new Date(),
+      source: input.source ?? "manual",
+      recurringTemplateId: input.recurringTemplateId ?? null,
+      recurringOccurrenceId: input.recurringOccurrenceId ?? null,
     };
     const inserted = await db.insert(transactions).values(row).returning();
     return rowToTransaction(inserted[0]);
@@ -236,6 +312,330 @@ export const drizzleRepo: PordeeRepo = {
       .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
       .returning({ id: transactions.id });
     return deleted.length > 0;
+  },
+
+  async listRecurringTemplates(userId) {
+    await ensureFinanceDatabase();
+    const rows = await db
+      .select()
+      .from(recurringTemplates)
+      .where(eq(recurringTemplates.userId, userId))
+      .orderBy(desc(recurringTemplates.createdAt));
+    return rows.map(rowToRecurringTemplate);
+  },
+
+  async createRecurringTemplate(userId, input) {
+    await ensureFinanceDatabase();
+    await ensureOwnedCategory(userId, input.categoryId);
+    const nextRunOn = getInitialNextRunOn(input);
+    const now = new Date();
+    const row = {
+      id: randomUUID(),
+      userId,
+      kind: input.kind,
+      title: input.title,
+      amount: String(input.amount),
+      categoryId: input.categoryId,
+      note: input.note,
+      frequency: input.frequency,
+      weeklyDay: input.weeklyDay,
+      monthlyDay: input.monthlyDay,
+      yearlyMonth: input.yearlyMonth,
+      yearlyDay: input.yearlyDay,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      nextRunOn,
+      postMode: input.postMode,
+      status: normalizeRecurringStatus(nextRunOn),
+      createdAt: now,
+      updatedAt: now,
+    };
+    const inserted = await db
+      .insert(recurringTemplates)
+      .values(row)
+      .returning();
+    return rowToRecurringTemplate(inserted[0]);
+  },
+
+  async updateRecurringTemplate(userId, id, input) {
+    await ensureFinanceDatabase();
+    await ensureOwnedCategory(userId, input.categoryId);
+    const existing = await db
+      .select()
+      .from(recurringTemplates)
+      .where(
+        and(
+          eq(recurringTemplates.id, id),
+          eq(recurringTemplates.userId, userId)
+        )
+      )
+      .limit(1);
+    if (existing.length === 0) return null;
+    const current = rowToRecurringTemplate(existing[0]);
+    const nextRunOn =
+      current.status === "paused"
+        ? current.nextRunOn
+        : getInitialNextRunOn(input);
+    const status =
+      current.status === "paused"
+        ? "paused"
+        : normalizeRecurringStatus(nextRunOn);
+    const updated = await db
+      .update(recurringTemplates)
+      .set({
+        kind: input.kind,
+        title: input.title,
+        amount: String(input.amount),
+        categoryId: input.categoryId,
+        note: input.note,
+        frequency: input.frequency,
+        weeklyDay: input.weeklyDay,
+        monthlyDay: input.monthlyDay,
+        yearlyMonth: input.yearlyMonth,
+        yearlyDay: input.yearlyDay,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        nextRunOn,
+        postMode: input.postMode,
+        status,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(recurringTemplates.id, id),
+          eq(recurringTemplates.userId, userId)
+        )
+      )
+      .returning();
+    return updated.length ? rowToRecurringTemplate(updated[0]) : null;
+  },
+
+  async pauseRecurringTemplate(userId, id) {
+    await ensureFinanceDatabase();
+    const updated = await db
+      .update(recurringTemplates)
+      .set({ status: "paused", updatedAt: new Date() })
+      .where(
+        and(
+          eq(recurringTemplates.id, id),
+          eq(recurringTemplates.userId, userId)
+        )
+      )
+      .returning({ id: recurringTemplates.id });
+    return updated.length > 0;
+  },
+
+  async resumeRecurringTemplate(userId, id) {
+    await ensureFinanceDatabase();
+    const existing = await db
+      .select()
+      .from(recurringTemplates)
+      .where(
+        and(
+          eq(recurringTemplates.id, id),
+          eq(recurringTemplates.userId, userId)
+        )
+      )
+      .limit(1);
+    if (existing.length === 0) return false;
+    const template = rowToRecurringTemplate(existing[0]);
+    const nextRunOn = getResumeNextRunOn(template);
+    const status = normalizeRecurringStatus(nextRunOn);
+    const updated = await db
+      .update(recurringTemplates)
+      .set({ nextRunOn, status, updatedAt: new Date() })
+      .where(
+        and(
+          eq(recurringTemplates.id, id),
+          eq(recurringTemplates.userId, userId)
+        )
+      )
+      .returning({ id: recurringTemplates.id });
+    return updated.length > 0;
+  },
+
+  async deleteRecurringTemplate(userId, id) {
+    await ensureFinanceDatabase();
+    return db.transaction(async (tx) => {
+      await tx
+        .delete(recurringOccurrences)
+        .where(
+          and(
+            eq(recurringOccurrences.templateId, id),
+            eq(recurringOccurrences.userId, userId),
+            eq(recurringOccurrences.status, "pending")
+          )
+        );
+      const deleted = await tx
+        .delete(recurringTemplates)
+        .where(
+          and(
+            eq(recurringTemplates.id, id),
+            eq(recurringTemplates.userId, userId)
+          )
+        )
+        .returning({ id: recurringTemplates.id });
+      return deleted.length > 0;
+    });
+  },
+
+  async listPendingRecurringOccurrences(userId) {
+    await ensureFinanceDatabase();
+    const rows = await db
+      .select()
+      .from(recurringOccurrences)
+      .where(
+        and(
+          eq(recurringOccurrences.userId, userId),
+          eq(recurringOccurrences.status, "pending")
+        )
+      )
+      .orderBy(desc(recurringOccurrences.scheduledOn));
+    return rows.map(rowToRecurringOccurrence);
+  },
+
+  async confirmRecurringOccurrence(userId, id, input) {
+    await ensureFinanceDatabase();
+    await ensureOwnedCategory(userId, input.categoryId);
+    return db.transaction(async (tx) => {
+      const occurrenceRows = await tx
+        .select()
+        .from(recurringOccurrences)
+        .where(
+          and(
+            eq(recurringOccurrences.id, id),
+            eq(recurringOccurrences.userId, userId),
+            eq(recurringOccurrences.status, "pending")
+          )
+        )
+        .limit(1);
+      if (occurrenceRows.length === 0) return null;
+      const occurrence = occurrenceRows[0];
+      const templateRows = await tx
+        .select()
+        .from(recurringTemplates)
+        .where(
+          and(
+            eq(recurringTemplates.id, occurrence.templateId),
+            eq(recurringTemplates.userId, userId)
+          )
+        )
+        .limit(1);
+      if (templateRows.length === 0) return null;
+      const txId = randomUUID();
+      const inserted = await tx
+        .insert(transactions)
+        .values({
+          id: txId,
+          userId,
+          kind: input.kind,
+          title: input.title,
+          amount: String(input.amount),
+          categoryId: input.categoryId,
+          note: input.note,
+          occurredAt: new Date(input.occurredAt),
+          createdAt: new Date(),
+          source: "recurring",
+          recurringTemplateId: occurrence.templateId,
+          recurringOccurrenceId: occurrence.id,
+        })
+        .returning();
+      await tx
+        .update(recurringOccurrences)
+        .set({ status: "posted", transactionId: txId })
+        .where(eq(recurringOccurrences.id, occurrence.id));
+      return rowToTransaction(inserted[0]);
+    });
+  },
+
+  async processDueRecurring(userId, untilDay = todayDayValue()) {
+    await ensureFinanceDatabase();
+    const rows = await db
+      .select()
+      .from(recurringTemplates)
+      .where(
+        and(
+          eq(recurringTemplates.userId, userId),
+          eq(recurringTemplates.status, "active")
+        )
+      );
+    const dueTemplates = rows
+      .map(rowToRecurringTemplate)
+      .filter(
+        (template) => template.nextRunOn && template.nextRunOn <= untilDay
+      );
+
+    for (const template of dueTemplates) {
+      await db.transaction(async (tx) => {
+        let scheduledOn = template.nextRunOn;
+        let loopGuard = 0;
+        while (
+          scheduledOn &&
+          scheduledOn <= untilDay &&
+          (!template.endDate || scheduledOn <= template.endDate) &&
+          loopGuard < 370
+        ) {
+          const existing = await tx
+            .select({ id: recurringOccurrences.id })
+            .from(recurringOccurrences)
+            .where(
+              and(
+                eq(recurringOccurrences.templateId, template.id),
+                eq(recurringOccurrences.scheduledOn, scheduledOn)
+              )
+            )
+            .limit(1);
+
+          if (existing.length === 0) {
+            const occurrenceId = randomUUID();
+            let transactionId: string | null = null;
+            if (template.postMode === "auto") {
+              transactionId = randomUUID();
+              await tx.insert(transactions).values({
+                id: transactionId,
+                userId,
+                kind: template.kind,
+                title: template.title,
+                amount: String(template.amount),
+                categoryId: template.categoryId,
+                note: template.note,
+                occurredAt: new Date(dayValueToIso(scheduledOn) ?? new Date()),
+                createdAt: new Date(),
+                source: "recurring",
+                recurringTemplateId: template.id,
+                recurringOccurrenceId: occurrenceId,
+              });
+            }
+            await tx.insert(recurringOccurrences).values({
+              id: occurrenceId,
+              userId,
+              templateId: template.id,
+              scheduledOn,
+              status: template.postMode === "auto" ? "posted" : "pending",
+              transactionId,
+              createdAt: new Date(),
+            });
+          }
+
+          scheduledOn = getNextRunOnAfter(template, scheduledOn);
+          loopGuard += 1;
+        }
+
+        await tx
+          .update(recurringTemplates)
+          .set({
+            nextRunOn: scheduledOn,
+            status: normalizeRecurringStatus(scheduledOn),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(recurringTemplates.id, template.id),
+              eq(recurringTemplates.userId, userId)
+            )
+          );
+      });
+    }
   },
 
   async listGoals(userId) {

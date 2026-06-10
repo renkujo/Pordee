@@ -1,5 +1,6 @@
 import {
   CircleGauge,
+  CalendarSync,
   Layers3,
   PlusCircle,
   ListChecks,
@@ -37,6 +38,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Layers3,
   },
   {
+    to: "/recurring",
+    labelId: "nav.recurring.label",
+    descriptionId: "nav.recurring.description",
+    icon: CalendarSync,
+  },
+  {
     to: "/history",
     labelId: "nav.history.label",
     descriptionId: "nav.history.description",
@@ -56,12 +63,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const MOBILE_PRIMARY_PATHS = new Set(["/", "/add", "/wallet", "/history"]);
+const MOBILE_PRIMARY_PATHS = ["/", "/wallet", "/add", "/history"] as const;
+const MOBILE_PRIMARY_PATH_SET = new Set<string>(MOBILE_PRIMARY_PATHS);
 
-export const MOBILE_PRIMARY_NAV_ITEMS = NAV_ITEMS.filter(({ to }) =>
-  MOBILE_PRIMARY_PATHS.has(to)
-);
+export const MOBILE_PRIMARY_NAV_ITEMS = MOBILE_PRIMARY_PATHS.map((path) =>
+  NAV_ITEMS.find(({ to }) => to === path)
+).filter((item): item is NavItem => Boolean(item));
 
 export const MOBILE_MORE_NAV_ITEMS = NAV_ITEMS.filter(
-  ({ to }) => !MOBILE_PRIMARY_PATHS.has(to)
+  ({ to }) => !MOBILE_PRIMARY_PATH_SET.has(to)
 );

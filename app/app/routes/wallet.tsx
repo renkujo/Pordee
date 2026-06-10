@@ -29,6 +29,7 @@ interface PocketCta {
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
+  await repo.processDueRecurring(user.id);
   const now = new Date();
   const { from, to } = getMonthRange(now);
   const [allTx, monthTx, categories, goals] = await Promise.all([

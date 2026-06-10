@@ -4,14 +4,25 @@ import type {
   Goal,
   GoalContribution,
   PordeeRepo,
+  RecurringOccurrence,
+  RecurringTemplate,
   Transaction,
 } from "./types";
 import { getDefaultCategoryIconId } from "./category-icons";
+import {
+  getInitialNextRunOn,
+  getNextRunOnAfter,
+  getResumeNextRunOn,
+  normalizeRecurringStatus,
+} from "~/lib/date/recurrence";
+import { dayValueToIso, todayDayValue } from "~/lib/date/day-value";
 
 interface Store {
   seededUsers: Set<string>;
   categories: Category[];
   transactions: Transaction[];
+  recurringTemplates: RecurringTemplate[];
+  recurringOccurrences: RecurringOccurrence[];
   goals: Goal[];
   contributions: GoalContribution[];
 }
@@ -33,6 +44,8 @@ const emptyStore = (): Store => {
     seededUsers: new Set<string>(),
     categories: [],
     transactions: [],
+    recurringTemplates: [],
+    recurringOccurrences: [],
     goals: [],
     contributions: [],
   };
@@ -110,6 +123,13 @@ export const mockRepo: PordeeRepo = {
     ) {
       return false;
     }
+    if (
+      store.recurringTemplates.some(
+        (template) => template.categoryId === id && template.userId === userId
+      )
+    ) {
+      return false;
+    }
     const idx = store.categories.findIndex(
       (c) => c.id === id && c.userId === userId
     );
@@ -132,6 +152,7 @@ export const mockRepo: PordeeRepo = {
       .filter((t) =>
         opts.categoryId ? t.categoryId === opts.categoryId : true
       )
+      .filter((t) => (opts.source ? t.source === opts.source : true))
       .sort((a, b) => {
         if (a.occurredAt !== b.occurredAt) {
           return a.occurredAt < b.occurredAt ? 1 : -1;
@@ -154,6 +175,9 @@ export const mockRepo: PordeeRepo = {
       id: randomUUID(),
       userId,
       createdAt: nowIso(),
+      source: input.source ?? "manual",
+      recurringTemplateId: input.recurringTemplateId ?? null,
+      recurringOccurrenceId: input.recurringOccurrenceId ?? null,
       ...input,
     };
     store.transactions.unshift(tx);
@@ -184,6 +208,178 @@ export const mockRepo: PordeeRepo = {
     if (idx === -1) return false;
     store.transactions.splice(idx, 1);
     return true;
+  },
+
+  async listRecurringTemplates(userId) {
+    return store.recurringTemplates
+      .filter((template) => template.userId === userId)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  },
+
+  async createRecurringTemplate(userId, input) {
+    const now = nowIso();
+    const nextRunOn = getInitialNextRunOn(input);
+    const template: RecurringTemplate = {
+      id: randomUUID(),
+      userId,
+      createdAt: now,
+      updatedAt: now,
+      status: normalizeRecurringStatus(nextRunOn),
+      nextRunOn,
+      ...input,
+    };
+    store.recurringTemplates.unshift(template);
+    return template;
+  },
+
+  async updateRecurringTemplate(userId, id, input) {
+    const idx = store.recurringTemplates.findIndex(
+      (template) => template.id === id && template.userId === userId
+    );
+    if (idx === -1) return null;
+    const existing = store.recurringTemplates[idx];
+    const nextRunOn =
+      existing.status === "paused"
+        ? existing.nextRunOn
+        : getInitialNextRunOn(input);
+    const next: RecurringTemplate = {
+      ...existing,
+      ...input,
+      nextRunOn,
+      status:
+        existing.status === "paused"
+          ? "paused"
+          : normalizeRecurringStatus(nextRunOn),
+      updatedAt: nowIso(),
+    };
+    store.recurringTemplates[idx] = next;
+    return next;
+  },
+
+  async pauseRecurringTemplate(userId, id) {
+    const template = store.recurringTemplates.find(
+      (item) => item.id === id && item.userId === userId
+    );
+    if (!template) return false;
+    template.status = "paused";
+    template.updatedAt = nowIso();
+    return true;
+  },
+
+  async resumeRecurringTemplate(userId, id) {
+    const template = store.recurringTemplates.find(
+      (item) => item.id === id && item.userId === userId
+    );
+    if (!template) return false;
+    const nextRunOn = getResumeNextRunOn(template);
+    template.nextRunOn = nextRunOn;
+    template.status = normalizeRecurringStatus(nextRunOn);
+    template.updatedAt = nowIso();
+    return true;
+  },
+
+  async deleteRecurringTemplate(userId, id) {
+    const idx = store.recurringTemplates.findIndex(
+      (template) => template.id === id && template.userId === userId
+    );
+    if (idx === -1) return false;
+    store.recurringTemplates.splice(idx, 1);
+    store.recurringOccurrences = store.recurringOccurrences.filter(
+      (occurrence) =>
+        occurrence.userId !== userId ||
+        occurrence.templateId !== id ||
+        occurrence.status !== "pending"
+    );
+    return true;
+  },
+
+  async listPendingRecurringOccurrences(userId) {
+    return store.recurringOccurrences
+      .filter(
+        (occurrence) =>
+          occurrence.userId === userId && occurrence.status === "pending"
+      )
+      .sort((a, b) => (a.scheduledOn < b.scheduledOn ? 1 : -1));
+  },
+
+  async confirmRecurringOccurrence(userId, id, input) {
+    const occurrence = store.recurringOccurrences.find(
+      (item) =>
+        item.id === id && item.userId === userId && item.status === "pending"
+    );
+    if (!occurrence) return null;
+    const template = store.recurringTemplates.find(
+      (item) => item.id === occurrence.templateId && item.userId === userId
+    );
+    if (!template) return null;
+    const transaction = await this.createTransaction(userId, {
+      ...input,
+      source: "recurring",
+      recurringTemplateId: template.id,
+      recurringOccurrenceId: occurrence.id,
+    });
+    occurrence.status = "posted";
+    occurrence.transactionId = transaction.id;
+    return transaction;
+  },
+
+  async processDueRecurring(userId, untilDay = todayDayValue()) {
+    const dueTemplates = store.recurringTemplates.filter(
+      (template) =>
+        template.userId === userId &&
+        template.status === "active" &&
+        template.nextRunOn !== null &&
+        template.nextRunOn <= untilDay
+    );
+
+    for (const template of dueTemplates) {
+      let scheduledOn = template.nextRunOn;
+      let loopGuard = 0;
+      while (
+        scheduledOn &&
+        scheduledOn <= untilDay &&
+        (!template.endDate || scheduledOn <= template.endDate) &&
+        loopGuard < 370
+      ) {
+        const exists = store.recurringOccurrences.some(
+          (occurrence) =>
+            occurrence.templateId === template.id &&
+            occurrence.scheduledOn === scheduledOn
+        );
+        if (!exists) {
+          const occurrence: RecurringOccurrence = {
+            id: randomUUID(),
+            userId,
+            templateId: template.id,
+            scheduledOn,
+            status: template.postMode === "auto" ? "posted" : "pending",
+            transactionId: null,
+            createdAt: nowIso(),
+          };
+          if (template.postMode === "auto") {
+            const transaction = await this.createTransaction(userId, {
+              kind: template.kind,
+              title: template.title,
+              amount: template.amount,
+              categoryId: template.categoryId,
+              note: template.note,
+              occurredAt: dayValueToIso(scheduledOn) ?? nowIso(),
+              source: "recurring",
+              recurringTemplateId: template.id,
+              recurringOccurrenceId: occurrence.id,
+            });
+            occurrence.transactionId = transaction.id;
+          }
+          store.recurringOccurrences.push(occurrence);
+        }
+        scheduledOn = getNextRunOnAfter(template, scheduledOn);
+        loopGuard += 1;
+      }
+
+      template.nextRunOn = scheduledOn;
+      template.status = normalizeRecurringStatus(scheduledOn);
+      template.updatedAt = nowIso();
+    }
   },
 
   async listGoals(userId) {

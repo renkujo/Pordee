@@ -21,24 +21,54 @@ export const BottomNav = () => {
         className="border-line bg-surface fixed inset-x-0 bottom-0 z-30 border-t lg:hidden"
       >
         <ul className="mx-auto grid max-w-xl grid-cols-5">
-          {MOBILE_PRIMARY_NAV_ITEMS.map(({ to, labelId, icon: Icon, end }) => (
-            <li key={to}>
-              <NavLink
-                to={to}
-                end={end}
-                onClick={() => setIsMoreOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-xs",
-                    isActive ? "text-coral" : "text-muted"
-                  )
-                }
-              >
-                <Icon className="h-5 w-5" />
-                <span>{t(labelId)}</span>
-              </NavLink>
-            </li>
-          ))}
+          {MOBILE_PRIMARY_NAV_ITEMS.map(({ to, labelId, icon: Icon, end }) => {
+            const isAddAction = to === "/add";
+
+            return (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end={end}
+                  onClick={() => setIsMoreOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "relative flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-xs transition-colors",
+                      isAddAction
+                        ? "text-coral"
+                        : isActive
+                          ? "text-coral"
+                          : "text-muted"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isAddAction ? (
+                        <span
+                          className={cn(
+                            "border-line bg-coral -mt-3 flex h-11 w-11 items-center justify-center rounded-full border text-white shadow-[0_4px_10px_rgba(247,106,93,0.18)] transition-transform",
+                            isActive ? "scale-105" : "scale-100"
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </span>
+                      ) : (
+                        <Icon className="h-5 w-5" />
+                      )}
+                      <span
+                        className={cn(
+                          "leading-none",
+                          isAddAction ? "font-semibold" : null
+                        )}
+                      >
+                        {t(labelId)}
+                      </span>
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            );
+          })}
           <li>
             <button
               type="button"
