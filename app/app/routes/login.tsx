@@ -5,7 +5,16 @@ import {
   useActionData,
   useLoaderData,
 } from "react-router";
-import { CheckCircle2, LogIn, UserPlus } from "lucide-react";
+import { useState, type InputHTMLAttributes } from "react";
+import {
+  Check,
+  CheckCircle2,
+  Circle,
+  Eye,
+  EyeOff,
+  LogIn,
+  UserPlus,
+} from "lucide-react";
 import type { Route } from "./+types/login";
 import { TurnstileWidget } from "~/components/auth/turnstile-widget";
 import { PordeeLogo } from "~/components/brand/logo";
@@ -27,6 +36,7 @@ import {
   getPublicTurnstileConfig,
   verifyTurnstileToken,
 } from "~/lib/security/turnstile.server";
+import { passwordRules } from "~/lib/validators/auth";
 
 type AuthIntent = "signIn" | "signUp";
 type ActionIntent = AuthIntent | "socialSignIn";
@@ -79,6 +89,7 @@ export const action = async ({
     .trim()
     .toLowerCase();
   const password = String(form.get("password") ?? "");
+  const confirmPassword = String(form.get("confirmPassword") ?? "");
   const name = String(form.get("name") ?? "").trim();
   const redirectTo = getSafeRedirectTo(form.get("redirectTo"));
 
@@ -145,6 +156,24 @@ export const action = async ({
     });
   }
 
+  if (intent === "signUp") {
+    if (!passwordRules.every((rule) => rule.test(password))) {
+      return formError(intent, "auth.error.passwordRules", {
+        email,
+        name,
+        redirectTo,
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return formError(intent, "auth.error.passwordMismatch", {
+        email,
+        name,
+        redirectTo,
+      });
+    }
+  }
+
   const turnstile = await verifyTurnstileToken({ form, request });
   if (!turnstile.ok) {
     return formError(intent, turnstile.error, {
@@ -183,6 +212,8 @@ const Login = () => {
     useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
   const t = usePordeeTranslation();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const activeIntent: AuthIntent =
     actionData?.intent === "signIn" || actionData?.intent === "signUp"
       ? actionData.intent
@@ -290,21 +321,39 @@ const Login = () => {
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="password">{t("auth.password.label")}</Label>
-                  <span className="text-muted text-xs">
-                    {t("auth.password.minHint")}
-                  </span>
+              <PasswordField
+                autoComplete={isSignUp ? "new-password" : "current-password"}
+                helper={isSignUp ? undefined : t("auth.password.minHint")}
+                id="password"
+                label={t("auth.password.label")}
+                name="password"
+                placeholder={t("auth.password.placeholder")}
+                value={password}
+                onChange={(event) => setPassword(event.currentTarget.value)}
+              />
+
+              {isSignUp && (
+                <div className="grid gap-3">
+                  <PasswordRequirementList password={password} />
+                  <PasswordField
+                    autoComplete="new-password"
+                    id="confirm-password"
+                    label={t("auth.password.confirmLabel")}
+                    name="confirmPassword"
+                    placeholder={t("auth.password.confirmPlaceholder")}
+                    value={confirmPassword}
+                    onChange={(event) =>
+                      setConfirmPassword(event.currentTarget.value)
+                    }
+                  />
+                  {confirmPassword.length > 0 &&
+                    password !== confirmPassword && (
+                      <p className="text-coral-strong text-sm">
+                        {t("auth.error.passwordMismatch")}
+                      </p>
+                    )}
                 </div>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete={isSignUp ? "new-password" : "current-password"}
-                  placeholder={t("auth.password.placeholder")}
-                />
-              </div>
+              )}
 
               {actionData?.error && (
                 <p
@@ -343,6 +392,83 @@ const Login = () => {
 };
 
 export default Login;
+
+const PasswordField = ({
+  helper,
+  id,
+  label,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & {
+  helper?: string;
+  id: string;
+  label: string;
+  name: string;
+}) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const t = usePordeeTranslation();
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label htmlFor={id}>{label}</Label>
+        {helper ? <span className="text-muted text-xs">{helper}</span> : null}
+      </div>
+      <div className="relative">
+        <Input
+          {...props}
+          id={id}
+          type={isVisible ? "text" : "password"}
+          className="pr-10"
+        />
+        <button
+          type="button"
+          aria-label={
+            isVisible ? t("auth.password.hide") : t("auth.password.show")
+          }
+          className="text-muted hover:text-ink focus-visible:ring-coral/40 absolute top-1/2 right-3 inline-flex -translate-y-1/2 items-center justify-center rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          onClick={() => setIsVisible((value) => !value)}
+        >
+          {isVisible ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PasswordRequirementList = ({ password }: { password: string }) => {
+  const t = usePordeeTranslation();
+
+  return (
+    <ul
+      className="border-line bg-sky/45 grid gap-2 rounded-sm border px-3 py-3"
+      aria-label={t("auth.password.rulesAriaLabel")}
+    >
+      {passwordRules.map((rule) => {
+        const passed = rule.test(password);
+        return (
+          <li
+            key={rule.id}
+            className={cn(
+              "flex items-center gap-2 text-xs leading-5",
+              passed ? "text-teal" : "text-muted"
+            )}
+          >
+            {passed ? (
+              <Check className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <Circle className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span>{t(`auth.password.rule.${rule.id}`)}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
 
 const SocialSignIn = ({
   isSignUp,

@@ -20,7 +20,8 @@ const signUpForTest = async (page: Page) => {
   await expect(page.locator("#email")).toBeEditable();
   await page.locator("#name").fill(`E2E ${id.slice(0, 8)}`);
   await page.locator("#email").fill(`e2e-${id}@pordee.test`);
-  await page.locator("#password").fill("password123");
+  await page.locator("#password").fill("Password1@");
+  await page.locator("#confirm-password").fill("Password1@");
   await page.getByRole("button", { name: "สมัครและเข้าใช้งาน" }).click();
   await expect(page).toHaveURL(/\/$/);
 };

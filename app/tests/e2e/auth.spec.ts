@@ -18,7 +18,8 @@ test("user can sign up and sign out", async ({ page }) => {
   await page.goto("/login?mode=signup");
   await page.locator("#name").fill(`E2E ${id.slice(0, 8)}`);
   await page.locator("#email").fill(`auth-${id}@pordee.test`);
-  await page.locator("#password").fill("password123");
+  await page.locator("#password").fill("Password1@");
+  await page.locator("#confirm-password").fill("Password1@");
   await page.getByRole("button", { name: "สมัครและเข้าใช้งาน" }).click();
 
   await expect(page).toHaveURL(/\/$/);
@@ -37,13 +38,14 @@ test("user can sign up and sign out", async ({ page }) => {
 test("user can change password from security settings", async ({ page }) => {
   const id = randomUUID();
   const email = `change-password-${id}@pordee.test`;
-  const oldPassword = "password123";
+  const oldPassword = "Start123@";
   const newPassword = "Password1@";
 
   await page.goto("/login?mode=signup");
   await page.locator("#name").fill(`E2E ${id.slice(0, 8)}`);
   await page.locator("#email").fill(email);
   await page.locator("#password").fill(oldPassword);
+  await page.locator("#confirm-password").fill(oldPassword);
   await page.getByRole("button", { name: "สมัครและเข้าใช้งาน" }).click();
 
   await expect(page).toHaveURL(/\/$/);
