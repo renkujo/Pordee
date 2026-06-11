@@ -22,18 +22,10 @@ export type TurnstileVerificationResult =
   | { ok: false; error: string };
 
 export const getPublicTurnstileConfig = (): PublicTurnstileConfig => {
-  if (!isTurnstileEnabled()) {
-    return { enabled: false, siteKey: null };
-  }
+  const config = getTurnstileConfig();
+  if (!config.enabled) return { enabled: false, siteKey: null };
 
-  const siteKey = process.env.CLOUDFLARE_TURNSTILE_SITE_KEY;
-  if (!siteKey) {
-    throw new Error(
-      "CLOUDFLARE_TURNSTILE_SITE_KEY is required when Turnstile is enabled."
-    );
-  }
-
-  return { enabled: true, siteKey };
+  return { enabled: true, siteKey: config.siteKey };
 };
 
 export const verifyTurnstileToken = async ({
@@ -43,15 +35,9 @@ export const verifyTurnstileToken = async ({
   form: FormData;
   request: Request;
 }): Promise<TurnstileVerificationResult> => {
-  if (!isTurnstileEnabled()) {
+  const config = getTurnstileConfig();
+  if (!config.enabled) {
     return { ok: true };
-  }
-
-  const secret = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
-  if (!secret) {
-    throw new Error(
-      "CLOUDFLARE_TURNSTILE_SECRET_KEY is required when Turnstile is enabled."
-    );
   }
 
   const token = form.get(TURNSTILE_RESPONSE_FIELD);
@@ -60,7 +46,7 @@ export const verifyTurnstileToken = async ({
   }
 
   const body = new FormData();
-  body.set("secret", secret);
+  body.set("secret", config.secretKey);
   body.set("response", token);
 
   const remoteIp = getClientIp(request.headers);
@@ -85,11 +71,56 @@ export const verifyTurnstileToken = async ({
   return { ok: true };
 };
 
-const isTurnstileEnabled = () => {
-  const configuredValue = process.env.CLOUDFLARE_TURNSTILE_ENABLED;
-  if (configuredValue === "false") return false;
-  if (configuredValue === "true") return true;
-  return process.env.NODE_ENV === "production";
+const getTurnstileConfig = ():
+  | { enabled: true; siteKey: string; secretKey: string }
+  | { enabled: false } => {
+  const siteKey = readEnv([
+    "CLOUDFLARE_TURNSTILE_SITE_KEY",
+    "TURNSTILE_SITE_KEY",
+    "CLOUDFLARE_TURNSTILE_SITEKEY",
+    "TURNSTILE_SITEKEY",
+  ]);
+  const secretKey = readEnv([
+    "CLOUDFLARE_TURNSTILE_SECRET_KEY",
+    "TURNSTILE_SECRET_KEY",
+    "CLOUDFLARE_TURNSTILE_SECRET",
+    "TURNSTILE_SECRET",
+  ]);
+  const enabledValue = readEnv([
+    "CLOUDFLARE_TURNSTILE_ENABLED",
+    "TURNSTILE_ENABLED",
+  ]);
+
+  if (enabledValue === "false") return { enabled: false };
+
+  if (enabledValue === "true" || process.env.NODE_ENV === "production") {
+    if (siteKey && secretKey) {
+      return { enabled: true, siteKey, secretKey };
+    }
+
+    warnIncompleteTurnstileConfig();
+    return { enabled: false };
+  }
+
+  return { enabled: false };
+};
+
+let hasWarnedIncompleteTurnstileConfig = false;
+
+const warnIncompleteTurnstileConfig = () => {
+  if (hasWarnedIncompleteTurnstileConfig) return;
+  hasWarnedIncompleteTurnstileConfig = true;
+  console.warn(
+    "Cloudflare Turnstile is disabled because site key or secret key is missing."
+  );
+};
+
+const readEnv = (names: string[]) => {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return null;
 };
 
 const getClientIp = (headers: Headers) => {

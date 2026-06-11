@@ -13,7 +13,8 @@ Tailwind v4, IBM Plex Sans Thai, Postgres data layer via Drizzle ORM.
 - Postgres — set `DATABASE_URL` (see `.env.example`). Finance data and Better
   Auth both live in Postgres.
 - Cloudflare Turnstile keys for production email/password login and signup.
-  Local development can keep `CLOUDFLARE_TURNSTILE_ENABLED=false`.
+  Local development can keep `CLOUDFLARE_TURNSTILE_ENABLED=false`; production
+  enables Turnstile automatically when both keys are configured.
 
 ## Common scripts
 

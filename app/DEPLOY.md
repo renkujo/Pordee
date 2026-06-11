@@ -51,7 +51,7 @@ BETTER_AUTH_SECRET=<generate-a-long-random-secret>
 POSTGRES_PASSWORD=<generate-a-long-random-db-password>
 
 # Cloudflare Turnstile protects email/password login and signup.
-# Production defaults to enabled unless explicitly set to false.
+# Production enables it automatically only when both keys are configured.
 CLOUDFLARE_TURNSTILE_ENABLED=true
 CLOUDFLARE_TURNSTILE_SITE_KEY=<cloudflare-turnstile-site-key>
 CLOUDFLARE_TURNSTILE_SECRET_KEY=<cloudflare-turnstile-secret-key>
@@ -78,7 +78,11 @@ openssl rand -base64 32
 ## Cloudflare Turnstile
 
 Turnstile is enforced on email/password login and signup before Better Auth is
-called. Social login still goes through the provider redirect flow.
+called when both the site key and secret key are configured. Social login still
+goes through the provider redirect flow.
+
+The app accepts either the Pordee-prefixed env names above or the shorter
+`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, and `TURNSTILE_ENABLED` aliases.
 
 For local development, keep `CLOUDFLARE_TURNSTILE_ENABLED=false`, or use
 Cloudflare's test credentials:

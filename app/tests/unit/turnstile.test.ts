@@ -12,6 +12,7 @@ describe("turnstile verification", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     resetEnv();
   });
@@ -29,6 +30,26 @@ describe("turnstile verification", () => {
     });
 
     expect(result).toEqual({ ok: true });
+  });
+
+  it("does not throw in production when Turnstile keys are missing", async () => {
+    process.env.NODE_ENV = "production";
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(getPublicTurnstileConfig()).toEqual({
+      enabled: false,
+      siteKey: null,
+    });
+
+    const result = await verifyTurnstileToken({
+      form: new FormData(),
+      request: new Request("https://pordee.example/login"),
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Cloudflare Turnstile is disabled because site key or secret key is missing."
+    );
   });
 
   it("requires a token when enabled", async () => {
@@ -52,8 +73,38 @@ describe("turnstile verification", () => {
     });
   });
 
+  it("accepts short Turnstile env aliases", async () => {
+    process.env.TURNSTILE_ENABLED = "true";
+    process.env.TURNSTILE_SITE_KEY = "alias-site-key";
+    process.env.TURNSTILE_SECRET_KEY = "alias-secret-key";
+
+    expect(getPublicTurnstileConfig()).toEqual({
+      enabled: true,
+      siteKey: "alias-site-key",
+    });
+
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init) => {
+      const body = init?.body as FormData;
+
+      expect(body.get("secret")).toBe("alias-secret-key");
+
+      return Response.json({ success: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const form = new FormData();
+    form.set("cf-turnstile-response", "token-123");
+    const result = await verifyTurnstileToken({
+      form,
+      request: new Request("http://localhost/login"),
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
+
   it("passes the Turnstile token and client IP to Siteverify", async () => {
     process.env.CLOUDFLARE_TURNSTILE_ENABLED = "true";
+    process.env.CLOUDFLARE_TURNSTILE_SITE_KEY = "site-key";
     process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY = "secret-key";
     const fetchMock = vi.fn(async (_url: string | URL | Request, init) => {
       const body = init?.body as FormData;
@@ -84,6 +135,7 @@ describe("turnstile verification", () => {
 
   it("fails when Siteverify rejects the token", async () => {
     process.env.CLOUDFLARE_TURNSTILE_ENABLED = "true";
+    process.env.CLOUDFLARE_TURNSTILE_SITE_KEY = "site-key";
     process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY = "secret-key";
     vi.stubGlobal(
       "fetch",
@@ -117,4 +169,11 @@ const resetEnv = () => {
   delete process.env.CLOUDFLARE_TURNSTILE_ENABLED;
   delete process.env.CLOUDFLARE_TURNSTILE_SITE_KEY;
   delete process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
+  delete process.env.CLOUDFLARE_TURNSTILE_SECRET;
+  delete process.env.CLOUDFLARE_TURNSTILE_SITEKEY;
+  delete process.env.TURNSTILE_ENABLED;
+  delete process.env.TURNSTILE_SECRET;
+  delete process.env.TURNSTILE_SECRET_KEY;
+  delete process.env.TURNSTILE_SITEKEY;
+  delete process.env.TURNSTILE_SITE_KEY;
 };
