@@ -13,6 +13,7 @@ interface TurnstileWidgetProps {
 interface TurnstileRenderOptions {
   sitekey: string;
   action?: string;
+  size?: "normal" | "flexible" | "compact";
   theme?: "auto" | "light" | "dark";
   callback: (token: string) => void;
   "error-callback": () => void;
@@ -69,6 +70,7 @@ export const TurnstileWidget = ({ action, siteKey }: TurnstileWidgetProps) => {
           "expired-callback": () => {
             setToken("");
           },
+          size: "flexible",
           sitekey: siteKey,
           theme: "auto",
         }
@@ -88,7 +90,7 @@ export const TurnstileWidget = ({ action, siteKey }: TurnstileWidgetProps) => {
   }, [action, siteKey]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex w-full flex-col gap-2">
       <input
         name="cf-turnstile-response"
         type="hidden"
@@ -97,7 +99,7 @@ export const TurnstileWidget = ({ action, siteKey }: TurnstileWidgetProps) => {
       />
       <div
         aria-label={t("auth.turnstile.label")}
-        className="min-h-[65px]"
+        className="flex min-h-[65px] w-full justify-center"
         id={widgetId}
         ref={containerRef}
       />
