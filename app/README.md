@@ -12,6 +12,8 @@ Tailwind v4, IBM Plex Sans Thai, Postgres data layer via Drizzle ORM.
 - pnpm 10
 - Postgres — set `DATABASE_URL` (see `.env.example`). Finance data and Better
   Auth both live in Postgres.
+- Cloudflare Turnstile keys for production email/password login and signup.
+  Local development can keep `CLOUDFLARE_TURNSTILE_ENABLED=false`.
 
 ## Common scripts
 
@@ -35,6 +37,15 @@ pnpm format
 ```
 
 First-time Playwright setup: `pnpm e2e:install`.
+
+To run e2e with Turnstile enabled, use Cloudflare's always-pass test keys:
+
+```bash
+CLOUDFLARE_TURNSTILE_ENABLED=true \
+CLOUDFLARE_TURNSTILE_SITE_KEY=1x00000000000000000000AA \
+CLOUDFLARE_TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA \
+pnpm e2e
+```
 
 ## Layout
 

@@ -7,6 +7,7 @@ import {
 } from "react-router";
 import { CheckCircle2, LogIn, UserPlus } from "lucide-react";
 import type { Route } from "./+types/login";
+import { TurnstileWidget } from "~/components/auth/turnstile-widget";
 import { PordeeLogo } from "~/components/brand/logo";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -22,6 +23,10 @@ import {
 } from "~/lib/auth.server";
 import { cn } from "~/lib/cn";
 import { usePordeeTranslation } from "~/lib/i18n/provider";
+import {
+  getPublicTurnstileConfig,
+  verifyTurnstileToken,
+} from "~/lib/security/turnstile.server";
 
 type AuthIntent = "signIn" | "signUp";
 type ActionIntent = AuthIntent | "socialSignIn";
@@ -53,6 +58,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
     socialProviders: {
       google: isGoogleAuthEnabled(),
     },
+    turnstile: getPublicTurnstileConfig(),
   };
 };
 
@@ -139,6 +145,15 @@ export const action = async ({
     });
   }
 
+  const turnstile = await verifyTurnstileToken({ form, request });
+  if (!turnstile.ok) {
+    return formError(intent, turnstile.error, {
+      email,
+      name,
+      redirectTo,
+    });
+  }
+
   try {
     const { headers } =
       intent === "signUp"
@@ -164,7 +179,8 @@ export const action = async ({
 };
 
 const Login = () => {
-  const { mode, redirectTo, socialProviders } = useLoaderData<typeof loader>();
+  const { mode, redirectTo, socialProviders, turnstile } =
+    useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
   const t = usePordeeTranslation();
   const activeIntent: AuthIntent =
@@ -298,6 +314,13 @@ const Login = () => {
                   {t(actionData.error)}
                 </p>
               )}
+
+              {turnstile.enabled && turnstile.siteKey ? (
+                <TurnstileWidget
+                  action={isSignUp ? "signup" : "login"}
+                  siteKey={turnstile.siteKey}
+                />
+              ) : null}
 
               <Button type="submit" size="lg" className="mt-1 h-12 w-full">
                 {isSignUp ? (

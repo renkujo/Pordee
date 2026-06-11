@@ -27,6 +27,7 @@ docker run --rm -p 3000:3000 \
   -e BETTER_AUTH_URL=http://localhost:3000 \
   -e BETTER_AUTH_SECRET=replace-with-a-random-secret \
   -e DATABASE_URL=postgres://pordee:pordee@host.docker.internal:5432/pordee \
+  -e CLOUDFLARE_TURNSTILE_ENABLED=false \
   pordee-app
 ```
 
@@ -49,6 +50,12 @@ BETTER_AUTH_URL=https://your-pordee-domain.example
 BETTER_AUTH_SECRET=<generate-a-long-random-secret>
 POSTGRES_PASSWORD=<generate-a-long-random-db-password>
 
+# Cloudflare Turnstile protects email/password login and signup.
+# Production defaults to enabled unless explicitly set to false.
+CLOUDFLARE_TURNSTILE_ENABLED=true
+CLOUDFLARE_TURNSTILE_SITE_KEY=<cloudflare-turnstile-site-key>
+CLOUDFLARE_TURNSTILE_SECRET_KEY=<cloudflare-turnstile-secret-key>
+
 # Optional Google OAuth:
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -67,6 +74,24 @@ Useful secret generation:
 ```bash
 openssl rand -base64 32
 ```
+
+## Cloudflare Turnstile
+
+Turnstile is enforced on email/password login and signup before Better Auth is
+called. Social login still goes through the provider redirect flow.
+
+For local development, keep `CLOUDFLARE_TURNSTILE_ENABLED=false`, or use
+Cloudflare's test credentials:
+
+```bash
+CLOUDFLARE_TURNSTILE_ENABLED=true
+CLOUDFLARE_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+CLOUDFLARE_TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+```
+
+If a Content Security Policy is added later, allow
+`https://challenges.cloudflare.com` for Turnstile scripts, frames, and
+connections.
 
 ## Deploy Readiness Notes
 
