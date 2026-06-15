@@ -107,6 +107,86 @@ export const recurringOccurrences = pgTable(
   })
 );
 
+export const walletPockets = pgTable(
+  "wallet_pockets",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    type: text("type").notNull().default("custom"),
+    monthlyLimit: numeric("monthly_limit", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    mascot: text("mascot").notNull().default("normal"),
+    surface: text("surface").notNull().default("sky"),
+    rolloverRule: text("rollover_rule").notNull().default("keep"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isArchived: integer("is_archived").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    userIdx: index("wallet_pockets_user_idx").on(t.userId),
+  })
+);
+
+export const walletPocketCategories = pgTable(
+  "wallet_pocket_categories",
+  {
+    pocketId: text("pocket_id").notNull(),
+    categoryId: text("category_id").notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (t) => ({
+    pocketCategoryUnique: uniqueIndex(
+      "wallet_pocket_categories_pocket_category_unique"
+    ).on(t.pocketId, t.categoryId),
+    userIdx: index("wallet_pocket_categories_user_idx").on(t.userId),
+  })
+);
+
+export const walletAllocations = pgTable(
+  "wallet_allocations",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    pocketId: text("pocket_id").notNull(),
+    monthKey: text("month_key").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    monthIdx: index("wallet_allocations_month_idx").on(t.userId, t.monthKey),
+    pocketMonthUnique: uniqueIndex("wallet_allocations_pocket_month_unique").on(
+      t.pocketId,
+      t.monthKey
+    ),
+  })
+);
+
+export const walletTransfers = pgTable(
+  "wallet_transfers",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    fromPocketId: text("from_pocket_id"),
+    toPocketId: text("to_pocket_id"),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    note: text("note"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    userOrderIdx: index("wallet_transfers_user_order_idx").on(
+      t.userId,
+      t.occurredAt
+    ),
+  })
+);
+
 export const goals = pgTable(
   "goals",
   {

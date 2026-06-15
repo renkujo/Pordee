@@ -68,3 +68,53 @@ test("wallet reflects computed available money after seeding data", async ({
     page.getByRole("heading", { name: "คำแนะนำจากพอดี" })
   ).toHaveCount(0);
 });
+
+test("wallet can create a custom pocket and record a transfer", async ({
+  page,
+}) => {
+  const stamp = Date.now();
+  const pocketName = `เงินเที่ยว-${stamp}`;
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await page.goto("/wallet");
+  await page.waitForLoadState("networkidle");
+
+  await page.getByRole("button", { name: "เพิ่มกระเป๋า" }).click();
+  await page.getByPlaceholder("เช่น ค่าอาหาร หรือ เงินเที่ยว").fill(pocketName);
+  await page.locator('input[name="monthlyLimit"]').fill("4500");
+  await page.getByRole("button", { name: "บันทึกกระเป๋า" }).click();
+
+  await expect(page.getByRole("heading", { name: pocketName })).toBeVisible();
+
+  await page.getByRole("button", { name: "ย้ายเงิน" }).first().click();
+  await page.locator('input[name="amount"]').fill("500");
+  await page.locator('input[name="note"]').fill(`เติมกระเป๋าทดสอบ-${stamp}`);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "ย้ายเงิน" })
+    .click();
+
+  await expect(page.getByText(`เติมกระเป๋าทดสอบ-${stamp}`)).toBeVisible();
+});
+
+test("wallet can reorder pockets with drag and drop", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await page.goto("/wallet");
+  await page.waitForLoadState("networkidle");
+
+  const pocketGrid = page.getByLabel("รายการกระเป๋าย่อย");
+  const pocketCards = pocketGrid.getByTestId("wallet-pocket-card");
+  await expect(pocketCards.first()).toContainText("ใช้จ่ายประจำวัน");
+  await pocketGrid.scrollIntoViewIfNeeded();
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  expect(scrollBefore).toBeGreaterThan(0);
+
+  await pocketCards.nth(1).dragTo(pocketCards.first());
+  await expect(pocketCards.first()).toContainText("เดินทาง");
+  const scrollAfter = await page.evaluate(() => window.scrollY);
+  expect(scrollAfter).toBeGreaterThan(0);
+
+  await page.reload();
+  await expect(pocketCards.first()).toContainText("เดินทาง");
+});

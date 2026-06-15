@@ -8,6 +8,15 @@ export type RecurringFrequency = "daily" | "weekly" | "monthly" | "yearly";
 export type RecurringPostMode = "confirm" | "auto";
 export type RecurringTemplateStatus = "active" | "paused" | "completed";
 export type RecurringOccurrenceStatus = "pending" | "posted";
+export type WalletPocketType =
+  | "daily"
+  | "travel"
+  | "bills"
+  | "reserve"
+  | "custom";
+export type WalletPocketMascot = "happy" | "normal" | "thinking" | "saving";
+export type WalletPocketSurface = "teal" | "lime" | "coral" | "sky" | "neutral";
+export type WalletRolloverRule = "keep" | "reset" | "move_to_reserve";
 
 export interface Category {
   id: string;
@@ -80,6 +89,44 @@ export interface GoalContribution {
   amount: Money;
   note: string | null;
   occurredAt: string;
+}
+
+export interface WalletPocket {
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  type: WalletPocketType;
+  monthlyLimit: Money;
+  mascot: WalletPocketMascot;
+  surface: WalletPocketSurface;
+  rolloverRule: WalletRolloverRule;
+  sortOrder: number;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  categoryIds: string[];
+}
+
+export interface WalletAllocation {
+  id: string;
+  userId: string;
+  pocketId: string;
+  monthKey: string;
+  amount: Money;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WalletTransfer {
+  id: string;
+  userId: string;
+  fromPocketId: string | null;
+  toPocketId: string | null;
+  amount: Money;
+  note: string | null;
+  occurredAt: string;
+  createdAt: string;
 }
 
 export interface PordeeRepo {
@@ -177,6 +224,53 @@ export interface PordeeRepo {
     >
   ): Promise<Transaction | null>;
   processDueRecurring(userId: string, untilDay?: string): Promise<void>;
+  listWalletPockets(userId: string): Promise<WalletPocket[]>;
+  createWalletPocket(
+    userId: string,
+    input: Omit<
+      WalletPocket,
+      | "id"
+      | "userId"
+      | "sortOrder"
+      | "isArchived"
+      | "createdAt"
+      | "updatedAt"
+      | "categoryIds"
+    > & { categoryIds?: string[] }
+  ): Promise<WalletPocket>;
+  updateWalletPocket(
+    userId: string,
+    id: string,
+    input: Omit<
+      WalletPocket,
+      | "id"
+      | "userId"
+      | "sortOrder"
+      | "isArchived"
+      | "createdAt"
+      | "updatedAt"
+      | "categoryIds"
+    > & { categoryIds?: string[] }
+  ): Promise<WalletPocket | null>;
+  archiveWalletPocket(userId: string, id: string): Promise<boolean>;
+  reorderWalletPockets(userId: string, pocketIds: string[]): Promise<void>;
+  listWalletAllocations(
+    userId: string,
+    monthKey: string
+  ): Promise<WalletAllocation[]>;
+  setWalletAllocations(
+    userId: string,
+    monthKey: string,
+    allocations: Array<{ pocketId: string; amount: Money }>
+  ): Promise<WalletAllocation[]>;
+  listWalletTransfers(
+    userId: string,
+    opts?: { from?: string; to?: string }
+  ): Promise<WalletTransfer[]>;
+  createWalletTransfer(
+    userId: string,
+    input: Omit<WalletTransfer, "id" | "userId" | "createdAt">
+  ): Promise<WalletTransfer>;
   listGoals(userId: string): Promise<Goal[]>;
   createGoal(
     userId: string,

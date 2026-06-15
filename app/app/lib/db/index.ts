@@ -15,4 +15,11 @@ export type {
   Transaction,
   TransactionKind,
   TransactionSource,
+  WalletAllocation,
+  WalletPocket,
+  WalletPocketMascot,
+  WalletPocketSurface,
+  WalletPocketType,
+  WalletRolloverRule,
+  WalletTransfer,
 } from "./types";

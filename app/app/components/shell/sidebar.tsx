@@ -10,6 +10,8 @@ import { ThemeToggle } from "./theme-toggle";
 import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter(({ to }) => to !== "/add");
+const getNavTarget = (to: string) =>
+  to === "/settings" ? "/settings?tab=account" : to;
 
 export const Sidebar = ({ user }: { user: AuthUser }) => {
   const t = usePordeeTranslation();
@@ -49,11 +51,11 @@ export const Sidebar = ({ user }: { user: AuthUser }) => {
             ({ to, labelId, descriptionId, icon: Icon, end }) => (
               <li key={to}>
                 <NavLink
-                  to={to}
+                  to={getNavTarget(to)}
                   end={end}
                   className={({ isActive }) =>
                     cn(
-                      "group focus-visible:ring-coral/40 relative flex items-center gap-3 rounded-sm border px-3 py-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                      "group focus-visible:ring-coral/40 relative flex items-center gap-2.5 rounded-sm border px-2.5 py-2.5 text-[13px] transition-colors focus-visible:ring-2 focus-visible:outline-none",
                       isActive
                         ? "border-coral/30 bg-coral/10 text-ink"
                         : "text-muted hover:bg-sky/70 hover:text-ink border-transparent"
@@ -65,25 +67,25 @@ export const Sidebar = ({ user }: { user: AuthUser }) => {
                       <span
                         aria-hidden="true"
                         className={cn(
-                          "absolute top-3 bottom-3 left-0 w-1 rounded-r-xs",
+                          "absolute top-2.5 bottom-2.5 left-0 w-1 rounded-r-xs",
                           isActive ? "bg-coral" : "bg-transparent"
                         )}
                       />
                       <span
                         className={cn(
-                          "border-line flex h-9 w-9 shrink-0 items-center justify-center rounded-xs border transition-colors",
+                          "border-line flex h-8 w-8 shrink-0 items-center justify-center rounded-xs border transition-colors",
                           isActive
                             ? "border-coral bg-coral text-white"
                             : "bg-surface text-muted group-hover:text-ink"
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-3.5 w-3.5" />
                       </span>
                       <span className="min-w-0">
                         <span className="block font-medium">{t(labelId)}</span>
                         <span
                           className={cn(
-                            "mt-0.5 block text-xs leading-5",
+                            "mt-0.5 block text-[11px] leading-4",
                             isActive ? "text-ink" : "text-muted"
                           )}
                         >
