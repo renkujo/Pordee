@@ -43,3 +43,5 @@ Thumbs.db
 # Logs
 /tmp/pordee-dev.log
 *.log
+# CocoIndex Code (ccc)
+/.cocoindex_code/

@@ -45,6 +45,31 @@ Run commands from `app/`.
 - E2E tests: `pnpm e2e`
 - Icons: `pnpm icons:build`
 
+## Codebase Search
+
+- Prefer `cocoindex-code` MCP `search` when available for semantic codebase
+  search, broad repo exploration, fuzzy implementation lookup, and unfamiliar
+  modules.
+- If the MCP tool is unavailable, use `ccc search` for semantic search and
+  `ccc index` or `ccc search --refresh` when the index may be stale.
+- Use CocoIndex/ccc as a token-saving first pass: avoid broad blind reads by
+  narrowing the repo to candidate files and line ranges before reading source.
+- Run semantic search from the repo root, or pass `--path`, because
+  `ccc search` defaults to the current working directory scope.
+- Treat semantic results as candidate locations: read only the returned
+  file/ranges needed for verification with the available file-read tool or
+  `sed -n` before editing or making strong claims.
+- Use `rg` for exact text, regex, symbol, and filename search. Use AST-aware
+  search for syntax-shaped or structure-aware queries.
+- Go directly to `Read`, `rg`, or AST-aware tools for known files, exact
+  symbols, or tiny lookups; CocoIndex is a locator, not a replacement for
+  source reads.
+- Treat requests like `search the codebase`, `find where X is implemented`,
+  `how does this repo work`, `ดู repo หน่อย`, `หาโค้ดส่วนนี้`, and
+  `สรุปไฟล์นี้` as CocoIndex-first triggers when available.
+- After meaningful code changes, refresh or re-index before relying on semantic
+  results that may be stale.
+
 ## Core Directories
 
 ### Current Reality
