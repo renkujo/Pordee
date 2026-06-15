@@ -30,7 +30,7 @@ test("desktop nav reaches /add, /history, /goals, /settings", async ({
   await expect(page).toHaveURL(/\/goals$/);
 
   await page.getByRole("link", { name: "ตั้งค่า" }).first().click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
 });
 
 test("mobile bottom nav opens more drawer for secondary pages", async ({
@@ -54,5 +54,5 @@ test("mobile bottom nav opens more drawer for secondary pages", async ({
   await expect(moreNav.getByRole("link", { name: /เป้าหมาย/ })).toBeVisible();
   await moreNav.getByRole("link", { name: /ตั้งค่า/ }).click();
 
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
 });

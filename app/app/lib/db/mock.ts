@@ -7,6 +7,9 @@ import type {
   RecurringOccurrence,
   RecurringTemplate,
   Transaction,
+  WalletAllocation,
+  WalletPocket,
+  WalletTransfer,
 } from "./types";
 import { getDefaultCategoryIconId } from "./category-icons";
 import {
@@ -23,6 +26,9 @@ interface Store {
   transactions: Transaction[];
   recurringTemplates: RecurringTemplate[];
   recurringOccurrences: RecurringOccurrence[];
+  walletPockets: WalletPocket[];
+  walletAllocations: WalletAllocation[];
+  walletTransfers: WalletTransfer[];
   goals: Goal[];
   contributions: GoalContribution[];
 }
@@ -46,6 +52,9 @@ const emptyStore = (): Store => {
     transactions: [],
     recurringTemplates: [],
     recurringOccurrences: [],
+    walletPockets: [],
+    walletAllocations: [],
+    walletTransfers: [],
     goals: [],
     contributions: [],
   };
@@ -69,6 +78,91 @@ const ensureSeeded = (userId: string) => {
   store.seededUsers.add(userId);
   for (const def of DEFAULT_CATEGORIES) {
     store.categories.push({ id: randomUUID(), userId, ...def });
+  }
+};
+
+const ensureWalletSeeded = (userId: string) => {
+  ensureSeeded(userId);
+  if (store.walletPockets.some((pocket) => pocket.userId === userId)) return;
+  const now = nowIso();
+  const defaults: Array<
+    Pick<
+      WalletPocket,
+      | "name"
+      | "description"
+      | "type"
+      | "monthlyLimit"
+      | "mascot"
+      | "surface"
+      | "rolloverRule"
+    > & { categoryNames: string[] }
+  > = [
+    {
+      name: "ใช้จ่ายประจำวัน",
+      description: "เงินสำหรับอาหาร กาแฟ และรายจ่ายเล็ก ๆ ระหว่างวัน",
+      type: "daily",
+      monthlyLimit: 0,
+      mascot: "happy",
+      surface: "teal",
+      rolloverRule: "reset",
+      categoryNames: ["อาหาร"],
+    },
+    {
+      name: "เดินทาง",
+      description: "ค่าเดินทางที่อยากกันไว้ก่อนออกจากบ้าน",
+      type: "travel",
+      monthlyLimit: 0,
+      mascot: "normal",
+      surface: "lime",
+      rolloverRule: "reset",
+      categoryNames: ["เดินทาง"],
+    },
+    {
+      name: "เตรียมจ่ายบิล",
+      description: "เงินที่กันไว้ก่อนถึงวันจ่ายบิลจริง",
+      type: "bills",
+      monthlyLimit: 0,
+      mascot: "thinking",
+      surface: "coral",
+      rolloverRule: "keep",
+      categoryNames: ["บิล"],
+    },
+    {
+      name: "เงินสำรอง",
+      description: "เงินกันไว้ เผื่อเดือนนี้มีเรื่องไม่คาดคิด",
+      type: "reserve",
+      monthlyLimit: 0,
+      mascot: "saving",
+      surface: "neutral",
+      rolloverRule: "keep",
+      categoryNames: [],
+    },
+  ];
+
+  for (const [index, def] of defaults.entries()) {
+    const categoryIds = store.categories
+      .filter(
+        (category) =>
+          category.userId === userId &&
+          def.categoryNames.some((name) => category.name.includes(name))
+      )
+      .map((category) => category.id);
+    store.walletPockets.push({
+      id: randomUUID(),
+      userId,
+      name: def.name,
+      description: def.description,
+      type: def.type,
+      monthlyLimit: def.monthlyLimit,
+      mascot: def.mascot,
+      surface: def.surface,
+      rolloverRule: def.rolloverRule,
+      sortOrder: index,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      categoryIds,
+    });
   }
 };
 
@@ -380,6 +474,123 @@ export const mockRepo: PordeeRepo = {
       template.status = normalizeRecurringStatus(scheduledOn);
       template.updatedAt = nowIso();
     }
+  },
+
+  async listWalletPockets(userId) {
+    ensureWalletSeeded(userId);
+    return store.walletPockets
+      .filter((pocket) => pocket.userId === userId && !pocket.isArchived)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  async createWalletPocket(userId, input) {
+    ensureWalletSeeded(userId);
+    const now = nowIso();
+    const pocket: WalletPocket = {
+      id: randomUUID(),
+      userId,
+      name: input.name,
+      description: input.description,
+      type: input.type,
+      monthlyLimit: input.monthlyLimit,
+      mascot: input.mascot,
+      surface: input.surface,
+      rolloverRule: input.rolloverRule,
+      sortOrder: store.walletPockets.filter(
+        (pocket) => pocket.userId === userId
+      ).length,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      categoryIds: input.categoryIds ?? [],
+    };
+    store.walletPockets.push(pocket);
+    return pocket;
+  },
+
+  async updateWalletPocket(userId, id, input) {
+    const pocket = store.walletPockets.find(
+      (item) => item.id === id && item.userId === userId
+    );
+    if (!pocket) return null;
+    pocket.name = input.name;
+    pocket.description = input.description;
+    pocket.type = input.type;
+    pocket.monthlyLimit = input.monthlyLimit;
+    pocket.mascot = input.mascot;
+    pocket.surface = input.surface;
+    pocket.rolloverRule = input.rolloverRule;
+    pocket.categoryIds = input.categoryIds ?? [];
+    pocket.updatedAt = nowIso();
+    return pocket;
+  },
+
+  async archiveWalletPocket(userId, id) {
+    const pocket = store.walletPockets.find(
+      (item) => item.id === id && item.userId === userId
+    );
+    if (!pocket) return false;
+    pocket.isArchived = true;
+    pocket.updatedAt = nowIso();
+    return true;
+  },
+
+  async reorderWalletPockets(userId, pocketIds) {
+    const orderById = new Map(pocketIds.map((id, index) => [id, index]));
+    for (const pocket of store.walletPockets) {
+      const nextOrder = orderById.get(pocket.id);
+      if (pocket.userId === userId && nextOrder !== undefined) {
+        pocket.sortOrder = nextOrder;
+        pocket.updatedAt = nowIso();
+      }
+    }
+  },
+
+  async listWalletAllocations(userId, monthKey) {
+    ensureWalletSeeded(userId);
+    return store.walletAllocations.filter(
+      (allocation) =>
+        allocation.userId === userId && allocation.monthKey === monthKey
+    );
+  },
+
+  async setWalletAllocations(userId, monthKey, allocations) {
+    store.walletAllocations = store.walletAllocations.filter(
+      (allocation) =>
+        allocation.userId !== userId || allocation.monthKey !== monthKey
+    );
+    const now = nowIso();
+    const rows = allocations.map(
+      (allocation): WalletAllocation => ({
+        id: randomUUID(),
+        userId,
+        pocketId: allocation.pocketId,
+        monthKey,
+        amount: allocation.amount,
+        createdAt: now,
+        updatedAt: now,
+      })
+    );
+    store.walletAllocations.push(...rows);
+    return rows;
+  },
+
+  async listWalletTransfers(userId, opts = {}) {
+    return store.walletTransfers
+      .filter((transfer) => transfer.userId === userId)
+      .filter((transfer) => inRange(transfer.occurredAt, opts.from, opts.to))
+      .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+  },
+
+  async createWalletTransfer(userId, input) {
+    const transfer: WalletTransfer = {
+      id: randomUUID(),
+      userId,
+      createdAt: nowIso(),
+      ...input,
+    };
+    store.walletTransfers.unshift(transfer);
+    return transfer;
   },
 
   async listGoals(userId) {

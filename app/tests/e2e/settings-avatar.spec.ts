@@ -15,22 +15,39 @@ test("settings can save and reset a preset profile avatar", async ({
     targetIndex
   ).padStart(2, "0")}.png`;
 
+  await page.getByRole("button", { name: "แก้ไขโปรไฟล์" }).click();
   await page
     .getByRole("radio", {
+      exact: true,
       name: `เลือกรูปโปรไฟล์ preset ${targetIndex}`,
     })
     .check();
-  await page.getByRole("button", { name: "บันทึกรูปโปรไฟล์" }).click();
+  await page.getByRole("button", { name: "บันทึกโปรไฟล์" }).click();
 
   await expect(shellAvatar).toHaveAttribute(
     "src",
     new RegExp(targetSrcFragment)
   );
 
+  await page.getByRole("button", { name: "แก้ไขโปรไฟล์" }).click();
   await page.getByRole("button", { name: "กลับไปใช้รูปอัตโนมัติ" }).click();
-  await page.getByRole("button", { name: "บันทึกรูปโปรไฟล์" }).click();
+  await page.getByRole("button", { name: "บันทึกโปรไฟล์" }).click();
 
   await expect(shellAvatar).toHaveAttribute("src", initialSrc);
+});
+
+test("settings can update the profile display name", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/settings?tab=account");
+  await page.waitForLoadState("networkidle");
+
+  const nextName = `LewisX ${Date.now()}`;
+
+  await page.getByRole("button", { name: "แก้ไขโปรไฟล์" }).click();
+  await page.getByLabel("ชื่อที่แสดง").fill(nextName);
+  await page.getByRole("button", { name: "บันทึกโปรไฟล์" }).click();
+
+  await expect(page.getByText(nextName)).toBeVisible();
 });
 
 test("settings rejects a tampered avatar preset id", async ({ page }) => {

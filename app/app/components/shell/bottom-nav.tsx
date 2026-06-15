@@ -5,6 +5,9 @@ import { MOBILE_MORE_NAV_ITEMS, MOBILE_PRIMARY_NAV_ITEMS } from "./nav-items";
 import { cn } from "~/lib/cn";
 import { usePordeeTranslation } from "~/lib/i18n/provider";
 
+const getNavTarget = (to: string) =>
+  to === "/settings" ? "/settings?tab=account" : to;
+
 export const BottomNav = () => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const location = useLocation();
@@ -124,7 +127,7 @@ const MobileMoreDrawer = ({ onClose }: { onClose: () => void }) => {
               ({ to, labelId, descriptionId, icon: Icon, end }) => (
                 <li key={to}>
                   <NavLink
-                    to={to}
+                    to={getNavTarget(to)}
                     end={end}
                     onClick={onClose}
                     className={({ isActive }) =>

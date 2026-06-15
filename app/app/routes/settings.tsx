@@ -136,9 +136,9 @@ import { changePasswordSchema, passwordRules } from "~/lib/validators/auth";
 type Translate = ReturnType<typeof usePordeeTranslation>;
 
 type CategoryIntent = "createCategory" | "updateCategory" | "deleteCategory";
-type AvatarIntent = "updateAvatarPreset";
+type ProfileIntent = "updateProfile" | "updateAvatarPreset";
 type PasswordIntent = "changePassword";
-type SettingsIntent = AvatarIntent | CategoryIntent | PasswordIntent;
+type SettingsIntent = ProfileIntent | CategoryIntent | PasswordIntent;
 type SettingsTab =
   | "account"
   | "notifications"
@@ -257,7 +257,7 @@ type ActionResult =
     }
   | {
       ok: true;
-      intent: AvatarIntent | PasswordIntent;
+      intent: ProfileIntent | PasswordIntent;
       message: string;
     }
   | undefined;
@@ -266,13 +266,13 @@ type AccountActionData =
   | (
       | {
           ok: false;
-          intent: AvatarIntent;
+          intent: ProfileIntent;
           errors: ActionErrors;
           values: Record<string, string>;
         }
       | {
           ok: true;
-          intent: AvatarIntent;
+          intent: ProfileIntent;
           message: string;
         }
     )
@@ -338,9 +338,12 @@ export const action = async ({
     );
   }
 
-  if (intent === "updateAvatarPreset") {
+  if (intent === "updateProfile" || intent === "updateAvatarPreset") {
     const avatarPresetId = String(form.get("avatarPresetId") ?? "");
     const nextAvatarPresetId = avatarPresetId || null;
+    const nextName = normalizeProfileName(
+      String(form.get("name") ?? user.name)
+    );
 
     if (nextAvatarPresetId && !isAccountAvatarPresetId(nextAvatarPresetId)) {
       return fieldError(
@@ -350,8 +353,29 @@ export const action = async ({
       );
     }
 
+    if (intent === "updateProfile") {
+      if (!nextName) {
+        return fieldError(
+          intent,
+          { name: "settings.profile.error.nameRequired" },
+          form
+        );
+      }
+
+      if (nextName.length > 80) {
+        return fieldError(
+          intent,
+          { name: "settings.profile.error.nameTooLong" },
+          form
+        );
+      }
+    }
+
     const { headers } = await auth.api.updateUser({
-      body: { avatarPresetId: nextAvatarPresetId },
+      body:
+        intent === "updateProfile"
+          ? { avatarPresetId: nextAvatarPresetId, name: nextName }
+          : { avatarPresetId: nextAvatarPresetId },
       headers: request.headers,
       returnHeaders: true,
     });
@@ -826,7 +850,12 @@ const AccountSection = ({
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_19rem]">
             <div className="flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-start gap-4">
-                <AccountAvatar user={user} size="lg" />
+                <ProfileEditorResponsiveDialog
+                  actionData={actionData}
+                  displayName={displayName}
+                  key={`${user.name}-${user.avatarPresetId ?? "generated"}`}
+                  user={user}
+                />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <CardTitle className="text-lg">
@@ -867,8 +896,6 @@ const AccountSection = ({
           </div>
         </CardHeader>
         <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <AvatarPresetForm actionData={actionData} user={user} />
-
           <div className="border-line border-b p-5 lg:border-r lg:border-b-0">
             <div className="mb-4 flex items-center gap-2">
               <ShieldCheck className="text-teal h-5 w-5" />
@@ -935,11 +962,130 @@ const AccountSection = ({
   );
 };
 
-const AvatarPresetForm = ({
+const ProfileEditorResponsiveDialog = ({
   actionData,
+  displayName,
   user,
 }: {
   actionData: AccountActionData;
+  displayName: string;
+  user: AuthUser;
+}) => {
+  const t = usePordeeTranslation();
+  const hasHydrated = useHasHydrated();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isError = actionData?.ok === false;
+  const [open, setOpen] = useState(isError);
+  const trigger = (
+    <button
+      aria-label={t("settings.profile.trigger")}
+      className="focus-visible:ring-coral/40 group relative shrink-0 rounded-full outline-none focus-visible:ring-2"
+      disabled={!hasHydrated}
+      type="button"
+    >
+      <AccountAvatar
+        user={user}
+        size="lg"
+        className="transition-opacity group-disabled:opacity-60"
+      />
+      <span className="border-surface bg-teal text-surface group-hover:bg-teal-strong absolute right-0 bottom-0 flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm transition-colors">
+        <PencilLine className="h-3.5 w-3.5" />
+      </span>
+    </button>
+  );
+
+  if (!hasHydrated) {
+    return (
+      <div className="flex shrink-0 flex-col items-start gap-2">
+        {trigger}
+        {isError && actionData.errors.avatarPresetId && (
+          <p className="text-coral-strong text-xs leading-5">
+            {t(actionData.errors.avatarPresetId)}
+          </p>
+        )}
+        {isError && actionData.errors.name && (
+          <p className="text-coral-strong text-xs leading-5">
+            {t(actionData.errors.name)}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+        <DialogContent
+          className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-y-auto p-0"
+          data-testid="profile-editor-dialog"
+        >
+          <DialogHeader className="border-line border-b px-5 pt-5 pb-4">
+            <DialogTitle>{t("settings.profile.title")}</DialogTitle>
+            <DialogDescription>
+              {t("settings.profile.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <ProfileEditorForm
+            actionData={actionData}
+            displayName={displayName}
+            user={user}
+          >
+            <DialogFooter className="border-line border-t px-5 py-4">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  {t("common.cancel")}
+                </Button>
+              </DialogClose>
+              <ProfileEditorSubmitButton />
+            </DialogFooter>
+          </ProfileEditorForm>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+      <DrawerContent data-testid="profile-editor-drawer">
+        <DrawerHeader>
+          <DrawerTitle>{t("settings.profile.title")}</DrawerTitle>
+          <DrawerDescription>
+            {t("settings.profile.description")}
+          </DrawerDescription>
+        </DrawerHeader>
+        <ProfileEditorForm
+          actionData={actionData}
+          displayName={displayName}
+          user={user}
+          className="overflow-y-auto px-5 pb-4"
+        >
+          <DrawerFooter className="sm:flex-row sm:justify-end">
+            <DrawerClose asChild>
+              <Button type="button" variant="secondary">
+                {t("common.cancel")}
+              </Button>
+            </DrawerClose>
+            <ProfileEditorSubmitButton />
+          </DrawerFooter>
+        </ProfileEditorForm>
+      </DrawerContent>
+    </Drawer>
+  );
+};
+
+const ProfileEditorForm = ({
+  actionData,
+  children,
+  className,
+  displayName,
+  user,
+}: {
+  actionData: AccountActionData;
+  children: ReactNode;
+  className?: string;
+  displayName: string;
   user: AuthUser;
 }) => {
   const currentAvatarPresetId =
@@ -947,29 +1093,30 @@ const AvatarPresetForm = ({
   const [selectedAvatarPresetId, setSelectedAvatarPresetId] = useState(
     currentAvatarPresetId
   );
+  const [name, setName] = useState(user.name || displayName);
   const t = usePordeeTranslation();
-  const navigation = useNavigation();
   const selectedPreset = getAccountAvatarPresetById(selectedAvatarPresetId);
   const previewPreset =
     selectedPreset ??
     getAccountAvatarVariant({ ...user, avatarPresetId: null });
-  const isSubmitting =
-    navigation.state !== "idle" &&
-    navigation.formData?.get("intent") === "updateAvatarPreset";
-  const isDirty = selectedAvatarPresetId !== currentAvatarPresetId;
   const isError = actionData?.ok === false;
 
   return (
-    <section className="border-line bg-sky/20 border-b lg:col-span-2">
-      <Form
-        method="post"
-        className="grid gap-0 lg:grid-cols-[18rem_minmax(0,1fr)]"
-        data-testid="avatar-preset-form"
-      >
-        <input type="hidden" name="intent" value="updateAvatarPreset" />
+    <Form
+      method="post"
+      className={cn("flex flex-col", className)}
+      data-testid="profile-editor-form"
+    >
+      <input type="hidden" name="intent" value="updateProfile" />
+      <input
+        type="hidden"
+        name="avatarPresetId"
+        value={selectedAvatarPresetId}
+      />
 
-        <div className="border-line flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center lg:flex-col lg:items-stretch lg:border-r lg:border-b-0">
-          <div className="border-line/60 bg-surface flex aspect-square w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border sm:w-20 lg:w-32">
+      <div className="grid gap-0 md:grid-cols-[14rem_minmax(0,1fr)]">
+        <div className="border-line flex flex-col gap-4 border-b py-4 md:border-r md:border-b-0 md:px-5">
+          <div className="border-line/60 bg-surface mx-auto flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border">
             <img
               alt={t("settings.avatar.previewAlt")}
               className="h-full w-full rounded-full object-cover"
@@ -977,43 +1124,51 @@ const AvatarPresetForm = ({
               src={previewPreset.src}
             />
           </div>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="bg-surface text-teal border-line flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border">
-                <UserRound className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-ink text-sm font-semibold">
-                  {t("settings.avatar.title")}
-                </h2>
-                <p className="text-muted mt-0.5 text-xs leading-5">
-                  {selectedPreset
-                    ? t("settings.avatar.selectedLabel", {
-                        index: selectedPreset.index,
-                      })
-                    : t("settings.avatar.generatedLabel")}
-                </p>
-              </div>
-            </div>
-            <p className="text-muted mt-2 max-w-sm text-sm leading-6 lg:max-w-none">
-              {t("settings.avatar.description")}
+          <div className="min-w-0 text-center md:text-left">
+            <p className="text-ink text-sm font-semibold">
+              {selectedPreset
+                ? t("settings.avatar.selectedLabel", {
+                    index: selectedPreset.index,
+                  })
+                : t("settings.avatar.generatedLabel")}
+            </p>
+            <p className="text-muted mt-1 text-sm leading-6">
+              {t("settings.profile.previewHint")}
             </p>
           </div>
         </div>
 
-        <div className="bg-surface flex min-w-0 flex-col gap-3 p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div className="min-w-0">
-              <p className="text-ink text-sm font-semibold">
-                {t("settings.avatar.gridLabel")}
+        <div className="bg-surface flex min-w-0 flex-col gap-4 py-4 md:px-5">
+          <div className="grid gap-2">
+            <Label htmlFor="profile-name">
+              {t("settings.profile.nameLabel")}
+            </Label>
+            <Input
+              id="profile-name"
+              name="name"
+              autoComplete="name"
+              maxLength={80}
+              placeholder={t("settings.profile.namePlaceholder")}
+              value={name}
+              onChange={(event) => setName(event.currentTarget.value)}
+            />
+            {isError && actionData.errors.name && (
+              <p className="text-coral-strong text-sm">
+                {t(actionData.errors.name)}
               </p>
-              <p className="text-muted mt-1 text-xs leading-5">
-                {t("settings.avatar.previewHint")}
-              </p>
-            </div>
+            )}
+          </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-ink text-sm font-semibold">
+                  {t("settings.avatar.gridLabel")}
+                </p>
+                <p className="text-muted mt-1 text-xs leading-5">
+                  {t("settings.avatar.description")}
+                </p>
+              </div>
               <Button
                 type="button"
                 variant="secondary"
@@ -1025,51 +1180,49 @@ const AvatarPresetForm = ({
                 {t("settings.avatar.reset")}
               </Button>
             </div>
-          </div>
 
-          <div
-            aria-label={t("settings.avatar.gridLabel")}
-            className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-6"
-            role="radiogroup"
-          >
-            {accountAvatarPresets.map((preset) => {
-              const active = selectedAvatarPresetId === preset.id;
+            <div
+              aria-label={t("settings.avatar.gridLabel")}
+              className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
+              role="radiogroup"
+            >
+              {accountAvatarPresets.map((preset) => {
+                const active = selectedAvatarPresetId === preset.id;
 
-              return (
-                <label
-                  className={cn(
-                    "border-line bg-sky/35 focus-within:ring-coral/40 relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-[12px] border transition-colors focus-within:ring-2",
-                    active
-                      ? "border-coral bg-coral/10 shadow-[inset_0_0_0_1px_var(--color-coral)]"
-                      : "hover:border-teal/35 hover:bg-sky"
-                  )}
-                  key={preset.id}
-                >
-                  <input
-                    aria-label={t("settings.avatar.optionLabel", {
-                      index: preset.index,
-                    })}
-                    checked={active}
-                    className="absolute inset-0 z-10 cursor-pointer opacity-0"
-                    name="avatarPresetId"
-                    onChange={() => setSelectedAvatarPresetId(preset.id)}
-                    type="radio"
-                    value={preset.id}
-                  />
-                  <img
-                    alt=""
-                    className="pointer-events-none h-full w-full scale-[1.12] object-cover"
-                    draggable={false}
-                    src={preset.src}
-                  />
-                  {active && (
-                    <span className="bg-coral pointer-events-none absolute top-1 right-1 z-20 flex h-5 w-5 items-center justify-center rounded-full text-white">
-                      <Check className="h-3.5 w-3.5" />
-                    </span>
-                  )}
-                </label>
-              );
-            })}
+                return (
+                  <label
+                    className={cn(
+                      "border-line bg-sky/35 focus-within:ring-coral/40 relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-[12px] border transition-colors focus-within:ring-2",
+                      active
+                        ? "border-coral bg-coral/10 shadow-[inset_0_0_0_1px_var(--color-coral)]"
+                        : "hover:border-teal/35 hover:bg-sky"
+                    )}
+                    key={preset.id}
+                  >
+                    <input
+                      aria-label={t("settings.avatar.optionLabel", {
+                        index: preset.index,
+                      })}
+                      checked={active}
+                      className="absolute inset-0 z-10 cursor-pointer opacity-0"
+                      onChange={() => setSelectedAvatarPresetId(preset.id)}
+                      type="radio"
+                    />
+                    <img
+                      alt=""
+                      className="pointer-events-none h-full w-full scale-[1.12] object-cover"
+                      draggable={false}
+                      src={preset.src}
+                    />
+                    {active && (
+                      <span className="bg-coral pointer-events-none absolute top-1 right-1 z-20 flex h-5 w-5 items-center justify-center rounded-full text-white">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           {isError && actionData.errors.avatarPresetId && (
@@ -1077,38 +1230,28 @@ const AvatarPresetForm = ({
               {t(actionData.errors.avatarPresetId)}
             </p>
           )}
-
-          <div className="border-line flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted min-h-5 text-xs leading-5">
-              {isDirty ? t("settings.avatar.previewHint") : ""}
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              {isDirty && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    setSelectedAvatarPresetId(currentAvatarPresetId)
-                  }
-                >
-                  {t("common.cancel")}
-                </Button>
-              )}
-              <Button
-                type="submit"
-                variant="teal"
-                disabled={!isDirty || isSubmitting}
-              >
-                <Save className="h-4 w-4" />
-                {isSubmitting
-                  ? t("settings.avatar.submitting")
-                  : t("settings.avatar.submit")}
-              </Button>
-            </div>
-          </div>
         </div>
-      </Form>
-    </section>
+      </div>
+
+      {children}
+    </Form>
+  );
+};
+
+const ProfileEditorSubmitButton = () => {
+  const t = usePordeeTranslation();
+  const navigation = useNavigation();
+  const isSubmitting =
+    navigation.state !== "idle" &&
+    navigation.formData?.get("intent") === "updateProfile";
+
+  return (
+    <Button type="submit" variant="teal" disabled={isSubmitting}>
+      <Save className="h-4 w-4" />
+      {isSubmitting
+        ? t("settings.profile.submitting")
+        : t("settings.profile.submit")}
+    </Button>
   );
 };
 
@@ -1330,14 +1473,19 @@ const getSettingsTab = (searchParams: URLSearchParams): SettingsTab => {
     return tab;
   }
 
-  return "categories";
+  return "account";
 };
 
 const getSelectedTab = (
   actionData: ActionResult,
   searchParams: URLSearchParams
 ): SettingsTab => {
-  if (actionData?.intent === "updateAvatarPreset") return "account";
+  if (
+    actionData?.intent === "updateProfile" ||
+    actionData?.intent === "updateAvatarPreset"
+  ) {
+    return "account";
+  }
   if (actionData?.intent === "changePassword") return "security";
   if (actionData?.intent && isCategoryIntent(actionData.intent)) {
     return "categories";
@@ -1347,7 +1495,10 @@ const getSelectedTab = (
 };
 
 const getAccountActionData = (actionData: ActionResult): AccountActionData => {
-  if (actionData?.intent === "updateAvatarPreset") {
+  if (
+    actionData?.intent === "updateProfile" ||
+    actionData?.intent === "updateAvatarPreset"
+  ) {
     return actionData as AccountActionData;
   }
   return undefined;
@@ -1410,6 +1561,7 @@ const isSettingsIntent = (
     value === "updateCategory" ||
     value === "deleteCategory" ||
     value === "changePassword" ||
+    value === "updateProfile" ||
     value === "updateAvatarPreset"
   );
 };
@@ -2330,6 +2482,10 @@ const useMediaQuery = (query: string) => {
 
 const normalizeCategoryName = (name: string) => {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("th-TH");
+};
+
+const normalizeProfileName = (name: string) => {
+  return name.trim().replace(/\s+/g, " ");
 };
 
 const zodFieldError = (

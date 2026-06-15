@@ -554,30 +554,6 @@ const Add = () => {
               </div>
             </div>
 
-            <div className="bg-surface border-line sticky bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-20 -mx-4 mt-5 border-t px-4 py-3 sm:-mx-5 sm:rounded-b-lg sm:px-5 lg:static">
-              <div className="mx-auto flex max-w-[30rem] items-center gap-3 lg:max-w-[34rem]">
-                <div className="min-w-0 flex-1">
-                  <p className="text-ink truncate text-sm font-semibold">
-                    {previewTitle} · {amountLabel}
-                  </p>
-                  <p className="text-muted truncate text-xs">
-                    {selectedCategoryName} · {todayLabel}
-                  </p>
-                </div>
-                <Button
-                  type="submit"
-                  aria-label="บันทึกรายการ"
-                  disabled={!canSubmit}
-                  className="h-12 shrink-0 rounded-md px-5"
-                >
-                  <Check className="h-4 w-4" />
-                  {isRecurring
-                    ? `บันทึกซ้ำ ${amountLabel}`
-                    : `บันทึก ${amountLabel}`}
-                </Button>
-              </div>
-            </div>
-
             <div className="border-line mt-4 divide-y border-t">
               <div className="grid gap-2 py-3">
                 <FieldHeading
@@ -745,6 +721,30 @@ const Add = () => {
                 ) : null}
               </div>
             ) : null}
+
+            <div className="bg-surface border-line sticky bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-20 -mx-4 mt-5 border-t px-4 py-3 sm:-mx-5 sm:rounded-b-lg sm:px-5 lg:static">
+              <div className="mx-auto flex max-w-[30rem] items-center gap-3 lg:max-w-[34rem]">
+                <div className="min-w-0 flex-1">
+                  <p className="text-ink truncate text-sm font-semibold">
+                    {previewTitle} · {amountLabel}
+                  </p>
+                  <p className="text-muted truncate text-xs">
+                    {selectedCategoryName} · {todayLabel}
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  aria-label="บันทึกรายการ"
+                  disabled={!canSubmit}
+                  className="h-12 shrink-0 rounded-md px-5"
+                >
+                  <Check className="h-4 w-4" />
+                  {isRecurring
+                    ? `บันทึกซ้ำ ${amountLabel}`
+                    : `บันทึก ${amountLabel}`}
+                </Button>
+              </div>
+            </div>
           </div>
         </section>
       </Form>

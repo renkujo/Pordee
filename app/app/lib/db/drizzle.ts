@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "./client";
 import { getDefaultCategoryIconId } from "./category-icons";
 import { ensureFinanceDatabase } from "./migrate.server";
@@ -10,6 +10,10 @@ import {
   recurringOccurrences,
   recurringTemplates,
   transactions,
+  walletAllocations,
+  walletPocketCategories,
+  walletPockets,
+  walletTransfers,
 } from "./schema";
 import type {
   Category,
@@ -19,6 +23,9 @@ import type {
   RecurringOccurrence,
   RecurringTemplate,
   Transaction,
+  WalletAllocation,
+  WalletPocket,
+  WalletTransfer,
 } from "./types";
 import {
   getInitialNextRunOn,
@@ -34,6 +41,60 @@ const DEFAULT_CATEGORIES: Array<Pick<Category, "icon" | "name" | "kind">> = [
   { name: "บิล", kind: "expense", icon: "receipt" },
   { name: "เงินเดือน", kind: "income", icon: "banknote" },
   { name: "งานเสริม", kind: "income", icon: "briefcase" },
+];
+
+const DEFAULT_WALLET_POCKETS: Array<
+  Pick<
+    WalletPocket,
+    | "name"
+    | "description"
+    | "type"
+    | "monthlyLimit"
+    | "mascot"
+    | "surface"
+    | "rolloverRule"
+  > & { categoryNames: string[] }
+> = [
+  {
+    name: "ใช้จ่ายประจำวัน",
+    description: "เงินสำหรับอาหาร กาแฟ และรายจ่ายเล็ก ๆ ระหว่างวัน",
+    type: "daily",
+    monthlyLimit: 0,
+    mascot: "happy",
+    surface: "teal",
+    rolloverRule: "reset",
+    categoryNames: ["อาหาร"],
+  },
+  {
+    name: "เดินทาง",
+    description: "ค่าเดินทางที่อยากกันไว้ก่อนออกจากบ้าน",
+    type: "travel",
+    monthlyLimit: 0,
+    mascot: "normal",
+    surface: "lime",
+    rolloverRule: "reset",
+    categoryNames: ["เดินทาง"],
+  },
+  {
+    name: "เตรียมจ่ายบิล",
+    description: "เงินที่กันไว้ก่อนถึงวันจ่ายบิลจริง",
+    type: "bills",
+    monthlyLimit: 0,
+    mascot: "thinking",
+    surface: "coral",
+    rolloverRule: "keep",
+    categoryNames: ["บิล"],
+  },
+  {
+    name: "เงินสำรอง",
+    description: "เงินกันไว้ เผื่อเดือนนี้มีเรื่องไม่คาดคิด",
+    type: "reserve",
+    monthlyLimit: 0,
+    mascot: "saving",
+    surface: "neutral",
+    rolloverRule: "keep",
+    categoryNames: [],
+  },
 ];
 
 const toMoney = (value: string): number => {
@@ -114,6 +175,57 @@ const rowToCategory = (row: typeof categories.$inferSelect): Category => {
   };
 };
 
+const rowToWalletPocket = (
+  row: typeof walletPockets.$inferSelect,
+  categoryIds: string[] = []
+): WalletPocket => {
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: row.name,
+    description: row.description,
+    type: row.type as WalletPocket["type"],
+    monthlyLimit: toMoney(row.monthlyLimit),
+    mascot: row.mascot as WalletPocket["mascot"],
+    surface: row.surface as WalletPocket["surface"],
+    rolloverRule: row.rolloverRule as WalletPocket["rolloverRule"],
+    sortOrder: row.sortOrder,
+    isArchived: row.isArchived === 1,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    categoryIds,
+  };
+};
+
+const rowToWalletAllocation = (
+  row: typeof walletAllocations.$inferSelect
+): WalletAllocation => {
+  return {
+    id: row.id,
+    userId: row.userId,
+    pocketId: row.pocketId,
+    monthKey: row.monthKey,
+    amount: toMoney(row.amount),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+};
+
+const rowToWalletTransfer = (
+  row: typeof walletTransfers.$inferSelect
+): WalletTransfer => {
+  return {
+    id: row.id,
+    userId: row.userId,
+    fromPocketId: row.fromPocketId,
+    toPocketId: row.toPocketId,
+    amount: toMoney(row.amount),
+    note: row.note,
+    occurredAt: row.occurredAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+  };
+};
+
 // Seed default categories the first time a user has none.
 const ensureSeeded = async (userId: string): Promise<void> => {
   const existing = await db
@@ -133,6 +245,56 @@ const ensureSeeded = async (userId: string): Promise<void> => {
   );
 };
 
+const ensureWalletPocketsSeeded = async (userId: string): Promise<void> => {
+  const existing = await db
+    .select({ id: walletPockets.id })
+    .from(walletPockets)
+    .where(eq(walletPockets.userId, userId))
+    .limit(1);
+  if (existing.length > 0) return;
+
+  await ensureSeeded(userId);
+  const userCategories = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.userId, userId));
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    for (const [index, preset] of DEFAULT_WALLET_POCKETS.entries()) {
+      const pocketId = randomUUID();
+      await tx.insert(walletPockets).values({
+        id: pocketId,
+        userId,
+        name: preset.name,
+        description: preset.description,
+        type: preset.type,
+        monthlyLimit: String(preset.monthlyLimit),
+        mascot: preset.mascot,
+        surface: preset.surface,
+        rolloverRule: preset.rolloverRule,
+        sortOrder: index,
+        isArchived: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const categoryRows = userCategories
+        .filter((category) =>
+          preset.categoryNames.some((name) => category.name.includes(name))
+        )
+        .map((category) => ({
+          pocketId,
+          categoryId: category.id,
+          userId,
+        }));
+      if (categoryRows.length > 0) {
+        await tx.insert(walletPocketCategories).values(categoryRows);
+      }
+    }
+  });
+};
+
 const ensureOwnedCategory = async (
   userId: string,
   categoryId: string | null
@@ -146,6 +308,60 @@ const ensureOwnedCategory = async (
   if (owned.length === 0) {
     throw new Error("category not found for user");
   }
+};
+
+const ensureOwnedCategories = async (
+  userId: string,
+  categoryIds: string[]
+): Promise<void> => {
+  for (const categoryId of categoryIds) {
+    await ensureOwnedCategory(userId, categoryId);
+  }
+};
+
+const ensureOwnedWalletPocket = async (
+  userId: string,
+  pocketId: string | null
+): Promise<void> => {
+  if (!pocketId) return;
+  const owned = await db
+    .select({ id: walletPockets.id })
+    .from(walletPockets)
+    .where(
+      and(
+        eq(walletPockets.id, pocketId),
+        eq(walletPockets.userId, userId),
+        eq(walletPockets.isArchived, 0)
+      )
+    )
+    .limit(1);
+  if (owned.length === 0) {
+    throw new Error("wallet pocket not found for user");
+  }
+};
+
+const replaceWalletPocketCategories = async (
+  userId: string,
+  pocketId: string,
+  categoryIds: string[]
+): Promise<void> => {
+  await ensureOwnedCategories(userId, categoryIds);
+  await db
+    .delete(walletPocketCategories)
+    .where(
+      and(
+        eq(walletPocketCategories.userId, userId),
+        eq(walletPocketCategories.pocketId, pocketId)
+      )
+    );
+  if (categoryIds.length === 0) return;
+  await db.insert(walletPocketCategories).values(
+    categoryIds.map((categoryId) => ({
+      userId,
+      pocketId,
+      categoryId,
+    }))
+  );
 };
 
 export const drizzleRepo: PordeeRepo = {
@@ -636,6 +852,224 @@ export const drizzleRepo: PordeeRepo = {
           );
       });
     }
+  },
+
+  async listWalletPockets(userId) {
+    await ensureFinanceDatabase();
+    await ensureWalletPocketsSeeded(userId);
+    const [pocketRows, categoryRows] = await Promise.all([
+      db
+        .select()
+        .from(walletPockets)
+        .where(
+          and(eq(walletPockets.userId, userId), eq(walletPockets.isArchived, 0))
+        )
+        .orderBy(asc(walletPockets.sortOrder), asc(walletPockets.createdAt)),
+      db
+        .select()
+        .from(walletPocketCategories)
+        .where(eq(walletPocketCategories.userId, userId)),
+    ]);
+    const categoryIdsByPocketId = new Map<string, string[]>();
+    for (const row of categoryRows) {
+      const list = categoryIdsByPocketId.get(row.pocketId) ?? [];
+      list.push(row.categoryId);
+      categoryIdsByPocketId.set(row.pocketId, list);
+    }
+    return pocketRows.map((row) =>
+      rowToWalletPocket(row, categoryIdsByPocketId.get(row.id) ?? [])
+    );
+  },
+
+  async createWalletPocket(userId, input) {
+    await ensureFinanceDatabase();
+    const categoryIds = input.categoryIds ?? [];
+    await ensureOwnedCategories(userId, categoryIds);
+    const now = new Date();
+    const nextOrder = await db
+      .select({
+        value: sql<number>`coalesce(max(${walletPockets.sortOrder}), -1) + 1`,
+      })
+      .from(walletPockets)
+      .where(eq(walletPockets.userId, userId));
+    const row = {
+      id: randomUUID(),
+      userId,
+      name: input.name,
+      description: input.description,
+      type: input.type,
+      monthlyLimit: String(input.monthlyLimit),
+      mascot: input.mascot,
+      surface: input.surface,
+      rolloverRule: input.rolloverRule,
+      sortOrder: nextOrder[0]?.value ?? 0,
+      isArchived: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.transaction(async (tx) => {
+      await tx.insert(walletPockets).values(row);
+      if (categoryIds.length > 0) {
+        await tx.insert(walletPocketCategories).values(
+          categoryIds.map((categoryId) => ({
+            userId,
+            pocketId: row.id,
+            categoryId,
+          }))
+        );
+      }
+    });
+    return rowToWalletPocket(
+      row as typeof walletPockets.$inferSelect,
+      categoryIds
+    );
+  },
+
+  async updateWalletPocket(userId, id, input) {
+    await ensureFinanceDatabase();
+    await ensureOwnedWalletPocket(userId, id);
+    const categoryIds = input.categoryIds ?? [];
+    await ensureOwnedCategories(userId, categoryIds);
+    const updated = await db
+      .update(walletPockets)
+      .set({
+        name: input.name,
+        description: input.description,
+        type: input.type,
+        monthlyLimit: String(input.monthlyLimit),
+        mascot: input.mascot,
+        surface: input.surface,
+        rolloverRule: input.rolloverRule,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(walletPockets.id, id), eq(walletPockets.userId, userId)))
+      .returning();
+    if (updated.length === 0) return null;
+    await replaceWalletPocketCategories(userId, id, categoryIds);
+    return rowToWalletPocket(updated[0], categoryIds);
+  },
+
+  async archiveWalletPocket(userId, id) {
+    await ensureFinanceDatabase();
+    const updated = await db
+      .update(walletPockets)
+      .set({ isArchived: 1, updatedAt: new Date() })
+      .where(and(eq(walletPockets.id, id), eq(walletPockets.userId, userId)))
+      .returning({ id: walletPockets.id });
+    return updated.length > 0;
+  },
+
+  async reorderWalletPockets(userId, pocketIds) {
+    await ensureFinanceDatabase();
+    const ownedRows = await db
+      .select({ id: walletPockets.id })
+      .from(walletPockets)
+      .where(
+        and(eq(walletPockets.userId, userId), eq(walletPockets.isArchived, 0))
+      );
+    const ownedIds = new Set(ownedRows.map((row) => row.id));
+    const orderedIds = pocketIds.filter((id) => ownedIds.has(id));
+    if (orderedIds.length === 0) return;
+
+    await db.transaction(async (tx) => {
+      for (const [index, pocketId] of orderedIds.entries()) {
+        await tx
+          .update(walletPockets)
+          .set({ sortOrder: index, updatedAt: new Date() })
+          .where(
+            and(
+              eq(walletPockets.id, pocketId),
+              eq(walletPockets.userId, userId)
+            )
+          );
+      }
+    });
+  },
+
+  async listWalletAllocations(userId, monthKey) {
+    await ensureFinanceDatabase();
+    const rows = await db
+      .select()
+      .from(walletAllocations)
+      .where(
+        and(
+          eq(walletAllocations.userId, userId),
+          eq(walletAllocations.monthKey, monthKey)
+        )
+      );
+    return rows.map(rowToWalletAllocation);
+  },
+
+  async setWalletAllocations(userId, monthKey, allocations) {
+    await ensureFinanceDatabase();
+    for (const allocation of allocations) {
+      await ensureOwnedWalletPocket(userId, allocation.pocketId);
+    }
+    const now = new Date();
+    return db.transaction(async (tx) => {
+      await tx
+        .delete(walletAllocations)
+        .where(
+          and(
+            eq(walletAllocations.userId, userId),
+            eq(walletAllocations.monthKey, monthKey)
+          )
+        );
+      if (allocations.length === 0) return [];
+      const inserted = await tx
+        .insert(walletAllocations)
+        .values(
+          allocations.map((allocation) => ({
+            id: randomUUID(),
+            userId,
+            pocketId: allocation.pocketId,
+            monthKey,
+            amount: String(allocation.amount),
+            createdAt: now,
+            updatedAt: now,
+          }))
+        )
+        .returning();
+      return inserted.map(rowToWalletAllocation);
+    });
+  },
+
+  async listWalletTransfers(userId, opts = {}) {
+    await ensureFinanceDatabase();
+    const conditions = [eq(walletTransfers.userId, userId)];
+    if (opts.from) {
+      conditions.push(sql`${walletTransfers.occurredAt} >= ${opts.from}`);
+    }
+    if (opts.to) {
+      conditions.push(sql`${walletTransfers.occurredAt} <= ${opts.to}`);
+    }
+    const rows = await db
+      .select()
+      .from(walletTransfers)
+      .where(and(...conditions))
+      .orderBy(
+        desc(walletTransfers.occurredAt),
+        desc(walletTransfers.createdAt)
+      );
+    return rows.map(rowToWalletTransfer);
+  },
+
+  async createWalletTransfer(userId, input) {
+    await ensureFinanceDatabase();
+    await ensureOwnedWalletPocket(userId, input.fromPocketId);
+    await ensureOwnedWalletPocket(userId, input.toPocketId);
+    const row = {
+      id: randomUUID(),
+      userId,
+      fromPocketId: input.fromPocketId,
+      toPocketId: input.toPocketId,
+      amount: String(input.amount),
+      note: input.note,
+      occurredAt: new Date(input.occurredAt),
+      createdAt: new Date(),
+    };
+    const inserted = await db.insert(walletTransfers).values(row).returning();
+    return rowToWalletTransfer(inserted[0]);
   },
 
   async listGoals(userId) {
