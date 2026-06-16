@@ -180,7 +180,7 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
     "datePreset.threeDaysAgo": "3 วันที่แล้ว",
     "datePreset.today": "วันนี้",
     "datePreset.yesterday": "เมื่อวาน",
-    "edit.backToHistory": "กลับประวัติ",
+    "edit.backToHistory": "กลับไปหน้าประวัติ",
     "edit.currentCard.createdAt": "บันทึกเข้าระบบ",
     "edit.currentCard.description": "ข้อมูลเดิมก่อนบันทึกการแก้ไข",
     "edit.currentCard.occurredAt": "วันที่เกิดรายการ",
@@ -267,10 +267,13 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
       "ลองปรับคำค้นหา หรือขยายช่วงวันที่ให้กว้างขึ้น",
     "history.emptyFilter.title": "ไม่พบรายการที่ตรงกับตัวกรอง",
     "history.filter.fromDate": "ตั้งแต่วันที่",
+    "history.filter.hide": "ซ่อน",
     "history.filter.period": "ช่วงเวลา",
     "history.filter.resultSummary":
       "กำลังแสดง {filteredCount} จาก {count} รายการ และสรุปยอดตามตัวกรองนี้",
+    "history.filter.show": "เปิด",
     "history.filter.toDate": "ถึงวันที่",
+    "history.filter.toggle": "ตัวกรองเพิ่มเติม",
     "history.latestTip.description":
       "รายการล่าสุดคือ “{title}” ถ้าจำนวนหรือหมวดไม่ตรง เปิดเมนูท้ายแถวเพื่อแก้ไขหรือลบได้ทันที",
     "history.latestTip.title": "พอดีช่วยดูย้อนหลัง",
@@ -872,10 +875,13 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
       "Try adjusting the search, or widen the date range.",
     "history.emptyFilter.title": "No transactions match the filters",
     "history.filter.fromDate": "From date",
+    "history.filter.hide": "Hide",
     "history.filter.period": "Period",
     "history.filter.resultSummary":
       "Showing {filteredCount} of {count} transactions, with totals based on these filters",
+    "history.filter.show": "Open",
     "history.filter.toDate": "To date",
+    "history.filter.toggle": "More filters",
     "history.latestTip.description":
       "The latest transaction is “{title}”. If the amount or category is wrong, open the row menu to edit or delete it.",
     "history.latestTip.title": "Pordee helps review history",

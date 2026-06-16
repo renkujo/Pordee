@@ -196,7 +196,12 @@ const EditTransaction = () => {
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-3">
+          <Button
+            asChild
+            variant="secondary"
+            size="sm"
+            className="mb-3 w-fit rounded-sm shadow-sm"
+          >
             <Link to="/history">
               <ArrowLeft className="h-4 w-4" />
               {t("edit.backToHistory")}

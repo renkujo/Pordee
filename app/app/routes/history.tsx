@@ -3,6 +3,7 @@ import { data, Form, Link, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/history";
 import {
   CalendarRange,
+  ChevronDown,
   MoreHorizontal,
   Pencil,
   PlusCircle,
@@ -18,6 +19,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { MascotState, MascotTip } from "~/components/brand/mascot-state";
 import { DatePicker } from "~/components/ui/date-picker";
+import { cn } from "~/lib/cn";
 import { repo } from "~/lib/db";
 import { requireUser } from "~/lib/auth.server";
 import type { Transaction, TransactionKind } from "~/lib/db";
@@ -119,6 +121,7 @@ const History = () => {
   const [monthPreset, setMonthPreset] = useState<MonthPreset>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const normalizedSearchQuery = normalizeSearch(searchQuery);
   const hasDateRange = fromDate !== "" || toDate !== "";
   const availableCategories = categories.filter((category) =>
@@ -170,6 +173,12 @@ const History = () => {
   const hasKindFilter = kindFilter !== ALL_KINDS_VALUE;
   const hasCategoryFilter = categoryFilter !== ALL_CATEGORIES_VALUE;
   const hasSourceFilter = sourceFilter !== ALL_SOURCES_VALUE;
+  const activePanelFilterCount = [
+    hasDateRange,
+    hasKindFilter,
+    hasCategoryFilter,
+    hasSourceFilter,
+  ].filter(Boolean).length;
   const hasFilter =
     hasSearch ||
     hasDateRange ||
@@ -242,7 +251,7 @@ const History = () => {
 
       <section
         aria-label={t("history.summary.ariaLabel")}
-        className="border-line bg-surface grid gap-3 rounded-md border p-4 sm:grid-cols-3"
+        className="border-line bg-surface grid grid-cols-2 gap-2 rounded-md border p-3 sm:grid-cols-3 sm:gap-3 sm:p-4"
       >
         <SummaryCell
           label={t(
@@ -266,6 +275,7 @@ const History = () => {
           label={t("history.summary.net")}
           tone={net >= 0 ? "teal" : "coral"}
           value={Math.abs(net)}
+          className="col-span-2 sm:col-span-1"
         />
       </section>
 
@@ -315,7 +325,63 @@ const History = () => {
                 ) : null}
               </div>
 
-              <div className="border-line bg-sky/30 grid gap-3 rounded-sm border p-3 md:grid-cols-2 xl:grid-cols-5 xl:items-end">
+              <div className="flex gap-2 md:hidden">
+                <Button
+                  aria-controls="history-filter-panel"
+                  aria-expanded={isFilterPanelOpen}
+                  className="min-w-0 flex-1 justify-between rounded-sm"
+                  onClick={() => setIsFilterPanelOpen((open) => !open)}
+                  type="button"
+                  variant="secondary"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {t("history.filter.toggle")}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {activePanelFilterCount > 0 ? (
+                      <Badge tone="coral">{activePanelFilterCount}</Badge>
+                    ) : (
+                      <span className="text-muted text-xs">
+                        {t(
+                          isFilterPanelOpen
+                            ? "history.filter.hide"
+                            : "history.filter.show"
+                        )}
+                      </span>
+                    )}
+                    <ChevronDown
+                      className={cn(
+                        "text-muted h-4 w-4 transition-transform",
+                        isFilterPanelOpen ? "rotate-180" : "rotate-0"
+                      )}
+                    />
+                  </span>
+                </Button>
+
+                {activePanelFilterCount > 0 ? (
+                  <Button
+                    aria-label={t("filter.clear")}
+                    className="rounded-sm"
+                    onClick={clearFilters}
+                    type="button"
+                    variant="ghost"
+                  >
+                    <X className="h-4 w-4" />
+                    {t("filter.clear")}
+                  </Button>
+                ) : null}
+              </div>
+
+              <div
+                id="history-filter-panel"
+                className={cn(
+                  "border-line bg-sky/30 gap-3 rounded-sm border p-3 md:grid md:grid-cols-2 xl:grid-cols-5 xl:items-end",
+                  isFilterPanelOpen ? "grid" : "hidden"
+                )}
+              >
                 <div className="flex flex-col gap-1.5">
                   <Label
                     className="text-muted flex items-center gap-1.5 text-xs"
@@ -598,19 +664,26 @@ const getTransactionSearchText = (
 };
 
 const SummaryCell = ({
+  className,
   label,
   tone,
   value,
 }: {
+  className?: string;
   label: string;
   tone: "coral" | "teal";
   value: number;
 }) => {
   return (
-    <div className="border-line rounded-sm border px-3 py-2">
-      <p className="text-muted text-xs">{label}</p>
+    <div
+      className={cn(
+        "border-line min-w-0 rounded-sm border px-3 py-2",
+        className
+      )}
+    >
+      <p className="text-muted truncate text-xs">{label}</p>
       <p
-        className={`mt-1 text-lg font-semibold tabular-nums ${
+        className={`mt-1 truncate text-base font-semibold tabular-nums sm:text-lg ${
           tone === "teal" ? "text-teal" : "text-coral"
         }`}
       >

@@ -12,6 +12,7 @@ import type { Route } from "./+types/wallet";
 import {
   ArrowRight,
   CalendarDays,
+  ChevronDown,
   Edit3,
   GripVertical,
   Landmark,
@@ -620,6 +621,7 @@ const MonthlyPlanPanel = ({
   pockets: LoaderPocket[];
   summary: WalletSummary;
 }) => {
+  const [isPlanOpen, setIsPlanOpen] = React.useState(false);
   const navigation = useNavigation();
   const isSubmitting =
     navigation.formData?.get("intent") === "apply-plan" &&
@@ -634,73 +636,139 @@ const MonthlyPlanPanel = ({
 
   return (
     <Card className="rounded-lg">
-      <CardHeader className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <CalendarDays className="text-teal h-4 w-4" />
-            <CardTitle>จัดเงินเดือนนี้</CardTitle>
+      <CardHeader className="px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="bg-teal/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-md">
+              <CalendarDays className="text-teal h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <CardTitle>แผนจัดสรรเดือนนี้</CardTitle>
+              <CardDescription className="mt-1 leading-6">
+                ใช้เมื่อต้องปรับว่าเงินเดือนนี้จะเข้าแต่ละกระเป๋าเท่าไหร่
+              </CardDescription>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums">
+                <span className="text-muted">
+                  จัดสรรแล้ว {planPercent}% ของรายรับ
+                </span>
+                <span
+                  className={cn(
+                    summary.unallocated < 0 ? "text-coral" : "text-muted"
+                  )}
+                >
+                  {summary.unallocated < 0 ? "เกิน" : "ยังไม่ลงกระเป๋า"}{" "}
+                  {fmtBaht(Math.abs(summary.unallocated))}
+                </span>
+              </div>
+            </div>
           </div>
-          <CardDescription className="mt-1 leading-6">
-            ใช้แผนแนะนำเป็นจุดเริ่ม แล้วปรับจำนวนเงินในแต่ละกระเป๋าได้ทันที
-          </CardDescription>
-        </div>
-        <div className="text-muted text-sm tabular-nums">
-          จัดสรรแล้ว {planPercent}% ของรายรับเดือนนี้
+
+          <Button
+            aria-controls="wallet-monthly-plan-form"
+            aria-expanded={isPlanOpen}
+            className="w-full shrink-0 rounded-sm sm:w-auto"
+            onClick={() => setIsPlanOpen((open) => !open)}
+            type="button"
+            variant="secondary"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            {isPlanOpen ? "ซ่อนแผน" : "ปรับแผนเดือนนี้"}
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform",
+                isPlanOpen ? "rotate-180" : "rotate-0"
+              )}
+            />
+          </Button>
         </div>
       </CardHeader>
-      <Separator />
-      <CardContent className="p-4 sm:p-5">
-        <Form method="post">
-          <input type="hidden" name="intent" value="apply-plan" />
-          <input type="hidden" name="monthKey" value={monthKey} />
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {pockets.map((pocket) => (
-              <label
-                className="border-line bg-sky/35 block rounded-md border p-3"
-                key={pocket.id}
-              >
-                <span className="text-ink block text-sm font-semibold">
-                  {pocket.name}
-                </span>
-                <span className="text-muted mt-1 block text-xs">
-                  แนะนำ {fmtBaht(pocket.recommended)}
-                </span>
-                <Input
-                  className="mt-3"
-                  defaultValue={Math.round(pocket.allocation)}
-                  min={0}
-                  name="allocationAmount"
-                  onChange={(event) => {
-                    const hidden = event.currentTarget
-                      .closest("label")
-                      ?.querySelector<HTMLInputElement>(
-                        'input[name="allocation"]'
-                      );
-                    if (hidden) {
-                      hidden.value = `${pocket.id}:${event.currentTarget.value}`;
-                    }
-                  }}
-                  type="number"
-                />
-                <input
-                  type="hidden"
-                  name="allocation"
-                  value={`${pocket.id}:${Math.round(pocket.allocation)}`}
-                />
-              </label>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted text-sm">
-              เหลือยังไม่ได้จัดสรร {fmtBaht(summary.unallocated)}
-            </p>
-            <Button className="w-full sm:w-auto" type="submit" variant="teal">
-              <SlidersHorizontal className="h-4 w-4" />
-              {isSubmitting ? "กำลังใช้แผน" : "ใช้แผนนี้"}
-            </Button>
-          </div>
-        </Form>
-      </CardContent>
+      {isPlanOpen ? (
+        <>
+          <Separator />
+          <CardContent className="p-4 sm:p-5" id="wallet-monthly-plan-form">
+            <Form method="post">
+              <input type="hidden" name="intent" value="apply-plan" />
+              <input type="hidden" name="monthKey" value={monthKey} />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {pockets.map((pocket) => (
+                  <label
+                    className="border-line bg-surface block rounded-md border p-3"
+                    key={pocket.id}
+                  >
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="text-ink block truncate text-sm font-semibold">
+                          {pocket.name}
+                        </span>
+                        <span className="text-muted mt-1 block text-xs">
+                          พอดีแนะนำ {fmtBaht(pocket.recommended)}
+                        </span>
+                      </span>
+                      <Badge
+                        className="shrink-0"
+                        tone={pocket.status === "over" ? "coral" : "neutral"}
+                      >
+                        {statusMeta[pocket.status].label}
+                      </Badge>
+                    </span>
+                    <span className="text-muted mt-3 block text-xs font-medium">
+                      กันเงินไว้ในกระเป๋านี้
+                    </span>
+                    <span className="relative mt-1 block">
+                      <Input
+                        className="pr-10 tabular-nums"
+                        defaultValue={Math.round(pocket.allocation)}
+                        min={0}
+                        name="allocationAmount"
+                        onChange={(event) => {
+                          const hidden = event.currentTarget
+                            .closest("label")
+                            ?.querySelector<HTMLInputElement>(
+                              'input[name="allocation"]'
+                            );
+                          if (hidden) {
+                            hidden.value = `${pocket.id}:${event.currentTarget.value}`;
+                          }
+                        }}
+                        type="number"
+                      />
+                      <span className="text-muted pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs">
+                        บาท
+                      </span>
+                    </span>
+                    <input
+                      type="hidden"
+                      name="allocation"
+                      value={`${pocket.id}:${Math.round(pocket.allocation)}`}
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p
+                  className={cn(
+                    "text-sm tabular-nums",
+                    summary.unallocated < 0 ? "text-coral" : "text-muted"
+                  )}
+                >
+                  {summary.unallocated < 0
+                    ? "จัดสรรเกินรายรับ"
+                    : "เงินที่ยังไม่ลงกระเป๋า"}{" "}
+                  {fmtBaht(Math.abs(summary.unallocated))}
+                </p>
+                <Button
+                  className="w-full sm:w-auto"
+                  type="submit"
+                  variant="teal"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  {isSubmitting ? "กำลังบันทึกแผน" : "บันทึกแผนเข้ากระเป๋า"}
+                </Button>
+              </div>
+            </Form>
+          </CardContent>
+        </>
+      ) : null}
     </Card>
   );
 };
@@ -750,7 +818,7 @@ const PocketGrid = ({
   return (
     <section
       aria-label={ariaLabel}
-      className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 xl:grid-cols-4"
       onDragOver={(event) => event.preventDefault()}
       onDrop={() => {
         setDraggingPocketId(null);
@@ -821,7 +889,7 @@ const PocketCard = ({
     <Card
       aria-grabbed={isDragging}
       className={cn(
-        "flex min-h-[28rem] flex-col overflow-hidden rounded-lg transition",
+        "flex flex-col overflow-hidden rounded-lg transition sm:min-h-[28rem]",
         isDragging && "scale-[0.99] opacity-60",
         isDragOver && "border-teal ring-teal/30 ring-2"
       )}
@@ -832,76 +900,107 @@ const PocketCard = ({
       onDragStart={onDragStart}
       onDrop={onDrop}
     >
-      <div className={cn("flex h-28 items-center justify-center", surface.bg)}>
+      <div
+        className={cn(
+          "hidden h-28 items-center justify-center sm:flex",
+          surface.bg
+        )}
+      >
         <img
           alt=""
-          className="h-20 w-20 object-contain sm:h-24 sm:w-24"
+          className="h-14 w-14 object-contain sm:h-24 sm:w-24"
           loading="lazy"
           src={getMascotSrc(pocket.mascot)}
         />
       </div>
 
-      <CardContent className="flex flex-1 flex-col p-4">
+      <CardContent className="flex flex-1 flex-col p-3 sm:p-4">
         <div className="flex items-start justify-between gap-2">
-          <div>
+          <div className="flex min-w-0 items-start gap-2 sm:block">
+            <div
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-md sm:hidden",
+                surface.bg
+              )}
+            >
+              <img
+                alt=""
+                className="h-7 w-7 object-contain"
+                loading="lazy"
+                src={getMascotSrc(pocket.mascot)}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <span
                 aria-label={`ลากเพื่อเรียง ${pocket.name}`}
-                className="border-line text-muted flex h-7 w-7 cursor-grab items-center justify-center rounded-xs border active:cursor-grabbing"
+                className="border-line text-muted hidden h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-xs border active:cursor-grabbing sm:flex"
                 role="img"
               >
                 <GripVertical className="h-4 w-4" />
               </span>
-              <h2 className="text-ink text-base font-semibold">
+              <h2 className="text-ink truncate text-sm font-semibold sm:text-base">
                 {pocket.name}
               </h2>
             </div>
-            <p className="text-muted mt-1 line-clamp-2 text-sm leading-6">
+            <p className="text-muted mt-1 hidden text-sm leading-6 sm:line-clamp-2">
               {pocket.description}
             </p>
           </div>
-          <Badge className="shrink-0" tone={status.tone}>
+          <Badge className="hidden shrink-0 sm:inline-flex" tone={status.tone}>
             {status.label}
           </Badge>
         </div>
 
-        <div className="mt-auto pt-5">
-          <p className="text-muted text-sm font-semibold">เหลือใช้ได้</p>
+        <div className="mt-3 sm:mt-auto sm:pt-5">
+          <p className="text-muted text-xs font-semibold sm:text-sm">
+            เหลือใช้ได้
+          </p>
           <p
             className={cn(
-              "mt-1 text-2xl font-semibold tracking-tight tabular-nums",
+              "mt-0.5 truncate text-lg font-semibold tracking-tight tabular-nums sm:mt-1 sm:text-2xl",
               pocket.amount < 0 ? "text-coral" : surface.text
             )}
           >
             {fmtBaht(pocket.amount)}
           </p>
           <Progress
-            className="mt-2 rounded-xs"
+            className="mt-1.5 rounded-xs sm:mt-2"
             indicatorClassName={cn("rounded-xs", surface.bar)}
             value={pocket.percent}
           />
-          <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-xs sm:mt-2">
             <span className="text-muted">จาก {fmtBaht(pocket.target)}</span>
             <span className={cn("font-semibold", surface.text)}>
               {pocket.percent}%
             </span>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div className="mt-2 hidden grid-cols-2 gap-2 text-xs sm:mt-3 sm:grid">
             <PocketMetric label="ใช้ไป" value={fmtBaht(pocket.spent)} />
             <PocketMetric
               label="ใช้ได้/วัน"
               value={fmtBaht(pocket.dailySafe)}
             />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <PocketDetailDialog pocket={pocket} />
+          <div className="mt-3 grid grid-cols-3 gap-1.5 sm:mt-4 sm:grid-cols-2 sm:gap-2">
+            <PocketDetailDialog
+              compact
+              pocket={pocket}
+              triggerClassName="h-8 px-2 sm:h-9 sm:px-3"
+            />
             <TransferDialog
               pockets={pockets}
+              triggerClassName="h-8 px-2 sm:h-9 sm:px-3"
+              triggerCompact
               triggerPocketId={pocket.id}
               triggerVariant="secondary"
             />
+            <EditPocketDialog
+              categories={categories}
+              compact
+              pocket={pocket}
+              triggerClassName="mt-0 h-8 justify-center px-2 sm:col-span-2 sm:mt-2 sm:h-9 sm:justify-between sm:px-3"
+            />
           </div>
-          <EditPocketDialog categories={categories} pocket={pocket} />
         </div>
       </CardContent>
     </Card>
@@ -909,17 +1008,33 @@ const PocketCard = ({
 };
 
 const PocketMetric = ({ label, value }: { label: string; value: string }) => (
-  <div className="bg-sky/45 rounded-md px-2.5 py-2">
+  <div className="bg-sky/45 rounded-md px-2.5 py-1.5 sm:py-2">
     <p className="text-muted">{label}</p>
     <p className="text-ink mt-1 font-semibold tabular-nums">{value}</p>
   </div>
 );
 
-const PocketDetailDialog = ({ pocket }: { pocket: LoaderPocket }) => (
+const PocketDetailDialog = ({
+  compact = false,
+  pocket,
+  triggerClassName,
+}: {
+  compact?: boolean;
+  pocket: LoaderPocket;
+  triggerClassName?: string;
+}) => (
   <Dialog>
     <DialogTrigger asChild>
-      <Button className="w-full" size="sm" variant="secondary">
-        รายละเอียด
+      <Button
+        aria-label={`ดูรายละเอียด ${pocket.name}`}
+        className={cn("w-full", triggerClassName)}
+        size="sm"
+        variant="secondary"
+      >
+        <ArrowRight className="h-4 w-4 sm:hidden" />
+        <span className={compact ? "sr-only sm:not-sr-only" : undefined}>
+          รายละเอียด
+        </span>
       </Button>
     </DialogTrigger>
     <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
@@ -1026,25 +1141,32 @@ const CreatePocketDialog = ({ categories }: { categories: Category[] }) => (
 
 const EditPocketDialog = ({
   categories,
+  compact = false,
   pocket,
+  triggerClassName,
 }: {
   categories: Category[];
+  compact?: boolean;
   pocket: LoaderPocket;
+  triggerClassName?: string;
 }) => (
   <PocketDialogShell intent="update-pocket">
     {({ open, setOpen }) => (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button
-            className="mt-2 w-full justify-between"
+            aria-label={`แก้ไขกระเป๋า ${pocket.name}`}
+            className={cn("mt-2 w-full justify-between", triggerClassName)}
             size="sm"
             variant="ghost"
           >
             <span className="inline-flex items-center gap-2">
               <Edit3 className="h-4 w-4" />
-              แก้ไขกระเป๋า
+              <span className={compact ? "sr-only sm:not-sr-only" : undefined}>
+                แก้ไขกระเป๋า
+              </span>
             </span>
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="hidden h-4 w-4 sm:block" />
           </Button>
         </DialogTrigger>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
@@ -1318,12 +1440,14 @@ const PocketForm = ({
 const TransferDialog = ({
   pockets,
   triggerClassName,
+  triggerCompact = false,
   triggerPocketId,
   triggerSize = "sm",
   triggerVariant = "secondary",
 }: {
   pockets: LoaderPocket[];
   triggerClassName?: string;
+  triggerCompact?: boolean;
   triggerPocketId?: string;
   triggerSize?: "sm" | "md";
   triggerVariant?: "secondary" | "teal";
@@ -1344,7 +1468,13 @@ const TransferDialog = ({
               variant={triggerVariant}
             >
               <Shuffle className="h-4 w-4" />
-              ย้ายเงิน
+              <span
+                className={
+                  triggerCompact ? "sr-only sm:not-sr-only" : undefined
+                }
+              >
+                ย้ายเงิน
+              </span>
             </Button>
           </DialogTrigger>
           <DialogContent>
