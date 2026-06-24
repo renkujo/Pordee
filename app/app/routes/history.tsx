@@ -17,7 +17,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { MascotState, MascotTip } from "~/components/brand/mascot-state";
+import { MascotState } from "~/components/brand/mascot-state";
 import { DatePicker } from "~/components/ui/date-picker";
 import { cn } from "~/lib/cn";
 import { repo } from "~/lib/db";
@@ -156,7 +156,6 @@ const History = () => {
     if (toDate && day > toDate) return false;
     return true;
   });
-  const latest = transactions[0];
   const totals = filteredTransactions.reduce(
     (sum, transaction) => {
       if (transaction.kind === "income") {
@@ -242,12 +241,6 @@ const History = () => {
           </Link>
         </Button>
       </div>
-
-      {latest && (
-        <MascotTip mood="thinking" title={t("history.latestTip.title")}>
-          {t("history.latestTip.description", { title: latest.title })}
-        </MascotTip>
-      )}
 
       <section
         aria-label={t("history.summary.ariaLabel")}
@@ -378,7 +371,7 @@ const History = () => {
               <div
                 id="history-filter-panel"
                 className={cn(
-                  "border-line bg-sky/30 gap-3 rounded-sm border p-3 md:grid md:grid-cols-2 xl:grid-cols-5 xl:items-end",
+                  "border-line bg-surface gap-3 rounded-sm border p-3 md:grid md:grid-cols-2 xl:grid-cols-5 xl:items-end",
                   isFilterPanelOpen ? "grid" : "hidden"
                 )}
               >
@@ -736,8 +729,15 @@ const TransactionRow = ({
           {categoryName}
         </p>
         <div className="hidden md:block">
-          <div className="flex flex-wrap gap-1">
-            <Badge tone={amountTone}>{kindLabel}</Badge>
+          <div className="flex flex-wrap gap-1 text-sm">
+            <span
+              className={cn(
+                "font-medium",
+                amountTone === "teal" ? "text-teal" : "text-coral"
+              )}
+            >
+              {kindLabel}
+            </span>
             {transaction.source === "recurring" ? (
               <Badge tone="neutral">ประจำ</Badge>
             ) : null}
@@ -745,9 +745,14 @@ const TransactionRow = ({
         </div>
         <div className="flex items-center justify-between gap-2 md:justify-end">
           <span className="text-muted text-xs md:hidden">{kindLabel}</span>
-          <Badge tone={amountTone} className="tabular-nums">
+          <span
+            className={cn(
+              "text-sm font-semibold tabular-nums",
+              amountTone === "teal" ? "text-teal" : "text-coral"
+            )}
+          >
             {fmtSignedBaht(transaction.amount, transaction.kind)}
-          </Badge>
+          </span>
         </div>
       </Link>
       <div className="flex items-start justify-end md:items-center">

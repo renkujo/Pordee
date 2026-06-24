@@ -15,7 +15,6 @@ import {
   ChevronDown,
   Edit3,
   GripVertical,
-  Landmark,
   Plus,
   Shuffle,
   SlidersHorizontal,
@@ -417,10 +416,6 @@ const Wallet = () => {
           <h1 className="text-ink text-3xl font-semibold tracking-tight">
             {t("wallet.title")}
           </h1>
-          <p className="text-muted mt-2 max-w-2xl text-sm leading-6">
-            จัดเงินเดือนนี้ให้เห็นชัดว่าเงินอยู่ในกระเป๋าไหน ใช้ไปเท่าไร
-            และควรย้ายเงินตรงไหนก่อนเดือนจบ
-          </p>
         </div>
         <CreatePocketDialog categories={categories} />
       </header>
@@ -431,78 +426,43 @@ const Wallet = () => {
         </Card>
       ) : null}
 
-      <Card
-        aria-label={t("wallet.summary.ariaLabel")}
-        className="overflow-hidden rounded-lg"
-      >
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_28rem]">
-          <CardContent className="bg-teal/10 flex flex-col gap-4 p-4 sm:p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-ink text-sm font-semibold">
-                  {t("wallet.summary.available")}
-                </p>
-                <p
-                  className={cn(
-                    "mt-2 text-4xl font-semibold tracking-tight sm:text-5xl",
-                    summary.available < 0 ? "text-coral" : "text-teal"
-                  )}
-                  data-testid="available"
-                >
-                  {fmtBaht(summary.available)}
-                </p>
-                <p className="text-muted mt-2 text-sm">
-                  หลังหักรายจ่าย เงินเก็บในเป้าหมาย และดูแผนกระเป๋าเดือนนี้
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <TransferDialog
-                  pockets={pockets}
-                  triggerClassName="h-10 sm:w-auto"
-                  triggerSize="md"
-                />
-                <Button
-                  asChild
-                  className="h-10 w-full sm:w-auto"
-                  variant="teal"
-                >
-                  <Link to="/add">
-                    <Plus className="h-4 w-4" />
-                    {t("shell.addTransaction")}
-                  </Link>
-                </Button>
-              </div>
+      <Card aria-label={t("wallet.summary.ariaLabel")} className="rounded-lg">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-ink text-sm font-semibold">
+                {t("wallet.summary.available")}
+              </p>
+              <p
+                className={cn(
+                  "mt-2 text-4xl font-semibold tracking-tight sm:text-5xl",
+                  summary.available < 0 ? "text-coral" : "text-teal"
+                )}
+                data-testid="available"
+              >
+                {fmtBaht(summary.available)}
+              </p>
+              <p className="text-muted mt-2 max-w-2xl text-sm leading-6">
+                {getDailySafeTitle(summary.available, summary.daysLeft, t)} —{" "}
+                {getDailySafeCopy(summary, t)}
+              </p>
             </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="border-line bg-surface rounded-md border p-3 sm:p-4">
-                <p className="text-ink text-sm font-semibold">
-                  {getDailySafeTitle(summary.available, summary.daysLeft, t)}
-                </p>
-                <p className="text-muted mt-1 text-sm leading-6">
-                  {getDailySafeCopy(summary, t)}
-                </p>
-              </div>
-              <div className="border-line bg-surface rounded-md border p-3 sm:p-4">
-                <p className="text-ink text-sm font-semibold">
-                  เงินยังไม่ได้จัดสรร
-                </p>
-                <p
-                  className={cn(
-                    "mt-1 text-2xl font-semibold tabular-nums",
-                    summary.unallocated < 0 ? "text-coral" : "text-ink"
-                  )}
-                >
-                  {fmtBaht(summary.unallocated)}
-                </p>
-                <p className="text-muted mt-1 text-xs leading-5">
-                  เทียบจากรายรับเดือนนี้กับเงินที่ใส่ในกระเป๋าทั้งหมด
-                </p>
-              </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <TransferDialog
+                pockets={pockets}
+                triggerClassName="h-10 sm:w-auto"
+                triggerSize="md"
+              />
+              <Button asChild className="h-10 w-full sm:w-auto" variant="teal">
+                <Link to="/add">
+                  <Plus className="h-4 w-4" />
+                  {t("shell.addTransaction")}
+                </Link>
+              </Button>
             </div>
-          </CardContent>
+          </div>
 
-          <div className="border-line grid grid-cols-2 gap-0 border-t xl:border-t-0 xl:border-l">
+          <div className="border-line sm:divide-line mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-4 sm:grid-cols-5 sm:gap-0 sm:divide-x">
             <SummaryTile
               label={t("wallet.summary.monthIncome")}
               value={fmtBaht(summary.monthIncome)}
@@ -518,23 +478,28 @@ const Wallet = () => {
               value={fmtBaht(summary.allocatedTotal)}
             />
             <SummaryTile
+              label="ยังไม่จัดสรร"
+              value={fmtBaht(summary.unallocated)}
+              tone={summary.unallocated < 0 ? "coral" : undefined}
+            />
+            <SummaryTile
               label={t("wallet.summary.reserved")}
               value={fmtBaht(summary.reserved)}
             />
           </div>
-        </div>
+        </CardContent>
       </Card>
-
-      <MonthlyPlanPanel
-        monthKey={monthKey}
-        pockets={pockets}
-        summary={summary}
-      />
 
       <PocketGrid
         ariaLabel={t("wallet.pockets.ariaLabel")}
         categories={categories}
         pockets={pockets}
+      />
+
+      <MonthlyPlanPanel
+        monthKey={monthKey}
+        pockets={pockets}
+        summary={summary}
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
@@ -596,11 +561,11 @@ const SummaryTile = ({
   tone?: "teal" | "coral";
 }) => {
   return (
-    <div className="border-line flex min-h-24 flex-col justify-between border-r border-b p-4 even:border-r-0 sm:p-5">
+    <div className="min-w-0 py-1 sm:px-4 sm:py-0 sm:first:pl-0 sm:last:pr-0">
       <p className="text-muted text-xs">{label}</p>
       <p
         className={cn(
-          "mt-2 text-lg font-semibold tabular-nums",
+          "mt-1 text-lg font-semibold tabular-nums",
           tone === "teal" && "text-teal",
           tone === "coral" && "text-coral",
           !tone && "text-ink"
@@ -882,14 +847,13 @@ const PocketCard = ({
   pocket: LoaderPocket;
   pockets: LoaderPocket[];
 }) => {
-  const status = statusMeta[pocket.status];
   const surface = surfaceMeta[pocket.surface];
 
   return (
     <Card
       aria-grabbed={isDragging}
       className={cn(
-        "flex flex-col overflow-hidden rounded-lg transition sm:min-h-[28rem]",
+        "flex flex-col overflow-hidden rounded-lg transition",
         isDragging && "scale-[0.99] opacity-60",
         isDragOver && "border-teal ring-teal/30 ring-2"
       )}
@@ -900,26 +864,12 @@ const PocketCard = ({
       onDragStart={onDragStart}
       onDrop={onDrop}
     >
-      <div
-        className={cn(
-          "hidden h-28 items-center justify-center sm:flex",
-          surface.bg
-        )}
-      >
-        <img
-          alt=""
-          className="h-14 w-14 object-contain sm:h-24 sm:w-24"
-          loading="lazy"
-          src={getMascotSrc(pocket.mascot)}
-        />
-      </div>
-
       <CardContent className="flex flex-1 flex-col p-3 sm:p-4">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-2 sm:block">
+          <div className="flex min-w-0 items-start gap-2">
             <div
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-md sm:hidden",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
                 surface.bg
               )}
             >
@@ -942,13 +892,7 @@ const PocketCard = ({
                 {pocket.name}
               </h2>
             </div>
-            <p className="text-muted mt-1 hidden text-sm leading-6 sm:line-clamp-2">
-              {pocket.description}
-            </p>
           </div>
-          <Badge className="hidden shrink-0 sm:inline-flex" tone={status.tone}>
-            {status.label}
-          </Badge>
         </div>
 
         <div className="mt-3 sm:mt-auto sm:pt-5">
@@ -1567,20 +1511,23 @@ const WalletInsightPanel = ({
     (pocket) => pocket.status === "low" || pocket.status === "over"
   );
 
+  if (
+    riskyPockets.length === 0 &&
+    billsDueSoon.length === 0 &&
+    transfers.length === 0
+  ) {
+    return null;
+  }
+
   return (
     <aside className="flex flex-col gap-4">
-      <Card className="rounded-lg">
-        <CardHeader className="flex-row items-center gap-2 p-4 pb-0">
-          <Landmark className="text-teal h-4 w-4 shrink-0" />
-          <CardTitle>สัญญาณเดือนนี้</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 p-4">
-          {riskyPockets.length === 0 ? (
-            <p className="text-muted text-sm leading-6">
-              ตอนนี้กระเป๋าหลักยังอยู่ในระดับที่ควบคุมได้
-            </p>
-          ) : (
-            riskyPockets.slice(0, 3).map((pocket) => (
+      {riskyPockets.length > 0 ? (
+        <Card className="rounded-lg">
+          <CardHeader className="p-4 pb-0">
+            <CardTitle>สัญญาณเดือนนี้</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 p-4">
+            {riskyPockets.slice(0, 3).map((pocket) => (
               <div className="bg-coral/10 rounded-md p-3" key={pocket.id}>
                 <p className="text-coral text-sm font-semibold">
                   {pocket.name}
@@ -1589,21 +1536,17 @@ const WalletInsightPanel = ({
                   เหลือ {fmtBaht(pocket.amount)} ลองย้ายเงินหรือปรับวงเงิน
                 </p>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <Card className="rounded-lg">
-        <CardHeader className="p-4 pb-0">
-          <CardTitle>บิลใกล้ถึง</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4">
-          {billsDueSoon.length === 0 ? (
-            <p className="text-muted text-sm">
-              ยังไม่มีรายการประจำที่รอจ่ายในระบบ
-            </p>
-          ) : (
+      {billsDueSoon.length > 0 ? (
+        <Card className="rounded-lg">
+          <CardHeader className="p-4 pb-0">
+            <CardTitle>บิลใกล้ถึง</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
             <ul className="flex flex-col gap-2">
               {billsDueSoon.map((bill) => (
                 <li className="text-sm" key={bill.id}>
@@ -1614,20 +1557,16 @@ const WalletInsightPanel = ({
                 </li>
               ))}
             </ul>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <Card className="rounded-lg">
-        <CardHeader className="p-4 pb-0">
-          <CardTitle>การย้ายเงินล่าสุด</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4">
-          {transfers.length === 0 ? (
-            <p className="text-muted text-sm">
-              ยังไม่มีการย้ายเงินระหว่างกระเป๋า
-            </p>
-          ) : (
+      {transfers.length > 0 ? (
+        <Card className="rounded-lg">
+          <CardHeader className="p-4 pb-0">
+            <CardTitle>การย้ายเงินล่าสุด</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
             <ul className="flex flex-col gap-2">
               {transfers.map((transfer) => (
                 <li
@@ -1643,9 +1582,9 @@ const WalletInsightPanel = ({
                 </li>
               ))}
             </ul>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
     </aside>
   );
 };

@@ -1,25 +1,11 @@
 import { Link, useLoaderData, useSearchParams } from "react-router";
 import type { ReactNode } from "react";
 import type { Route } from "./+types/dashboard";
-import {
-  ArrowRight,
-  CalendarRange,
-  ListChecks,
-  Plus,
-  RotateCcw,
-  Target,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import { Plus, RotateCcw, Target } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
-import { MascotState, MascotTip } from "~/components/brand/mascot-state";
 import { MonthPicker } from "~/components/ui/date-picker";
 import { repo } from "~/lib/db";
 import { requireUser } from "~/lib/auth.server";
@@ -249,7 +235,6 @@ const Dashboard = () => {
   const t = usePordeeTranslation();
 
   const hasAnyData = income > 0 || expense > 0;
-  const topCategory = categorySpend[0] ?? null;
   const selectedMonth = range.monthStartDay.slice(0, 7);
   const dateLocale = locale === "th" ? "th-TH" : "en-US";
   const monthLabel = new Intl.DateTimeFormat(dateLocale, {
@@ -261,10 +246,6 @@ const Dashboard = () => {
     range.toDay,
     dateLocale
   );
-  const rangeSummary = isCurrentMonth
-    ? t("dashboard.range.currentMonth")
-    : t("dashboard.range.fullMonth");
-
   const resetRange = () => {
     const currentMonth = getMonthRangeFromMonthValue(
       todayDayValue().slice(0, 7)
@@ -295,127 +276,92 @@ const Dashboard = () => {
     );
   };
 
+  const signalNeedsAttention = income === 0 ? expense > 0 : expense > income;
+
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:gap-6">
-      <header>
-        <Card className="overflow-hidden">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,31rem)]">
-            <CardHeader
-              className={cn(
-                "justify-between gap-5 p-4 sm:p-5 lg:min-h-48",
-                isCurrentMonth ? "bg-teal/10" : "bg-line/35"
-              )}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={isCurrentMonth ? "teal" : "muted"}>
-                  {isCurrentMonth
-                    ? t("dashboard.badge.thisMonth")
-                    : t("dashboard.badge.pastMonth")}
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 lg:gap-5">
+      <header className="border-line bg-surface rounded-[14px] border p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted">
+                {t("dashboard.header.description")}
+              </span>
+              <span aria-hidden="true" className="text-line">
+                /
+              </span>
+              <span className="text-muted">{localizedRangeLabel}</span>
+              {!isCurrentMonth ? (
+                <Badge tone="muted" className="rounded-xs">
+                  {t("dashboard.badge.pastMonth")}
                 </Badge>
-                <Badge tone="neutral" className="rounded-xs">
-                  {localizedRangeLabel}
-                </Badge>
-              </div>
-              <div>
-                <CardDescription>
-                  {t("dashboard.header.description")}
-                </CardDescription>
-                <CardTitle className="mt-2 text-3xl font-semibold sm:text-4xl">
-                  {monthLabel}
-                </CardTitle>
-              </div>
-            </CardHeader>
-
-            <CardContent className="border-line bg-surface flex flex-col gap-4 border-t p-4 sm:p-5 lg:border-t-0 lg:border-l">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <CalendarRange className="text-coral h-4 w-4" />
-                    <p className="text-ink text-sm font-semibold">
-                      {t("dashboard.range.label")}
-                    </p>
-                  </div>
-                  <p className="text-muted mt-1 text-xs leading-5">
-                    {rangeSummary}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant={isCurrentMonth ? "ghost" : "secondary"}
-                  size="sm"
-                  onClick={resetRange}
-                  disabled={isCurrentMonth}
-                  className="shrink-0"
-                  aria-label={t("dashboard.range.resetAriaLabel")}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  {t("filter.thisMonth")}
-                </Button>
-              </div>
-
-              <div className="border-line bg-sky/45 overflow-hidden rounded-md border">
-                <DashboardDateField
-                  label={t("dashboard.monthPicker.label")}
-                  helper={t("dashboard.monthPicker.helper")}
-                  className="p-3 sm:p-4"
-                >
-                  <MonthPicker
-                    value={selectedMonth}
-                    max={todayDayValue().slice(0, 7)}
-                    onChange={handleMonthChange}
-                  />
-                </DashboardDateField>
-              </div>
-
-              <Button asChild className="h-11 lg:hidden">
-                <Link to="/add">
-                  <Plus className="h-4 w-4" />
-                  {t("shell.addTransaction")}
-                </Link>
-              </Button>
-            </CardContent>
+              ) : null}
+            </div>
+            <h1 className="text-ink mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+              {monthLabel}
+            </h1>
           </div>
-        </Card>
+
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-end lg:w-auto">
+            <DashboardDateField
+              label={t("dashboard.monthPicker.label")}
+              className="min-w-0 sm:w-60"
+            >
+              <MonthPicker
+                value={selectedMonth}
+                max={todayDayValue().slice(0, 7)}
+                onChange={handleMonthChange}
+              />
+            </DashboardDateField>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={resetRange}
+              disabled={isCurrentMonth}
+              className="h-10 shrink-0"
+              aria-label={t("dashboard.range.resetAriaLabel")}
+            >
+              <RotateCcw className="h-4 w-4" />
+              {t("filter.thisMonth")}
+            </Button>
+          </div>
+        </div>
       </header>
 
       <section
         aria-label={t("dashboard.overview.ariaLabel")}
-        className="grid gap-4 lg:grid-flow-dense lg:auto-rows-[minmax(150px,auto)] lg:grid-cols-6"
+        className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]"
       >
-        <Card className="overflow-hidden lg:col-span-4">
-          <CardContent className="flex h-full flex-col p-4 sm:p-5">
-            <div
-              className={cn(
-                "-m-4 flex flex-1 flex-col gap-4 p-4 sm:-m-5 sm:gap-5 sm:p-5",
-                getBalanceSurfaceClass(balance, income)
-              )}
-            >
-              <div className="flex items-start justify-between gap-4">
+        <Card className="lg:col-span-1">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <Badge tone={getBalanceTone(balance, income)}>
                     {getBalanceLabel(balance, income, t)}
                   </Badge>
-                  <p className="text-muted mt-4 text-sm">
+                  <p className="text-muted mt-3 text-sm">
                     {isCurrentMonth
                       ? t("dashboard.balance.currentMonth")
                       : t("dashboard.balance.selectedMonth")}
                   </p>
                   <p
-                    className="text-ink mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
+                    className="text-ink mt-1 text-3xl font-semibold tracking-tight sm:text-4xl"
                     data-testid="balance"
                   >
                     {fmtBaht(balance)}
                   </p>
                 </div>
-                <img
-                  alt=""
-                  className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16"
-                  loading="lazy"
-                  src={getBalanceMascot(balance, expense)}
-                />
+                <Button asChild className="w-full sm:w-auto">
+                  <Link to="/add">
+                    <Plus className="h-4 w-4" />
+                    {t("shell.addTransaction")}
+                  </Link>
+                </Button>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="border-line sm:divide-line grid border-t pt-4 sm:grid-cols-3 sm:divide-x">
                 <SummaryMetric
                   label={t("transaction.kind.income")}
                   value={fmtBaht(income)}
@@ -441,52 +387,26 @@ const Dashboard = () => {
                 />
               </div>
 
-              <div className="border-line bg-surface rounded-md border p-3 sm:p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-ink text-sm font-semibold">
-                      {isCurrentMonth
-                        ? dailySafe === null
-                          ? t("dashboard.dailySafe.noIncomeTitle")
-                          : daysLeft > 0
-                            ? t("dashboard.daysLeft", { daysLeft })
-                            : t("dashboard.monthSummary.current")
-                        : t("dashboard.monthSummary.selected", {
-                            month: monthLabel,
-                          })}
-                    </p>
-                    <p className="text-muted mt-1 text-sm leading-6">
-                      {isCurrentMonth && daysLeft > 0
-                        ? getDailySafeCopy(dailySafe, t)
-                        : t("dashboard.monthSummary.copy", {
-                            month: monthLabel,
-                            balance: fmtBaht(balance),
-                            income: fmtBaht(income),
-                          })}
-                    </p>
-                  </div>
-                  <Button asChild className="w-full sm:w-auto">
-                    <Link to="/add">
-                      <Plus className="h-4 w-4" />
-                      {t("shell.addTransaction")}
-                    </Link>
-                  </Button>
-                </div>
-              </div>
+              <p className="text-muted border-line border-t pt-4 text-sm leading-6">
+                {isCurrentMonth && daysLeft > 0
+                  ? getDailySafeSummary(dailySafe, t)
+                  : t("dashboard.monthSummary.copy", {
+                      month: monthLabel,
+                      balance: fmtBaht(balance),
+                      income: fmtBaht(income),
+                    })}
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-surface overflow-hidden lg:col-span-2 lg:row-span-2">
-          <CardHeader>
-            <CardTitle>{t("dashboard.coach.title")}</CardTitle>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">
+              {t("dashboard.spendRatio.label")}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <DashboardCoach
-              income={income}
-              expense={expense}
-              balance={balance}
-            />
+          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
             {hasAnyData ? (
               <SpendRatio income={income} expense={expense} />
             ) : (
@@ -494,30 +414,23 @@ const Dashboard = () => {
                 {t("dashboard.coach.emptyRatio")}
               </p>
             )}
-            <NextActions
-              topCategory={topCategory}
-              goalsCount={goals.length}
-              recentCount={recent.length}
-            />
           </CardContent>
         </Card>
+      </section>
 
+      <section className="grid gap-4 lg:grid-cols-2">
         <RecentTransactions
-          className="lg:col-span-2"
           recent={recent}
           categoryNameById={categoryNameById}
         />
-        <CategorySpending
-          className="lg:col-span-2"
-          rows={categorySpend}
-          totalExpense={expense}
-        />
-        <GoalsPreview className="lg:col-span-2" goals={goals} />
-        <SignalCard
-          className="lg:col-span-4"
-          income={income}
-          expense={expense}
-        />
+        <CategorySpending rows={categorySpend} totalExpense={expense} />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        {goals.length > 0 ? <GoalsPreview goals={goals} /> : null}
+        {signalNeedsAttention ? (
+          <SignalCard income={income} expense={expense} />
+        ) : null}
       </section>
     </div>
   );
@@ -559,10 +472,8 @@ const SummaryMetric = ({
   return (
     <div
       className={cn(
-        "border-line rounded-sm border p-2.5 sm:p-3",
-        tone === "teal" && "bg-teal/10",
-        tone === "coral" && "bg-coral/10",
-        tone === "neutral" && "bg-surface"
+        "border-line py-3 first:pt-0 last:pb-0 sm:border-b-0 sm:px-4 sm:py-0 sm:first:pl-0 sm:last:pr-0",
+        "border-b last:border-b-0"
       )}
     >
       <p className="text-muted text-xs">{label}</p>
@@ -581,12 +492,6 @@ const SummaryMetric = ({
   );
 };
 
-const getBalanceSurfaceClass = (balance: number, income: number) => {
-  if (income === 0) return "bg-sky/45";
-  if (balance < 0) return "bg-coral/10";
-  return "bg-teal/10";
-};
-
 const SpendRatio = ({
   income,
   expense,
@@ -600,7 +505,7 @@ const SpendRatio = ({
   return (
     <div>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted">{t("dashboard.spendRatio.label")}</span>
+        <span className="text-muted">{fmtBaht(expense)}</span>
         <span
           className={cn("font-medium", pct > 90 ? "text-coral" : "text-ink")}
         >
@@ -614,105 +519,6 @@ const SpendRatio = ({
         />
       </div>
     </div>
-  );
-};
-
-const NextActions = ({
-  topCategory,
-  goalsCount,
-  recentCount,
-}: {
-  topCategory:
-    | Awaited<ReturnType<typeof loader>>["categorySpend"][number]
-    | null;
-  goalsCount: number;
-  recentCount: number;
-}) => {
-  const t = usePordeeTranslation();
-  const categoryName = topCategory?.name ?? t("transaction.noCategory.long");
-  return (
-    <div className="border-line flex flex-col gap-2 border-t pt-4">
-      <ActionLink
-        to="/add"
-        icon={Plus}
-        label={
-          recentCount === 0
-            ? t("dashboard.action.firstTransaction")
-            : t("dashboard.action.todayTransaction")
-        }
-        description={t("dashboard.action.addDescription")}
-        tone="coral"
-      />
-      <ActionLink
-        to="/history"
-        icon={ListChecks}
-        label={
-          topCategory
-            ? topCategory.categoryId === "uncategorized"
-              ? t("dashboard.action.fillCategory")
-              : t("dashboard.action.checkCategory", { name: categoryName })
-            : t("dashboard.action.checkHistory")
-        }
-        description={
-          topCategory
-            ? t("dashboard.action.categoryAmount", {
-                amount: fmtBaht(topCategory.amount),
-              })
-            : t("dashboard.action.historyDescription")
-        }
-        tone="neutral"
-      />
-      <ActionLink
-        to="/goals"
-        icon={Target}
-        label={
-          goalsCount === 0
-            ? t("dashboard.action.firstGoal")
-            : t("dashboard.action.viewGoals")
-        }
-        description={t("dashboard.action.goalsDescription")}
-        tone="teal"
-      />
-    </div>
-  );
-};
-
-const ActionLink = ({
-  to,
-  icon: Icon,
-  label,
-  description,
-  tone,
-}: {
-  to: string;
-  icon: typeof Plus;
-  label: string;
-  description: string;
-  tone: "neutral" | "teal" | "coral";
-}) => {
-  return (
-    <Link
-      to={to}
-      className="border-line hover:bg-sky/60 focus-visible:ring-coral/40 flex items-center gap-3 rounded-sm border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
-    >
-      <span
-        className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xs border",
-          tone === "coral" && "border-coral bg-coral text-white",
-          tone === "teal" && "border-teal bg-teal text-white",
-          tone === "neutral" && "border-line bg-surface text-muted"
-        )}
-      >
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="min-w-0">
-        <span className="text-ink block text-sm font-medium">{label}</span>
-        <span className="text-muted mt-0.5 block truncate text-xs">
-          {description}
-        </span>
-      </span>
-      <ArrowRight className="text-muted ml-auto h-4 w-4 shrink-0" />
-    </Link>
   );
 };
 
@@ -747,13 +553,15 @@ const RecentTransactions = ({
       </CardHeader>
       <CardContent>
         {recent.length === 0 ? (
-          <div className="flex flex-col gap-3">
-            <MascotState
-              mood="normal"
-              size="sm"
-              title={t("dashboard.recent.emptyTitle")}
-              description={t("dashboard.recent.emptyDescription")}
-            />
+          <div className="border-line flex flex-col gap-3 rounded-sm border border-dashed p-4">
+            <div>
+              <p className="text-ink text-sm font-medium">
+                {t("dashboard.recent.emptyTitle")}
+              </p>
+              <p className="text-muted mt-1 text-sm leading-6">
+                {t("dashboard.recent.emptyDescription")}
+              </p>
+            </div>
             <Button asChild variant="secondary" size="sm">
               <Link to="/add">
                 <Plus className="h-4 w-4" />
@@ -815,13 +623,15 @@ const GoalsPreview = ({
       </CardHeader>
       <CardContent>
         {goals.length === 0 ? (
-          <div className="flex flex-col gap-3">
-            <MascotState
-              mood="saving"
-              size="sm"
-              title={t("dashboard.goals.emptyTitle")}
-              description={t("dashboard.goals.emptyDescription")}
-            />
+          <div className="border-line flex flex-col gap-3 rounded-sm border border-dashed p-4">
+            <div>
+              <p className="text-ink text-sm font-medium">
+                {t("dashboard.goals.emptyTitle")}
+              </p>
+              <p className="text-muted mt-1 text-sm leading-6">
+                {t("dashboard.goals.emptyDescription")}
+              </p>
+            </div>
             <Button asChild variant="secondary" size="sm">
               <Link to="/goals">
                 <Target className="h-4 w-4" />
@@ -886,12 +696,14 @@ const CategorySpending = ({
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <MascotState
-            mood="thinking"
-            size="sm"
-            title={t("dashboard.category.emptyTitle")}
-            description={t("wallet.breakdown.emptyDescription")}
-          />
+          <div className="border-line rounded-sm border border-dashed p-4">
+            <p className="text-ink text-sm font-medium">
+              {t("dashboard.category.emptyTitle")}
+            </p>
+            <p className="text-muted mt-1 text-sm leading-6">
+              {t("wallet.breakdown.emptyDescription")}
+            </p>
+          </div>
         ) : (
           <ul className="flex flex-col gap-3">
             {rows.map((row) => {
@@ -951,112 +763,49 @@ const SignalCard = ({
         <CardTitle>{t("dashboard.signal.title")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <DashboardSignal income={income} expense={expense} />
+        <div className="border-line rounded-sm border border-dashed p-4">
+          <p className="text-ink text-sm font-medium">
+            {getDashboardSignalTitle(income, expense, t)}
+          </p>
+          <p className="text-muted mt-1 text-sm leading-6">
+            {getDashboardSignalDescription(income, expense, t)}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
 };
 
-const DashboardCoach = ({
-  income,
-  expense,
-  balance,
-}: {
-  income: number;
-  expense: number;
-  balance: number;
-}) => {
-  const t = usePordeeTranslation();
-
-  if (income === 0 && expense === 0) {
-    return (
-      <MascotTip mood="normal" title={t("dashboard.coach.emptyTitle")}>
-        {t("dashboard.coach.emptyDescription")}
-      </MascotTip>
-    );
-  }
-  if (income === 0) {
-    return (
-      <MascotTip mood="thinking" title={t("dashboard.coach.noIncomeTitle")}>
-        {t("dashboard.coach.noIncomeDescription")}
-      </MascotTip>
-    );
-  }
-  if (balance < 0) {
-    return (
-      <MascotTip mood="warning" title={t("dashboard.coach.overTitle")}>
-        {t("dashboard.coach.overDescription")}
-      </MascotTip>
-    );
-  }
-  return (
-    <MascotTip mood="happy" title={t("dashboard.coach.okTitle")}>
-      {t("dashboard.coach.okDescription", { balance: fmtBaht(balance) })}
-    </MascotTip>
-  );
+const getDashboardSignalTitle = (
+  income: number,
+  expense: number,
+  t: Translate
+) => {
+  if (income === 0 && expense > 0) return t("dashboard.signal.noIncomeTitle");
+  if (income > 0 && expense > income) return t("dashboard.signal.overTitle");
+  return t("dashboard.signal.okTitle");
 };
 
-const DashboardSignal = ({
-  income,
-  expense,
-}: {
-  income: number;
-  expense: number;
-}) => {
-  const t = usePordeeTranslation();
-
-  if (income === 0 && expense === 0) {
-    return (
-      <MascotState
-        mood="warning"
-        size="sm"
-        title={t("dashboard.signal.emptyTitle")}
-        description={t("dashboard.signal.emptyDescription")}
-      />
-    );
-  }
+const getDashboardSignalDescription = (
+  income: number,
+  expense: number,
+  t: Translate
+) => {
   if (income === 0 && expense > 0) {
-    return (
-      <MascotState
-        mood="thinking"
-        size="sm"
-        title={t("dashboard.signal.noIncomeTitle")}
-        description={t("dashboard.signal.noIncomeDescription", {
-          expense: fmtBaht(expense),
-        })}
-      />
-    );
+    return t("dashboard.signal.noIncomeDescription", {
+      expense: fmtBaht(expense),
+    });
   }
   if (income > 0 && expense > income) {
-    return (
-      <MascotState
-        mood="warning"
-        size="sm"
-        title={t("dashboard.signal.overTitle")}
-        description={t("dashboard.signal.overDescription", {
-          expense: fmtBaht(expense),
-          income: fmtBaht(income),
-        })}
-      />
-    );
+    return t("dashboard.signal.overDescription", {
+      expense: fmtBaht(expense),
+      income: fmtBaht(income),
+    });
   }
-  return (
-    <MascotState
-      mood="happy"
-      size="sm"
-      title={t("dashboard.signal.okTitle")}
-      description={t("dashboard.signal.okDescription", {
-        expense: fmtBaht(expense),
-        income: fmtBaht(income),
-      })}
-    />
-  );
-};
-
-const getBalanceMascot = (balance: number, expense: number) => {
-  if (balance < 0) return "/brand/mascots/warning.png";
-  if (expense === 0) return "/brand/mascots/thinking.png";
-  return "/brand/mascots/happy.png";
+  return t("dashboard.signal.okDescription", {
+    expense: fmtBaht(expense),
+    income: fmtBaht(income),
+  });
 };
 
 const getBalanceTone = (
@@ -1087,6 +836,13 @@ const getDailySafeCopy = (dailySafe: number | null, t: Translate) => {
     return t("dashboard.dailySafe.overCopy");
   }
   return t("dashboard.dailySafe.normalCopy", { amount: fmtBaht(dailySafe) });
+};
+
+const getDailySafeSummary = (dailySafe: number | null, t: Translate) => {
+  if (dailySafe === null) {
+    return `${t("dashboard.dailySafe.noIncomeTitle")} — ${getDailySafeCopy(dailySafe, t)}`;
+  }
+  return getDailySafeCopy(dailySafe, t);
 };
 
 const formatRangeLabel = (fromDay: string, toDay: string, locale: string) => {
