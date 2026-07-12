@@ -85,6 +85,27 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
     "auth.password.rulesAriaLabel": "เงื่อนไขรหัสผ่าน",
     "auth.password.show": "แสดงรหัสผ่าน",
     "auth.turnstile.label": "ยืนยันความปลอดภัย",
+    "passwordRecovery.backToLogin": "กลับไปเข้าสู่ระบบ",
+    "passwordRecovery.error.emailInvalid": "กรอกอีเมลให้ถูกต้อง",
+    "passwordRecovery.error.invalidToken":
+      "ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอลิงก์ใหม่",
+    "passwordRecovery.error.sendFailed":
+      "ยังส่งอีเมลไม่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง",
+    "passwordRecovery.forgot.description":
+      "กรอกอีเมลที่ใช้กับพอดี เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้",
+    "passwordRecovery.forgot.link": "ลืมรหัสผ่าน?",
+    "passwordRecovery.forgot.sentDescription":
+      "หากอีเมลนี้มีบัญชีอยู่ เราได้ส่งลิงก์ตั้งรหัสผ่านใหม่ให้แล้ว กรุณาตรวจกล่องจดหมายและโฟลเดอร์สแปม",
+    "passwordRecovery.forgot.sentTitle": "ตรวจอีเมลของคุณ",
+    "passwordRecovery.forgot.submit": "ส่งลิงก์ตั้งรหัสผ่าน",
+    "passwordRecovery.forgot.title": "ลืมรหัสผ่าน",
+    "passwordRecovery.reset.description":
+      "ตั้งรหัสผ่านใหม่ที่เดายากและไม่ซ้ำกับบริการอื่น",
+    "passwordRecovery.reset.newPassword": "รหัสผ่านใหม่",
+    "passwordRecovery.reset.submit": "บันทึกรหัสผ่านใหม่",
+    "passwordRecovery.reset.success":
+      "ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว เข้าสู่ระบบได้เลย",
+    "passwordRecovery.reset.title": "ตั้งรหัสผ่านใหม่",
     "brand.accountAvatarAlt": "อวาตาร์ผู้ใช้พอดี {index}",
     "brand.mascotAlt": "พอดีมาสคอต",
     "common.cancel": "ยกเลิก",
@@ -686,6 +707,27 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
     "auth.password.rulesAriaLabel": "Password requirements",
     "auth.password.show": "Show password",
     "auth.turnstile.label": "Security verification",
+    "passwordRecovery.backToLogin": "Back to sign in",
+    "passwordRecovery.error.emailInvalid": "Enter a valid email address",
+    "passwordRecovery.error.invalidToken":
+      "This reset link is invalid or expired. Request a new link.",
+    "passwordRecovery.error.sendFailed":
+      "The email could not be sent right now. Please try again.",
+    "passwordRecovery.forgot.description":
+      "Enter the email used for Pordee and we will send a password reset link.",
+    "passwordRecovery.forgot.link": "Forgot password?",
+    "passwordRecovery.forgot.sentDescription":
+      "If an account exists for this email, we sent a reset link. Check your inbox and spam folder.",
+    "passwordRecovery.forgot.sentTitle": "Check your email",
+    "passwordRecovery.forgot.submit": "Send reset link",
+    "passwordRecovery.forgot.title": "Forgot password",
+    "passwordRecovery.reset.description":
+      "Choose a strong password that you do not reuse on other services.",
+    "passwordRecovery.reset.newPassword": "New password",
+    "passwordRecovery.reset.submit": "Save new password",
+    "passwordRecovery.reset.success":
+      "Your password has been reset. You can sign in now.",
+    "passwordRecovery.reset.title": "Set a new password",
     "brand.accountAvatarAlt": "Pordee user avatar {index}",
     "brand.mascotAlt": "Pordee mascot",
     "common.cancel": "Cancel",

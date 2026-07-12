@@ -12,6 +12,40 @@ test("protected pages redirect to login until the user signs in", async ({
   ).toBeVisible();
 });
 
+test("forgot-password flow keeps account existence private", async ({
+  page,
+}) => {
+  const email = `missing-${randomUUID()}@pordee.test`;
+
+  await page.goto("/login");
+  await page.getByRole("link", { name: "ลืมรหัสผ่าน?" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "ลืมรหัสผ่าน" })
+  ).toBeVisible();
+  await page.getByLabel("อีเมล").fill(email);
+  await page.getByRole("button", { name: "ส่งลิงก์ตั้งรหัสผ่าน" }).click();
+
+  await expect(page.getByText("ตรวจอีเมลของคุณ")).toBeVisible();
+  await expect(page.getByText(/หากอีเมลนี้มีบัญชีอยู่/)).toBeVisible();
+});
+
+test("expired password-reset links show a safe recovery message", async ({
+  page,
+}) => {
+  await page.goto("/reset-password?error=INVALID_TOKEN");
+
+  await expect(
+    page.getByRole("heading", { name: "ตั้งรหัสผ่านใหม่" })
+  ).toBeVisible();
+  await expect(
+    page.getByText(/ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว/)
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "กลับไปเข้าสู่ระบบ" })
+  ).toBeVisible();
+});
+
 test("user can sign up and sign out", async ({ page }) => {
   const id = randomUUID();
 

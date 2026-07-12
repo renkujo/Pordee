@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { APIError, isAPIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
 import { pool } from "~/lib/db/client";
+import { sendPasswordResetEmail } from "~/lib/email/password-reset.server";
 
 const getGoogleSocialProvider = () => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -26,6 +27,14 @@ export const auth = betterAuth({
     "pordee-dev-auth-secret-change-before-production",
   emailAndPassword: {
     enabled: true,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordResetEmail({
+        email: user.email,
+        resetUrl: url,
+      });
+    },
   },
   user: {
     additionalFields: {

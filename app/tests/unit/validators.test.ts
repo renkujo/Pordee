@@ -9,7 +9,11 @@ import {
   createCategorySchema,
   updateCategorySchema,
 } from "~/lib/validators/category";
-import { changePasswordSchema } from "~/lib/validators/auth";
+import {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "~/lib/validators/auth";
 
 describe("createTransactionSchema", () => {
   it("accepts a minimal valid expense", () => {
@@ -206,6 +210,53 @@ describe("changePasswordSchema", () => {
         currentPassword: "password123",
         newPassword: "Password1@",
         confirmPassword: "Password2@",
+      })
+    ).toThrow();
+  });
+});
+
+describe("forgotPasswordSchema", () => {
+  it("accepts a valid email and rejects malformed input", () => {
+    expect(
+      forgotPasswordSchema.parse({ email: "user@pordee.test" }).email
+    ).toBe("user@pordee.test");
+    expect(() =>
+      forgotPasswordSchema.parse({ email: "not-an-email" })
+    ).toThrow();
+  });
+});
+
+describe("resetPasswordSchema", () => {
+  it("accepts a strong matching password with a reset token", () => {
+    const result = resetPasswordSchema.parse({
+      confirmPassword: "Password1@",
+      newPassword: "Password1@",
+      token: "reset-token",
+    });
+
+    expect(result.token).toBe("reset-token");
+  });
+
+  it("rejects weak, mismatched, or tokenless reset attempts", () => {
+    expect(() =>
+      resetPasswordSchema.parse({
+        confirmPassword: "password",
+        newPassword: "password",
+        token: "reset-token",
+      })
+    ).toThrow();
+    expect(() =>
+      resetPasswordSchema.parse({
+        confirmPassword: "Password2@",
+        newPassword: "Password1@",
+        token: "reset-token",
+      })
+    ).toThrow();
+    expect(() =>
+      resetPasswordSchema.parse({
+        confirmPassword: "Password1@",
+        newPassword: "Password1@",
+        token: "",
       })
     ).toThrow();
   });

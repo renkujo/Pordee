@@ -59,6 +59,10 @@ CLOUDFLARE_TURNSTILE_SECRET_KEY=<cloudflare-turnstile-secret-key>
 # Optional Google OAuth:
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+
+# Password reset email through a verified Resend sending domain:
+RESEND_API_KEY=<resend-api-key>
+AUTH_EMAIL_FROM=Pordee <no-reply@your-pordee-domain.example>
 ```
 
 The compose file derives `DATABASE_URL` internally as
@@ -83,6 +87,15 @@ goes through the provider redirect flow.
 
 The app accepts either the Pordee-prefixed env names above or the shorter
 `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, and `TURNSTILE_ENABLED` aliases.
+
+## Password Reset Email
+
+The `/forgot-password` flow uses Better Auth reset tokens and sends the reset
+link through Resend. Verify the sending domain in Resend first, then set
+`RESEND_API_KEY` and `AUTH_EMAIL_FROM` in the Dokploy Compose environment.
+`BETTER_AUTH_URL` must remain the public HTTPS app URL so reset links return to
+the correct Pordee deployment. Reset tokens expire after one hour and a
+successful reset revokes the user's existing sessions.
 
 For local development, keep `CLOUDFLARE_TURNSTILE_ENABLED=false`, or use
 Cloudflare's test credentials:

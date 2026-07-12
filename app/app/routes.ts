@@ -8,6 +8,8 @@ import {
 export default [
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("login", "routes/login.tsx"),
+  route("forgot-password", "routes/forgot-password.tsx"),
+  route("reset-password", "routes/reset-password.tsx"),
   route("logout", "routes/logout.tsx"),
   layout("routes/_shell.tsx", [
     index("routes/dashboard.tsx"),

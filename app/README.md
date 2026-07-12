@@ -15,6 +15,9 @@ Tailwind v4, IBM Plex Sans Thai, Postgres data layer via Drizzle ORM.
 - Cloudflare Turnstile keys for production email/password login and signup.
   Local development can keep `CLOUDFLARE_TURNSTILE_ENABLED=false`; production
   enables Turnstile automatically when both keys are configured.
+- Resend credentials (`RESEND_API_KEY` and `AUTH_EMAIL_FROM`) for production
+  password-reset emails. Login and signup continue to work without them, but
+  forgot-password delivery will return a temporary service error.
 
 ## Common scripts
 
@@ -38,6 +41,16 @@ pnpm format
 ```
 
 First-time Playwright setup: `pnpm e2e:install`.
+
+Playwright owns its dev server by default so it cannot silently test another
+app already running on port 5173. If that port is occupied, choose another one:
+
+```bash
+PORDEE_E2E_PORT=5193 pnpm e2e
+```
+
+Set `PORDEE_E2E_REUSE_SERVER=true` only when the server at that port is known to
+be this Pordee checkout.
 
 To run e2e with Turnstile enabled, use Cloudflare's always-pass test keys:
 

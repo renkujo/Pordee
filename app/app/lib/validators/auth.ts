@@ -59,3 +59,31 @@ export const changePasswordSchema = z
       });
     }
   });
+
+export const forgotPasswordSchema = z.object({
+  email: z.email("กรอกอีเมลให้ถูกต้อง"),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    confirmPassword: z.string().min(1, "ยืนยันรหัสผ่านใหม่"),
+    newPassword: z.string().min(1, "กรอกรหัสผ่านใหม่"),
+    token: z.string().min(1, "ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว"),
+  })
+  .superRefine((value, ctx) => {
+    if (!passwordRules.every((rule) => rule.test(value.newPassword))) {
+      ctx.addIssue({
+        code: "custom",
+        message: "รหัสผ่านใหม่ยังไม่ผ่านเงื่อนไขทั้งหมด",
+        path: ["newPassword"],
+      });
+    }
+
+    if (value.newPassword !== value.confirmPassword) {
+      ctx.addIssue({
+        code: "custom",
+        message: "รหัสผ่านใหม่และช่องยืนยันไม่ตรงกัน",
+        path: ["confirmPassword"],
+      });
+    }
+  });

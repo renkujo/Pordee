@@ -64,6 +64,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
   const mode = url.searchParams.get("mode") === "signup" ? "signup" : "login";
   return {
     mode,
+    passwordReset: url.searchParams.get("reset") === "success",
     redirectTo: getSafeRedirectTo(url.searchParams.get("redirectTo")),
     socialProviders: {
       google: isGoogleAuthEnabled(),
@@ -208,7 +209,7 @@ export const action = async ({
 };
 
 const Login = () => {
-  const { mode, redirectTo, socialProviders, turnstile } =
+  const { mode, passwordReset, redirectTo, socialProviders, turnstile } =
     useLoaderData<typeof loader>();
   const actionData = useActionData<ActionResult>();
   const t = usePordeeTranslation();
@@ -323,7 +324,16 @@ const Login = () => {
 
               <PasswordField
                 autoComplete={isSignUp ? "new-password" : "current-password"}
-                helper={isSignUp ? undefined : t("auth.password.minHint")}
+                helper={
+                  isSignUp ? undefined : (
+                    <Link
+                      to="/forgot-password"
+                      className="text-coral-strong hover:text-coral text-xs font-medium transition-colors"
+                    >
+                      {t("passwordRecovery.forgot.link")}
+                    </Link>
+                  )
+                }
                 id="password"
                 label={t("auth.password.label")}
                 name="password"
@@ -364,6 +374,15 @@ const Login = () => {
                 </p>
               )}
 
+              {passwordReset && !actionData?.error ? (
+                <p
+                  className="border-teal/25 bg-teal/10 text-teal rounded-sm border px-3 py-2 text-sm"
+                  role="status"
+                >
+                  {t("passwordRecovery.reset.success")}
+                </p>
+              ) : null}
+
               {turnstile.enabled && turnstile.siteKey ? (
                 <TurnstileWidget
                   action={isSignUp ? "signup" : "login"}
@@ -399,7 +418,7 @@ const PasswordField = ({
   label,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
-  helper?: string;
+  helper?: React.ReactNode;
   id: string;
   label: string;
   name: string;

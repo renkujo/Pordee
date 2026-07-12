@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const e2ePort = process.env.PORDEE_E2E_PORT ?? "5173";
+const e2eBaseUrl = `http://127.0.0.1:${e2ePort}`;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -8,7 +11,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: e2eBaseUrl,
     trace: "on-first-retry",
   },
   projects: [
@@ -18,9 +21,14 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:5173",
-    reuseExistingServer: !process.env.CI,
+    command: `pnpm dev --host 127.0.0.1 --port ${e2ePort}`,
+    env: {
+      AUTH_EMAIL_FROM:
+        process.env.AUTH_EMAIL_FROM ?? "Pordee <no-reply@pordee.test>",
+      RESEND_API_KEY: process.env.RESEND_API_KEY ?? "re_e2e_not_used",
+    },
+    url: e2eBaseUrl,
+    reuseExistingServer: process.env.PORDEE_E2E_REUSE_SERVER === "true",
     timeout: 120_000,
   },
 });
