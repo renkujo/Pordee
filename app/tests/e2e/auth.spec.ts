@@ -69,6 +69,26 @@ test("user can sign up and sign out", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?redirectTo=%2F$/);
 });
 
+test("user can sign out from the mobile account menu", async ({ page }) => {
+  const id = randomUUID();
+
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.goto("/login?mode=signup");
+  await page.locator("#name").fill(`Mobile E2E ${id.slice(0, 8)}`);
+  await page.locator("#email").fill(`mobile-logout-${id}@pordee.test`);
+  await page.locator("#password").fill("Password1@");
+  await page.locator("#confirm-password").fill("Password1@");
+  await page.getByRole("button", { name: "สมัครและเข้าใช้งาน" }).click();
+
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByRole("button", { name: "เปิดเมนูบัญชี" }).click();
+  await page.getByRole("menuitem", { name: "ออกจากระบบ" }).click();
+
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login\?redirectTo=%2F$/);
+});
+
 test("user can change password from security settings", async ({ page }) => {
   const id = randomUUID();
   const email = `change-password-${id}@pordee.test`;

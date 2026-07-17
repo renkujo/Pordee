@@ -1,4 +1,4 @@
-import { Form, NavLink } from "react-router";
+import { NavLink, useSubmit } from "react-router";
 import { LogOut, Settings } from "lucide-react";
 import { AccountAvatar } from "~/components/brand/account-avatar";
 import { PordeeLogo } from "~/components/brand/logo";
@@ -16,6 +16,7 @@ import { usePordeeTranslation } from "~/lib/i18n/provider";
 
 export const MobileHeader = ({ user }: { user: AuthUser }) => {
   const t = usePordeeTranslation();
+  const submit = useSubmit();
 
   return (
     <header className="border-line bg-surface/95 sticky top-0 z-20 border-b backdrop-blur lg:hidden">
@@ -52,14 +53,14 @@ export const MobileHeader = ({ user }: { user: AuthUser }) => {
                   {t("nav.settings.label")}
                 </NavLink>
               </DropdownMenuItem>
-              <Form method="post" action="/logout">
-                <DropdownMenuItem asChild>
-                  <button type="submit" className="w-full">
-                    <LogOut className="h-4 w-4" />
-                    {t("shell.logout")}
-                  </button>
-                </DropdownMenuItem>
-              </Form>
+              <DropdownMenuItem
+                onSelect={() =>
+                  submit(null, { action: "/logout", method: "post" })
+                }
+              >
+                <LogOut className="h-4 w-4" />
+                {t("shell.logout")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
