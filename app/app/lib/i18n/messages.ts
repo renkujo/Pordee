@@ -499,6 +499,45 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
     "settings.error.invalidIntent": "คำสั่งไม่ถูกต้อง",
     "settings.notifications.description":
       "ตั้งค่าการเตือนงบประมาณ เป้าหมาย และสรุปรายเดือนจะมาอยู่ในส่วนนี้",
+    "settings.notifications.daily.description":
+      "ให้พอดีเตือนช่วงเย็นเฉพาะวันที่ยังไม่มีรายการ เพื่อช่วยเก็บสิ่งที่เกิดขึ้นก่อนลืม",
+    "settings.notifications.daily.title": "เตือนให้บันทึกประจำวัน",
+    "settings.notifications.device.checking": "กำลังตรวจสถานะอุปกรณ์นี้",
+    "settings.notifications.device.connected":
+      "อุปกรณ์นี้พร้อมรับการแจ้งเตือนแล้ว",
+    "settings.notifications.device.count": "เชื่อมต่ออยู่ {count} อุปกรณ์",
+    "settings.notifications.device.denied":
+      "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ ต้องเปิดจากการตั้งค่าของอุปกรณ์",
+    "settings.notifications.device.error":
+      "ตรวจสถานะอุปกรณ์ไม่สำเร็จ ลองใหม่อีกครั้ง",
+    "settings.notifications.device.installRequired":
+      "บน iPhone หรือ iPad ต้องเพิ่มพอดีไว้ที่หน้าจอโฮม แล้วเปิดจากไอคอนก่อน",
+    "settings.notifications.device.notConnected":
+      "อุปกรณ์นี้ยังไม่ได้เชื่อมต่อการแจ้งเตือน",
+    "settings.notifications.device.ready":
+      "พร้อมขอสิทธิ์แจ้งเตือนเมื่อคุณกดเปิดใช้งาน",
+    "settings.notifications.device.title": "การแจ้งเตือนบนอุปกรณ์นี้",
+    "settings.notifications.device.unsupported":
+      "อุปกรณ์นี้ยังไม่รองรับ Web Push หรือระบบ production ยังตั้งค่าไม่ครบ",
+    "settings.notifications.disable": "ปิดการเตือน",
+    "settings.notifications.enable": "เปิดการเตือน",
+    "settings.notifications.feedback.disabled": "ปิดการเตือนแล้ว",
+    "settings.notifications.feedback.enabled": "เปิดการเตือนประจำวันแล้ว",
+    "settings.notifications.feedback.error":
+      "บันทึกการตั้งค่าไม่สำเร็จ ลองใหม่อีกครั้ง",
+    "settings.notifications.feedback.testFailed":
+      "ส่งการแจ้งเตือนทดสอบไม่สำเร็จ",
+    "settings.notifications.feedback.testSent": "ส่งการแจ้งเตือนทดสอบแล้ว",
+    "settings.notifications.feedback.timeSaved": "บันทึกเวลาเตือนแล้ว",
+    "settings.notifications.saveTime": "บันทึกเวลา",
+    "settings.notifications.skipLogged":
+      "พอดีจะไม่เตือนถ้าวันนี้มีรายการแล้ว และจะส่งไม่เกินวันละครั้ง",
+    "settings.notifications.status.disabled": "ปิดอยู่",
+    "settings.notifications.status.enabled": "เปิดอยู่",
+    "settings.notifications.test": "ส่งแจ้งเตือนทดสอบ",
+    "settings.notifications.time.description":
+      "เวลาอ้างอิงตาม {timeZone} ค่าเริ่มต้นคือ 20:00",
+    "settings.notifications.time.label": "เวลาเตือนประจำวัน",
     "settings.notifications.title": "การแจ้งเตือน",
     "settings.security.confirmMismatch": "รหัสผ่านใหม่และช่องยืนยันไม่ตรงกัน",
     "settings.security.confirmPassword": "ยืนยันรหัสผ่านใหม่",
@@ -1132,6 +1171,45 @@ export const messages: Record<PordeeLocale, Record<string, string>> = {
     "settings.error.invalidIntent": "Invalid action",
     "settings.notifications.description":
       "Budget, goal, and monthly summary reminders will live here.",
+    "settings.notifications.daily.description":
+      "Pordee checks in during the evening only when no transaction has been logged, so today's details are not forgotten.",
+    "settings.notifications.daily.title": "Daily logging reminder",
+    "settings.notifications.device.checking": "Checking this device",
+    "settings.notifications.device.connected":
+      "This device is ready to receive notifications.",
+    "settings.notifications.device.count": "{count} connected devices",
+    "settings.notifications.device.denied":
+      "Notifications are blocked. Enable them in the device or browser settings.",
+    "settings.notifications.device.error":
+      "Could not check this device. Try again.",
+    "settings.notifications.device.installRequired":
+      "On iPhone or iPad, add Pordee to the Home Screen and open it from the icon first.",
+    "settings.notifications.device.notConnected":
+      "This device is not connected to notifications yet.",
+    "settings.notifications.device.ready":
+      "Permission will be requested only when you enable reminders.",
+    "settings.notifications.device.title": "Notifications on this device",
+    "settings.notifications.device.unsupported":
+      "This device does not support Web Push, or production setup is incomplete.",
+    "settings.notifications.disable": "Disable reminder",
+    "settings.notifications.enable": "Enable reminder",
+    "settings.notifications.feedback.disabled": "Reminder disabled",
+    "settings.notifications.feedback.enabled": "Daily reminder enabled",
+    "settings.notifications.feedback.error":
+      "Could not save the setting. Try again.",
+    "settings.notifications.feedback.testFailed":
+      "Could not send the test notification.",
+    "settings.notifications.feedback.testSent": "Test notification sent",
+    "settings.notifications.feedback.timeSaved": "Reminder time saved",
+    "settings.notifications.saveTime": "Save time",
+    "settings.notifications.skipLogged":
+      "Pordee skips days that already have a transaction and sends at most once a day.",
+    "settings.notifications.status.disabled": "Off",
+    "settings.notifications.status.enabled": "On",
+    "settings.notifications.test": "Send test notification",
+    "settings.notifications.time.description":
+      "Time uses {timeZone}. The default is 20:00.",
+    "settings.notifications.time.label": "Daily reminder time",
     "settings.notifications.title": "Notifications",
     "settings.security.confirmMismatch":
       "New password and confirmation do not match",

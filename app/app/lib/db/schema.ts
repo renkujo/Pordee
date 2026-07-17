@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   numeric,
@@ -183,6 +184,74 @@ export const walletTransfers = pgTable(
     userOrderIdx: index("wallet_transfers_user_order_idx").on(
       t.userId,
       t.occurredAt
+    ),
+  })
+);
+
+export const dailyReminderPreferences = pgTable(
+  "daily_reminder_preferences",
+  {
+    userId: text("user_id").primaryKey(),
+    enabled: boolean("enabled").notNull().default(false),
+    localTime: text("local_time").notNull().default("20:00"),
+    timeZone: text("time_zone").notNull().default("Asia/Bangkok"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    enabledIdx: index("daily_reminder_preferences_enabled_idx").on(t.enabled),
+  })
+);
+
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    expirationTime: timestamp("expiration_time", { withTimezone: true }),
+    userAgent: text("user_agent"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    endpointUnique: uniqueIndex("push_subscriptions_endpoint_unique").on(
+      t.endpoint
+    ),
+    userActiveIdx: index("push_subscriptions_user_active_idx").on(
+      t.userId,
+      t.revokedAt
+    ),
+  })
+);
+
+export const dailyReminderRuns = pgTable(
+  "daily_reminder_runs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    localDate: text("local_date").notNull(),
+    timeZone: text("time_zone").notNull(),
+    scheduledLocalTime: text("scheduled_local_time").notNull(),
+    status: text("status").notNull(),
+    subscriptionCount: integer("subscription_count").notNull().default(0),
+    sentCount: integer("sent_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull(),
+    deliveryStartedAt: timestamp("delivery_started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    userDateUnique: uniqueIndex("daily_reminder_runs_user_date_unique").on(
+      t.userId,
+      t.localDate
+    ),
+    statusIdx: index("daily_reminder_runs_status_idx").on(
+      t.status,
+      t.claimedAt
     ),
   })
 );

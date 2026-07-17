@@ -17,6 +17,13 @@ export type WalletPocketType =
 export type WalletPocketMascot = "happy" | "normal" | "thinking" | "saving";
 export type WalletPocketSurface = "teal" | "lime" | "coral" | "sky" | "neutral";
 export type WalletRolloverRule = "keep" | "reset" | "move_to_reserve";
+export type DailyReminderRunStatus =
+  | "claimed"
+  | "skipped_disabled"
+  | "skipped_transaction"
+  | "sent"
+  | "partial"
+  | "failed";
 
 export interface Category {
   id: string;
@@ -127,6 +134,36 @@ export interface WalletTransfer {
   note: string | null;
   occurredAt: string;
   createdAt: string;
+}
+
+export interface DailyReminderPreference {
+  userId: string;
+  enabled: boolean;
+  localTime: string;
+  timeZone: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PushSubscriptionInput {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  expirationTime: string | null;
+  userAgent: string | null;
+}
+
+export interface PushSubscriptionRecord extends PushSubscriptionInput {
+  id: string;
+  userId: string;
+  revokedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyReminderDeviceResult {
+  preference: DailyReminderPreference;
+  activeDeviceCount: number;
 }
 
 export interface PordeeRepo {
@@ -271,6 +308,29 @@ export interface PordeeRepo {
     userId: string,
     input: Omit<WalletTransfer, "id" | "userId" | "createdAt">
   ): Promise<WalletTransfer>;
+  getDailyReminderPreference(userId: string): Promise<DailyReminderPreference>;
+  updateDailyReminderPreference(
+    userId: string,
+    input: Pick<DailyReminderPreference, "enabled" | "localTime" | "timeZone">
+  ): Promise<DailyReminderPreference>;
+  enableDailyReminder(
+    userId: string,
+    schedule: Pick<DailyReminderPreference, "localTime" | "timeZone">,
+    subscription: PushSubscriptionInput
+  ): Promise<DailyReminderDeviceResult>;
+  disableDailyReminder(
+    userId: string,
+    schedule: Pick<DailyReminderPreference, "localTime" | "timeZone">
+  ): Promise<DailyReminderDeviceResult>;
+  upsertPushSubscription(
+    userId: string,
+    input: PushSubscriptionInput
+  ): Promise<PushSubscriptionRecord>;
+  revokePushSubscription(userId: string, endpoint: string): Promise<boolean>;
+  listActivePushSubscriptions(
+    userId: string
+  ): Promise<PushSubscriptionRecord[]>;
+  countActivePushSubscriptions(userId: string): Promise<number>;
   listGoals(userId: string): Promise<Goal[]>;
   createGoal(
     userId: string,

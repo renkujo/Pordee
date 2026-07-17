@@ -7,6 +7,8 @@ interface PordeeStore {
   transactions: unknown[];
   recurringTemplates: unknown[];
   recurringOccurrences: unknown[];
+  dailyReminderPreferences: unknown[];
+  pushSubscriptions: unknown[];
   goals: unknown[];
   contributions: unknown[];
 }
@@ -23,6 +25,8 @@ beforeEach(() => {
   store.transactions.length = 0;
   store.recurringTemplates.length = 0;
   store.recurringOccurrences.length = 0;
+  store.dailyReminderPreferences.length = 0;
+  store.pushSubscriptions.length = 0;
   store.goals.length = 0;
   store.contributions.length = 0;
 });
@@ -247,6 +251,142 @@ describe("mockRepo transactions: get/update/delete", () => {
     expect(await mockRepo.deleteTransaction(USER_A, tx.id)).toBe(true);
     expect(await mockRepo.getTransaction(USER_A, tx.id)).toBeNull();
     expect(await mockRepo.deleteTransaction(USER_A, tx.id)).toBe(false);
+  });
+});
+
+describe("mockRepo daily reminders", () => {
+  it("creates a disabled 20:00 Bangkok preference and persists updates", async () => {
+    const initial = await mockRepo.getDailyReminderPreference(USER_A);
+    expect(initial).toMatchObject({
+      enabled: false,
+      localTime: "20:00",
+      timeZone: "Asia/Bangkok",
+      userId: USER_A,
+    });
+
+    const updated = await mockRepo.updateDailyReminderPreference(USER_A, {
+      enabled: true,
+      localTime: "19:30",
+      timeZone: "Asia/Bangkok",
+    });
+    expect(updated).toMatchObject({ enabled: true, localTime: "19:30" });
+    expect(await mockRepo.getDailyReminderPreference(USER_A)).toBe(updated);
+  });
+
+  it("keeps subscriptions user-scoped and revokes only the owner endpoint", async () => {
+    const endpointA = "https://push.example.test/device-a";
+    await mockRepo.upsertPushSubscription(USER_A, {
+      endpoint: endpointA,
+      p256dh: "key-a",
+      auth: "auth-a",
+      expirationTime: null,
+      userAgent: "test-a",
+    });
+    await mockRepo.upsertPushSubscription(USER_B, {
+      endpoint: "https://push.example.test/device-b",
+      p256dh: "key-b",
+      auth: "auth-b",
+      expirationTime: null,
+      userAgent: "test-b",
+    });
+
+    expect(await mockRepo.countActivePushSubscriptions(USER_A)).toBe(1);
+    expect(await mockRepo.countActivePushSubscriptions(USER_B)).toBe(1);
+    expect(await mockRepo.revokePushSubscription(USER_B, endpointA)).toBe(
+      false
+    );
+    expect(await mockRepo.revokePushSubscription(USER_A, endpointA)).toBe(true);
+    expect(await mockRepo.countActivePushSubscriptions(USER_A)).toBe(0);
+  });
+
+  it("transfers a browser endpoint to the currently authenticated user", async () => {
+    const endpoint = "https://push.example.test/shared-device";
+    await mockRepo.upsertPushSubscription(USER_A, {
+      endpoint,
+      p256dh: "old-key",
+      auth: "old-auth",
+      expirationTime: null,
+      userAgent: null,
+    });
+    const transferred = await mockRepo.upsertPushSubscription(USER_B, {
+      endpoint,
+      p256dh: "new-key",
+      auth: "new-auth",
+      expirationTime: null,
+      userAgent: "new-device",
+    });
+
+    expect(transferred).toMatchObject({
+      userId: USER_B,
+      p256dh: "new-key",
+      revokedAt: null,
+    });
+    expect(await mockRepo.countActivePushSubscriptions(USER_A)).toBe(0);
+    expect(await mockRepo.countActivePushSubscriptions(USER_B)).toBe(1);
+  });
+
+  it("enables atomically and disables every device for the account", async () => {
+    const first = await mockRepo.enableDailyReminder(
+      USER_A,
+      { localTime: "20:00", timeZone: "Asia/Bangkok" },
+      {
+        endpoint: "https://push.example.test/first",
+        p256dh: "first-key",
+        auth: "first-auth",
+        expirationTime: null,
+        userAgent: null,
+      }
+    );
+    await mockRepo.upsertPushSubscription(USER_A, {
+      endpoint: "https://push.example.test/second",
+      p256dh: "second-key",
+      auth: "second-auth",
+      expirationTime: null,
+      userAgent: null,
+    });
+    expect(first.preference.enabled).toBe(true);
+    expect(await mockRepo.countActivePushSubscriptions(USER_A)).toBe(2);
+
+    const disabled = await mockRepo.disableDailyReminder(USER_A, {
+      localTime: "20:00",
+      timeZone: "Asia/Bangkok",
+    });
+    expect(disabled).toMatchObject({
+      activeDeviceCount: 0,
+      preference: { enabled: false },
+    });
+    expect(await mockRepo.countActivePushSubscriptions(USER_A)).toBe(0);
+  });
+
+  it("caps active push devices at five and rolls back the sixth", async () => {
+    for (let index = 1; index <= 5; index += 1) {
+      await mockRepo.enableDailyReminder(
+        USER_A,
+        { localTime: "20:00", timeZone: "Asia/Bangkok" },
+        {
+          endpoint: `https://push.example.test/device-${index}`,
+          p256dh: `key-${index}`,
+          auth: `auth-${index}`,
+          expirationTime: null,
+          userAgent: null,
+        }
+      );
+    }
+
+    await expect(
+      mockRepo.enableDailyReminder(
+        USER_A,
+        { localTime: "20:00", timeZone: "Asia/Bangkok" },
+        {
+          endpoint: "https://push.example.test/device-6",
+          p256dh: "key-6",
+          auth: "auth-6",
+          expirationTime: null,
+          userAgent: null,
+        }
+      )
+    ).rejects.toThrow("push subscription limit reached");
+    expect(await mockRepo.countActivePushSubscriptions(USER_A)).toBe(5);
   });
 });
 

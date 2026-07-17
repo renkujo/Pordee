@@ -7,7 +7,7 @@ test("settings can create, rename, and delete an unused category", async ({
   const renamed = `${unique}-แก้แล้ว`;
 
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/settings");
+  await page.goto("/settings?tab=categories");
   await page.waitForLoadState("networkidle");
 
   await page.getByRole("button", { name: "เพิ่มหมวด" }).click();

@@ -63,6 +63,12 @@ GOOGLE_CLIENT_SECRET=
 # Password reset email through a verified Resend sending domain:
 RESEND_API_KEY=<resend-api-key>
 AUTH_EMAIL_FROM=Pordee <no-reply@your-pordee-domain.example>
+
+# Daily Check-in Web Push:
+VAPID_PUBLIC_KEY=<public-vapid-key>
+VAPID_PRIVATE_KEY=<private-vapid-key>
+VAPID_SUBJECT=mailto:ops@your-pordee-domain.example
+REMINDER_CRON_SECRET=<generate-a-long-random-secret>
 ```
 
 The compose file derives `DATABASE_URL` internally as
@@ -96,6 +102,42 @@ link through Resend. Verify the sending domain in Resend first, then set
 `BETTER_AUTH_URL` must remain the public HTTPS app URL so reset links return to
 the correct Pordee deployment. Reset tokens expire after one hour and a
 successful reset revokes the user's existing sessions.
+
+## Daily Check-in Web Push
+
+Generate one durable VAPID key pair locally. Do not generate a new pair on each
+deploy because existing browser subscriptions are bound to the public key.
+
+```bash
+pnpm exec web-push generate-vapid-keys --json
+openssl rand -base64 32 # REMINDER_CRON_SECRET
+```
+
+Add the four push variables above to the Dokploy Compose environment and
+redeploy. Pordee keeps account-level reminder time/preferences in Postgres and
+stores each browser subscription separately. The default is 20:00 in
+`Asia/Bangkok`; the scheduler skips a user after any transaction on that local
+date and creates a unique daily run so overlapping jobs cannot send twice.
+Disabling the account-level reminder revokes every stored device subscription;
+re-enabling connects only the device where the user grants permission again.
+Each account is capped at five active devices and test sends are rate-limited.
+
+Configure a Dokploy scheduled HTTP task to run every five minutes:
+
+```bash
+curl --fail --silent --show-error \
+  --request POST \
+  --header "Authorization: Bearer $REMINDER_CRON_SECRET" \
+  https://your-pordee-domain.example/api/cron/daily-reminders
+```
+
+Keep the secret in the Authorization header, never in the URL. The endpoint
+fails closed when the secret is missing, accepts only POST, and returns aggregate
+counts without subscription endpoints or user data.
+
+Web Push requires HTTPS outside localhost. On iOS/iPadOS 16.4+, users must add
+Pordee to the Home Screen and launch the installed app before enabling
+notifications. Permission is requested only after the user presses Enable.
 
 For local development, keep `CLOUDFLARE_TURNSTILE_ENABLED=false`, or use
 Cloudflare's test credentials:

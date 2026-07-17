@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type {
   Category,
+  DailyReminderPreference,
   Goal,
   GoalContribution,
   PordeeRepo,
+  PushSubscriptionRecord,
   RecurringOccurrence,
   RecurringTemplate,
   Transaction,
@@ -31,6 +33,8 @@ interface Store {
   walletTransfers: WalletTransfer[];
   goals: Goal[];
   contributions: GoalContribution[];
+  dailyReminderPreferences: DailyReminderPreference[];
+  pushSubscriptions: PushSubscriptionRecord[];
 }
 
 declare global {
@@ -57,10 +61,14 @@ const emptyStore = (): Store => {
     walletTransfers: [],
     goals: [],
     contributions: [],
+    dailyReminderPreferences: [],
+    pushSubscriptions: [],
   };
 };
 
 const store: Store = (globalThis.__pordeeStore ??= emptyStore());
+store.dailyReminderPreferences ??= [];
+store.pushSubscriptions ??= [];
 
 const nowIso = () => {
   return new Date().toISOString();
@@ -591,6 +599,156 @@ export const mockRepo: PordeeRepo = {
     };
     store.walletTransfers.unshift(transfer);
     return transfer;
+  },
+
+  async getDailyReminderPreference(userId) {
+    const existing = store.dailyReminderPreferences.find(
+      (preference) => preference.userId === userId
+    );
+    if (existing) return existing;
+
+    const now = nowIso();
+    const preference: DailyReminderPreference = {
+      userId,
+      enabled: false,
+      localTime: "20:00",
+      timeZone: "Asia/Bangkok",
+      createdAt: now,
+      updatedAt: now,
+    };
+    store.dailyReminderPreferences.push(preference);
+    return preference;
+  },
+
+  async updateDailyReminderPreference(userId, input) {
+    const existing = await this.getDailyReminderPreference(userId);
+    existing.enabled = input.enabled;
+    existing.localTime = input.localTime;
+    existing.timeZone = input.timeZone;
+    existing.updatedAt = nowIso();
+    return existing;
+  },
+
+  async enableDailyReminder(userId, schedule, subscription) {
+    const preferenceIndex = store.dailyReminderPreferences.findIndex(
+      (item) => item.userId === userId
+    );
+    const preferenceSnapshot =
+      preferenceIndex >= 0
+        ? { ...store.dailyReminderPreferences[preferenceIndex] }
+        : null;
+    const subscriptionIndex = store.pushSubscriptions.findIndex(
+      (item) => item.endpoint === subscription.endpoint
+    );
+    const subscriptionSnapshot =
+      subscriptionIndex >= 0
+        ? { ...store.pushSubscriptions[subscriptionIndex] }
+        : null;
+
+    try {
+      const preference = await this.updateDailyReminderPreference(userId, {
+        enabled: true,
+        ...schedule,
+      });
+      await this.upsertPushSubscription(userId, subscription);
+      const activeDeviceCount = await this.countActivePushSubscriptions(userId);
+      if (activeDeviceCount > 5) {
+        throw new Error("push subscription limit reached");
+      }
+      return { preference, activeDeviceCount };
+    } catch (error) {
+      const nextPreferenceIndex = store.dailyReminderPreferences.findIndex(
+        (item) => item.userId === userId
+      );
+      if (preferenceSnapshot && nextPreferenceIndex >= 0) {
+        store.dailyReminderPreferences[nextPreferenceIndex] =
+          preferenceSnapshot;
+      } else if (nextPreferenceIndex >= 0) {
+        store.dailyReminderPreferences.splice(nextPreferenceIndex, 1);
+      }
+
+      const nextSubscriptionIndex = store.pushSubscriptions.findIndex(
+        (item) => item.endpoint === subscription.endpoint
+      );
+      if (subscriptionSnapshot && nextSubscriptionIndex >= 0) {
+        store.pushSubscriptions[nextSubscriptionIndex] = subscriptionSnapshot;
+      } else if (nextSubscriptionIndex >= 0) {
+        store.pushSubscriptions.splice(nextSubscriptionIndex, 1);
+      }
+      throw error;
+    }
+  },
+
+  async disableDailyReminder(userId, schedule) {
+    const preference = await this.updateDailyReminderPreference(userId, {
+      enabled: false,
+      ...schedule,
+    });
+    const now = nowIso();
+    for (const subscription of store.pushSubscriptions) {
+      if (subscription.userId === userId && subscription.revokedAt === null) {
+        subscription.revokedAt = now;
+        subscription.updatedAt = now;
+      }
+    }
+    return { preference, activeDeviceCount: 0 };
+  },
+
+  async upsertPushSubscription(userId, input) {
+    const now = nowIso();
+    const existing = store.pushSubscriptions.find(
+      (subscription) => subscription.endpoint === input.endpoint
+    );
+    if (existing) {
+      existing.userId = userId;
+      existing.p256dh = input.p256dh;
+      existing.auth = input.auth;
+      existing.expirationTime = input.expirationTime;
+      existing.userAgent = input.userAgent;
+      existing.revokedAt = null;
+      existing.updatedAt = now;
+      return existing;
+    }
+
+    const subscription: PushSubscriptionRecord = {
+      id: randomUUID(),
+      userId,
+      ...input,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    store.pushSubscriptions.push(subscription);
+    return subscription;
+  },
+
+  async revokePushSubscription(userId, endpoint) {
+    const subscription = store.pushSubscriptions.find(
+      (item) =>
+        item.userId === userId &&
+        item.endpoint === endpoint &&
+        item.revokedAt === null
+    );
+    if (!subscription) return false;
+    subscription.revokedAt = nowIso();
+    subscription.updatedAt = subscription.revokedAt;
+    return true;
+  },
+
+  async listActivePushSubscriptions(userId) {
+    return store.pushSubscriptions
+      .filter(
+        (subscription) =>
+          subscription.userId === userId && subscription.revokedAt === null
+      )
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  },
+
+  async countActivePushSubscriptions(userId) {
+    return store.pushSubscriptions.filter(
+      (subscription) =>
+        subscription.userId === userId && subscription.revokedAt === null
+    ).length;
   },
 
   async listGoals(userId) {

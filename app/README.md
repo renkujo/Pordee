@@ -18,6 +18,9 @@ Tailwind v4, IBM Plex Sans Thai, Postgres data layer via Drizzle ORM.
 - Resend credentials (`RESEND_API_KEY` and `AUTH_EMAIL_FROM`) for production
   password-reset emails. Login and signup continue to work without them, but
   forgot-password delivery will return a temporary service error.
+- VAPID credentials and `REMINDER_CRON_SECRET` for Daily Check-in Web Push.
+  Notification settings remain visible without them but cannot subscribe a
+  device until production push configuration is complete.
 
 ## Common scripts
 

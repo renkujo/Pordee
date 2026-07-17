@@ -98,7 +98,7 @@ test("wallet can create a custom pocket and record a transfer", async ({
 });
 
 test("wallet can reorder pockets with drag and drop", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 600 });
 
   await page.goto("/wallet");
   await page.waitForLoadState("networkidle");

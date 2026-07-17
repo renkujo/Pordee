@@ -114,6 +114,7 @@ import {
 } from "~/components/brand/account-avatar-presets";
 import { MascotTip } from "~/components/brand/mascot-state";
 import { ThemeToggle } from "~/components/shell/theme-toggle";
+import { DailyCheckInNotifications } from "~/components/settings/daily-check-in-notifications";
 import { repo } from "~/lib/db";
 import {
   DEFAULT_CATEGORY_ICON_ID,
@@ -132,6 +133,7 @@ import {
   updateCategorySchema,
 } from "~/lib/validators/category";
 import { changePasswordSchema, passwordRules } from "~/lib/validators/auth";
+import { getWebPushPublicConfig } from "~/lib/notifications/web-push.server";
 
 type Translate = ReturnType<typeof usePordeeTranslation>;
 
@@ -311,6 +313,11 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await requireUser(request);
   const categories = await repo.listCategories(user.id);
   const accountMethods = await listAccountMethods(request, user.email);
+  const [dailyReminderPreference, activePushDeviceCount] = await Promise.all([
+    repo.getDailyReminderPreference(user.id),
+    repo.countActivePushSubscriptions(user.id),
+  ]);
+  const webPush = getWebPushPublicConfig();
   const usageByCategoryId = Object.fromEntries(
     await Promise.all(
       categories.map(async (category) => [
@@ -320,7 +327,15 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
     )
   );
 
-  return { accountMethods, categories, usageByCategoryId, user };
+  return {
+    accountMethods,
+    activePushDeviceCount,
+    categories,
+    dailyReminderPreference,
+    usageByCategoryId,
+    user,
+    webPush,
+  };
 };
 
 export const action = async ({
@@ -518,8 +533,15 @@ export const action = async ({
 };
 
 const Settings = () => {
-  const { accountMethods, categories, usageByCategoryId, user } =
-    useLoaderData<typeof loader>();
+  const {
+    accountMethods,
+    activePushDeviceCount,
+    categories,
+    dailyReminderPreference,
+    usageByCategoryId,
+    user,
+    webPush,
+  } = useLoaderData<typeof loader>();
   const t = usePordeeTranslation();
   const actionData = useActionData<ActionResult>();
   const [searchParams] = useSearchParams();
@@ -560,10 +582,11 @@ const Settings = () => {
           ) : selectedTab === "security" ? (
             <SecuritySection actionData={passwordActionData} />
           ) : selectedTab === "notifications" ? (
-            <SettingsPlaceholderSection
-              icon={Bell}
-              title={t("settings.notifications.title")}
-              description={t("settings.notifications.description")}
+            <DailyCheckInNotifications
+              activeDeviceCount={activePushDeviceCount}
+              preference={dailyReminderPreference}
+              pushConfigured={webPush.configured}
+              vapidPublicKey={webPush.publicKey}
             />
           ) : selectedTab === "language" ? (
             <LanguageSection />
@@ -1434,30 +1457,6 @@ const PasswordRequirementList = ({ password }: { password: string }) => {
         );
       })}
     </ul>
-  );
-};
-
-const SettingsPlaceholderSection = ({
-  description,
-  icon: Icon,
-  title,
-}: {
-  description: string;
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-}) => {
-  return (
-    <Card className="rounded-[18px]">
-      <CardContent className="flex items-start gap-3 p-5">
-        <div className="bg-sky text-teal flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-ink text-base font-semibold">{title}</h2>
-          <p className="text-muted mt-2 text-sm leading-6">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 };
 

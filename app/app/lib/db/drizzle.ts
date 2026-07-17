@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "./client";
 import { getDefaultCategoryIconId } from "./category-icons";
 import { ensureFinanceDatabase } from "./migrate.server";
 import {
   categories,
+  dailyReminderPreferences,
   goalContributions,
   goals,
+  pushSubscriptions,
   recurringOccurrences,
   recurringTemplates,
   transactions,
@@ -17,9 +19,11 @@ import {
 } from "./schema";
 import type {
   Category,
+  DailyReminderPreference,
   Goal,
   GoalContribution,
   PordeeRepo,
+  PushSubscriptionRecord,
   RecurringOccurrence,
   RecurringTemplate,
   Transaction,
@@ -223,6 +227,36 @@ const rowToWalletTransfer = (
     note: row.note,
     occurredAt: row.occurredAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
+  };
+};
+
+const rowToDailyReminderPreference = (
+  row: typeof dailyReminderPreferences.$inferSelect
+): DailyReminderPreference => {
+  return {
+    userId: row.userId,
+    enabled: row.enabled,
+    localTime: row.localTime,
+    timeZone: row.timeZone,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+};
+
+const rowToPushSubscription = (
+  row: typeof pushSubscriptions.$inferSelect
+): PushSubscriptionRecord => {
+  return {
+    id: row.id,
+    userId: row.userId,
+    endpoint: row.endpoint,
+    p256dh: row.p256dh,
+    auth: row.auth,
+    expirationTime: row.expirationTime?.toISOString() ?? null,
+    userAgent: row.userAgent,
+    revokedAt: row.revokedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 };
 
@@ -1070,6 +1104,264 @@ export const drizzleRepo: PordeeRepo = {
     };
     const inserted = await db.insert(walletTransfers).values(row).returning();
     return rowToWalletTransfer(inserted[0]);
+  },
+
+  async getDailyReminderPreference(userId) {
+    await ensureFinanceDatabase();
+    const existing = await db
+      .select()
+      .from(dailyReminderPreferences)
+      .where(eq(dailyReminderPreferences.userId, userId))
+      .limit(1);
+    if (existing.length > 0) {
+      return rowToDailyReminderPreference(existing[0]);
+    }
+
+    const now = new Date();
+    const inserted = await db
+      .insert(dailyReminderPreferences)
+      .values({
+        userId,
+        enabled: false,
+        localTime: "20:00",
+        timeZone: "Asia/Bangkok",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: dailyReminderPreferences.userId })
+      .returning();
+    if (inserted.length > 0) {
+      return rowToDailyReminderPreference(inserted[0]);
+    }
+
+    const concurrent = await db
+      .select()
+      .from(dailyReminderPreferences)
+      .where(eq(dailyReminderPreferences.userId, userId))
+      .limit(1);
+    if (concurrent.length === 0) {
+      throw new Error("daily reminder preference could not be created");
+    }
+    return rowToDailyReminderPreference(concurrent[0]);
+  },
+
+  async updateDailyReminderPreference(userId, input) {
+    await ensureFinanceDatabase();
+    const now = new Date();
+    const rows = await db
+      .insert(dailyReminderPreferences)
+      .values({
+        userId,
+        enabled: input.enabled,
+        localTime: input.localTime,
+        timeZone: input.timeZone,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: dailyReminderPreferences.userId,
+        set: {
+          enabled: input.enabled,
+          localTime: input.localTime,
+          timeZone: input.timeZone,
+          updatedAt: now,
+        },
+      })
+      .returning();
+    return rowToDailyReminderPreference(rows[0]);
+  },
+
+  async enableDailyReminder(userId, schedule, subscription) {
+    await ensureFinanceDatabase();
+    const now = new Date();
+    const expirationTime = subscription.expirationTime
+      ? new Date(subscription.expirationTime)
+      : null;
+    return db.transaction(async (tx) => {
+      const preferenceRows = await tx
+        .insert(dailyReminderPreferences)
+        .values({
+          userId,
+          enabled: true,
+          localTime: schedule.localTime,
+          timeZone: schedule.timeZone,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: dailyReminderPreferences.userId,
+          set: {
+            enabled: true,
+            localTime: schedule.localTime,
+            timeZone: schedule.timeZone,
+            updatedAt: now,
+          },
+        })
+        .returning();
+      await tx
+        .insert(pushSubscriptions)
+        .values({
+          id: randomUUID(),
+          userId,
+          endpoint: subscription.endpoint,
+          p256dh: subscription.p256dh,
+          auth: subscription.auth,
+          expirationTime,
+          userAgent: subscription.userAgent,
+          revokedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: pushSubscriptions.endpoint,
+          set: {
+            userId,
+            p256dh: subscription.p256dh,
+            auth: subscription.auth,
+            expirationTime,
+            userAgent: subscription.userAgent,
+            revokedAt: null,
+            updatedAt: now,
+          },
+        });
+      const countRows = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(pushSubscriptions)
+        .where(
+          and(
+            eq(pushSubscriptions.userId, userId),
+            isNull(pushSubscriptions.revokedAt)
+          )
+        );
+      if ((countRows[0]?.count ?? 0) > 5) {
+        throw new Error("push subscription limit reached");
+      }
+      return {
+        preference: rowToDailyReminderPreference(preferenceRows[0]),
+        activeDeviceCount: countRows[0]?.count ?? 0,
+      };
+    });
+  },
+
+  async disableDailyReminder(userId, schedule) {
+    await ensureFinanceDatabase();
+    const now = new Date();
+    return db.transaction(async (tx) => {
+      const preferenceRows = await tx
+        .insert(dailyReminderPreferences)
+        .values({
+          userId,
+          enabled: false,
+          localTime: schedule.localTime,
+          timeZone: schedule.timeZone,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: dailyReminderPreferences.userId,
+          set: {
+            enabled: false,
+            localTime: schedule.localTime,
+            timeZone: schedule.timeZone,
+            updatedAt: now,
+          },
+        })
+        .returning();
+      await tx
+        .update(pushSubscriptions)
+        .set({ revokedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(pushSubscriptions.userId, userId),
+            isNull(pushSubscriptions.revokedAt)
+          )
+        );
+      return {
+        preference: rowToDailyReminderPreference(preferenceRows[0]),
+        activeDeviceCount: 0,
+      };
+    });
+  },
+
+  async upsertPushSubscription(userId, input) {
+    await ensureFinanceDatabase();
+    const now = new Date();
+    const expirationTime = input.expirationTime
+      ? new Date(input.expirationTime)
+      : null;
+    const rows = await db
+      .insert(pushSubscriptions)
+      .values({
+        id: randomUUID(),
+        userId,
+        endpoint: input.endpoint,
+        p256dh: input.p256dh,
+        auth: input.auth,
+        expirationTime,
+        userAgent: input.userAgent,
+        revokedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: pushSubscriptions.endpoint,
+        set: {
+          userId,
+          p256dh: input.p256dh,
+          auth: input.auth,
+          expirationTime,
+          userAgent: input.userAgent,
+          revokedAt: null,
+          updatedAt: now,
+        },
+      })
+      .returning();
+    return rowToPushSubscription(rows[0]);
+  },
+
+  async revokePushSubscription(userId, endpoint) {
+    await ensureFinanceDatabase();
+    const rows = await db
+      .update(pushSubscriptions)
+      .set({ revokedAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(pushSubscriptions.userId, userId),
+          eq(pushSubscriptions.endpoint, endpoint),
+          isNull(pushSubscriptions.revokedAt)
+        )
+      )
+      .returning({ id: pushSubscriptions.id });
+    return rows.length > 0;
+  },
+
+  async listActivePushSubscriptions(userId) {
+    await ensureFinanceDatabase();
+    const rows = await db
+      .select()
+      .from(pushSubscriptions)
+      .where(
+        and(
+          eq(pushSubscriptions.userId, userId),
+          isNull(pushSubscriptions.revokedAt)
+        )
+      )
+      .orderBy(desc(pushSubscriptions.updatedAt));
+    return rows.map(rowToPushSubscription);
+  },
+
+  async countActivePushSubscriptions(userId) {
+    await ensureFinanceDatabase();
+    const rows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(pushSubscriptions)
+      .where(
+        and(
+          eq(pushSubscriptions.userId, userId),
+          isNull(pushSubscriptions.revokedAt)
+        )
+      );
+    return rows[0]?.count ?? 0;
   },
 
   async listGoals(userId) {

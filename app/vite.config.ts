@@ -11,7 +11,7 @@ export default defineConfig({
     lingui(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: null,
       includeAssets: [
         "favicon.ico",
         "brand/icon-32.png",
@@ -20,6 +20,7 @@ export default defineConfig({
         "brand/icon-512.png",
         "brand/icon-maskable-512.png",
         "logo/direct/pordee-logo-mark-direct-01.png",
+        "push-sw.js",
       ],
       manifest: {
         name: "พอดี",
@@ -53,6 +54,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ["/push-sw.js"],
         globPatterns: ["**/*.{html,js,css,woff2,png,svg,ico}"],
         navigateFallback: null,
         runtimeCaching: [

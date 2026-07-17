@@ -5,8 +5,13 @@ export const repo: PordeeRepo = drizzleRepo;
 export type { PordeeRepo } from "./types";
 export type {
   Category,
+  DailyReminderDeviceResult,
+  DailyReminderPreference,
+  DailyReminderRunStatus,
   Goal,
   GoalContribution,
+  PushSubscriptionInput,
+  PushSubscriptionRecord,
   RecurringFrequency,
   RecurringOccurrence,
   RecurringPostMode,
